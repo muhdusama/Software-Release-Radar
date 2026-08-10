@@ -11,20 +11,18 @@
 </p>
 
 <p align="center">
-  <a href="#-eli5">ELI5</a> ·
+  <a href="#-quick-start">Quick start</a> ·
   <a href="#-preview">Preview</a> ·
   <a href="#-what-it-does">Features</a> ·
+  <a href="#-how-monitoring-works">Monitoring</a> ·
   <a href="#-vibe-coded-and-open-about-it">How it was built</a> ·
-  <a href="#-docker-quick-start">Docker</a> ·
-  <a href="#-contributors">Contributors</a> ·
-  <a href="#-help-shape-the-roadmap">Vote</a> ·
   <a href="ROADMAP.md">Roadmap</a> ·
   <a href="CHANGELOG.md">Changelog</a> ·
   <a href="#-support-the-project">Support</a>
 </p>
 
 > [!CAUTION]
-> **Private publication staging repository.** The public release is still being prepared. The sanitised v2.6.3 source needs to be imported and pass privacy, secret, build and clean-install checks before this repository is made public. The visuals in this repository use neutral demo data.
+> **Private release candidate.** The sanitised application source, Dockerfile and Compose stack are now in this repository. The earlier 56-test regression suite and clean Compose smoke test passed before the source import. Additional production-readiness work is still being validated on `main`, including the automatic scheduler, CI, restore workflow, final security checks and real demo screenshots. The repository will remain private until those gates pass.
 
 # 📡 What is Software Release Radar?
 
@@ -38,21 +36,21 @@ It checks upstream releases, compares them with the versions you run, adds machi
 
 ### 🐍 Python application
 
-The application itself is written in Python 3.13.
+The application is written in Python 3.13 and served through Gunicorn.
 
 </td>
 <td width="33%" valign="top">
 
 ### 🐳 Docker deployment
 
-Docker Compose is the intended primary deployment method for the public release.
+Docker Compose is the primary deployment path. Host Python is not required for the recommended first run.
 
 </td>
 <td width="33%" valign="top">
 
 ### 🧠 AI is optional
 
-Core monitoring works without an LLM. AI can help interpret release notes when wanted.
+Core monitoring is deterministic. AI can help interpret release notes when wanted.
 
 </td>
 </tr>
@@ -64,7 +62,7 @@ Core monitoring works without an LLM. AI can help interpret release notes when w
 
 Imagine you run 20 or 30 apps at home, in a homelab, or on your own servers.
 
-Each app gets updates at different times. Without a tool like this, you may need to visit several websites, remember what version you installed, read release notes, work out which server runs each app, and then decide whether the update is worth doing.
+Each app gets updates at different times. Without a tool like this, you may need to visit several websites, remember what version you installed, read release notes, work out which server runs each app, and decide whether the update is worth doing.
 
 **Software Release Radar handles the repetitive tracking so you can focus on the decision.**
 
@@ -90,40 +88,192 @@ Put the result in one review queue
 ```
 
 > [!IMPORTANT]
-> Release Radar is not meant to blindly update production systems. The point is to give you better information before you make the change.
+> Release Radar is not designed to blindly update production systems. The goal is to give you better information before you make the change.
+
+---
+
+# 🚀 Quick start
+
+### Requirements
+
+- Docker Engine or Docker Desktop
+- Docker Compose v2
+- Git
+
+### Install
+
+```bash
+git clone https://github.com/muhdusama/Software-Release-Radar.git
+cd Software-Release-Radar
+bash scripts/setup.sh
+```
+
+The first-run helper creates secure application secrets inside a temporary Docker container, writes a protected `.env`, builds the stack, starts it and waits for the web application to report healthy.
+
+Then open:
+
+```text
+http://localhost:9120
+```
+
+No administrator password is stored in plaintext.
+
+Read **[docs/DOCKER.md](docs/DOCKER.md)** before exposing Release Radar beyond a trusted network.
 
 ---
 
 # 🖼️ Preview
 
-> These are reference visuals built with neutral demo data. They are not captures of the private production environment. Final screenshots will be taken from the sanitised public build before launch.
+> These are public-safe reference visuals made with neutral demo data. They are not captures of a private production environment. They will be replaced by final screenshots from a clean demo deployment before the repository is made public.
 
 ### Dashboard
 
 <p align="center">
-  <img src="docs/images/reference-dashboard.svg" alt="Software Release Radar dashboard reference screenshot" width="1000">
+  <img src="docs/images/reference-dashboard.svg" alt="Software Release Radar dashboard reference screenshot" width="1050">
 </p>
 
-| Review queue | Fleet view |
-|---|---|
-| <img src="docs/images/reference-review-queue.svg" alt="Software Release Radar review queue reference screenshot" width="680"> | <img src="docs/images/reference-fleet.svg" alt="Software Release Radar fleet reference screenshot" width="680"> |
+### Review queue
+
+<p align="center">
+  <img src="docs/images/reference-review-queue.svg" alt="Software Release Radar review queue reference screenshot" width="1050">
+</p>
+
+### Fleet
+
+<p align="center">
+  <img src="docs/images/reference-fleet.svg" alt="Software Release Radar fleet reference screenshot" width="1050">
+</p>
 
 ---
 
-# 🎯 Why I built it
+# ✨ What it does
 
-Once a self-hosted environment grows beyond a handful of services, update tracking becomes surprisingly messy.
-
-A version number alone does not tell you enough. I wanted one place that could answer questions such as:
-
-| Question | Why it matters |
+| Area | Capability |
 |---|---|
-| **Am I actually behind?** | A failed checker should not look like a confirmed update. |
-| **What changed?** | A patch release and a breaking release should not be treated the same way. |
-| **Where does this run?** | Machine, service and container context matters during maintenance. |
-| **Is the service healthy now?** | Updating an already unhealthy service can make troubleshooting harder. |
-| **Should I update today?** | Some releases should be applied quickly. Others are better left for later. |
-| **What did I decide last time?** | Release history and deployment notes are useful when something goes wrong. |
+| 📡 **Release tracking** | GitHub releases, prereleases and latest tags |
+| ⏱️ **Automatic monitoring** | Scheduler checks only trackers whose individual refresh interval is due |
+| 🔢 **Version awareness** | Installed, detected and upstream version comparison |
+| 🖥️ **Fleet inventory** | Machine, service, container, port and health context |
+| 🐳 **Portainer** | Inventory synchronisation and resilient container rebinding |
+| ✅ **Review workflow** | Update, Wait, Ignore, Deployed and Needs Attention decisions |
+| 🩺 **Diagnostics** | Separates real updates from checker failures and unavailable comparisons |
+| 🔔 **Notifications** | SMTP email and Pushover delivery |
+| 🧠 **Optional AI** | OpenAI-compatible release comparison and tracker chat |
+| 👥 **Multi-user** | Administrator and standard-user roles |
+| 💾 **Data safety** | SQLite WAL mode, online backup helper and guarded restore helper |
+| 📦 **Deployment** | Docker Compose with persistent state |
+
+### 📡 Release intelligence
+
+- Track stable releases, prereleases or latest tags.
+- Set a refresh interval per software package.
+- Compare upstream releases with installed or detected versions.
+- Keep checker failures separate from confirmed updates.
+- Handle version schemes that need deterministic normalisation.
+
+### 🖥️ Fleet context
+
+- Associate software with machines and services.
+- Record host, port, health and Docker container context.
+- Group services by machine.
+- Surface online, offline, update and needs-attention states.
+- Search and filter larger inventories.
+
+### ✅ Upgrade decisions
+
+Release Radar provides an operational review queue rather than an unattended updater. A release can carry priority, risk, maintenance timing, notes, rollback context and deployment history.
+
+### 🧠 Optional Release Assistant
+
+An OpenAI-compatible endpoint can be used for release-note analysis and tracker chat. Core release checking, scheduling, probing, version comparison and standard notifications do not require an AI model.
+
+---
+
+# ⏱️ How monitoring works
+
+The Docker stack contains three long-running services:
+
+```text
+Browser
+   │
+   ▼
+Web application ───────────────┐
+   │                           │
+   ├── SQLite state            │
+   ├── GitHub release API      │ shared application data
+   ├── optional Portainer      │
+   └── optional AI             │
+                               │
+Scheduler ─────────────────────┤
+   │                           │
+   └── checks due trackers     │
+                               │
+Portainer worker ──────────────┘
+       └── background inventory jobs
+```
+
+The scheduler wakes every 60 seconds by default. It does **not** check every tracker every minute. Each tracker keeps its own refresh interval, and only due trackers are checked.
+
+This means automatic monitoring works out of the box without an external cron job.
+
+---
+
+# 🏗️ Architecture
+
+```mermaid
+flowchart LR
+    U[Browser] --> W[Web application]
+    S[Scheduler] --> C[Release checker]
+    P[Portainer worker] --> DB[(SQLite)]
+    W --> DB
+    C --> DB
+    C --> GH[GitHub API]
+    C --> N[Notifications]
+    W --> PT[Portainer API]
+    W -. optional .-> AI[OpenAI-compatible API]
+```
+
+**Design rule:** deterministic automation first. AI is used for interpretation where it adds value, not as a requirement for basic monitoring.
+
+---
+
+# 💾 Back up and restore
+
+Create a verified online SQLite backup:
+
+```bash
+./scripts/backup.sh
+```
+
+Restore a verified backup:
+
+```bash
+bash scripts/restore.sh ./backups/radar-YYYYMMDD-HHMMSS.db --confirm
+```
+
+The backup helper uses SQLite's online backup API and runs `PRAGMA integrity_check`. The restore helper validates the backup, stops writers, restores through a one-off container, validates the restored database and starts the stack again.
+
+See **[docs/DOCKER.md](docs/DOCKER.md)** for the full operational procedure.
+
+---
+
+# 🔐 Security model
+
+The public baseline includes:
+
+- CSRF protection on state-changing browser routes;
+- HTTP-only, same-site session cookies;
+- optional secure-only session cookies for HTTPS deployments;
+- generated application secrets;
+- Fernet encryption for stored integration secrets;
+- security response headers;
+- TLS verification enabled by default for Portainer;
+- proxy forwarding headers disabled unless explicitly enabled;
+- a non-root container user;
+- strict SSH host-key checking for optional Docker probes; and
+- fixed remote Docker inspection rather than arbitrary remote shell execution.
+
+Security vulnerabilities should not be posted in public issues. Follow **[SECURITY.md](SECURITY.md)**.
 
 ---
 
@@ -155,130 +305,13 @@ Codex has been used extensively for implementation, testing, refactoring and doc
 </td>
 <td width="33%" valign="top">
 
-### 🧪 Tested in practice
+### 🧪 Validation matters
 
-The project is run in a real self-hosted environment and changes go through validation before release.
+AI-generated code is not treated as reviewed simply because a tool produced it. Tests and release gates still apply.
 
 </td>
 </tr>
 </table>
-
-> [!NOTE]
-> "Vibe-coded" does not mean unreviewed or untested. Correctness, security, maintainability and clear tests matter. Contributions that improve those areas are especially welcome.
-
----
-
-# ✨ What it does
-
-| Area | Capability |
-|---|---|
-| 📡 **Release tracking** | GitHub releases, prereleases and latest tags |
-| 🔢 **Version awareness** | Installed, detected and upstream version comparison |
-| 🖥️ **Fleet inventory** | Machine, service, container, port and health context |
-| 🐳 **Portainer** | Inventory synchronisation and resilient container rebinding |
-| ✅ **Review workflow** | Update, Wait, Ignore, Deployed and Needs Attention decisions |
-| 🩺 **Diagnostics** | Separates real updates from checker failures and unavailable comparisons |
-| 🔔 **Notifications** | SMTP email, Pushover and Matrix-compatible delivery |
-| 🧠 **Optional AI** | OpenAI-compatible release comparison and tracker chat |
-| 👥 **Multi-user** | Administrator and standard-user roles |
-| 🛠️ **Operations** | CLI status, due checks, probes and deterministic smoke tests |
-| 📦 **Deployment** | Docker Compose with persistent state |
-
-### 📡 Release intelligence
-
-- Track stable releases, prereleases or latest tags.
-- Set a refresh interval per software package.
-- Compare upstream releases with installed or detected versions.
-- Keep checker failures separate from confirmed updates.
-- Handle version schemes that need deterministic normalisation.
-
-### 🖥️ Fleet context
-
-- Associate software with machines and services.
-- Record host, port, health and Docker container context.
-- Group services by machine.
-- Surface online, offline, update and needs-attention states.
-- Search and filter larger inventories.
-
-### ✅ Upgrade decisions
-
-Release Radar provides an operational review queue rather than an unattended updater. A release can carry priority, risk, maintenance timing, notes, rollback context and deployment history.
-
-### 🧠 Optional Release Assistant
-
-An OpenAI-compatible endpoint can be used for release-note analysis and tracker chat. Core release checking, scheduling, probing, version comparison and normal notifications do not require an AI model.
-
----
-
-# 🐍 Python app, Docker deployment
-
-Python and Docker describe different parts of the project.
-
-```text
-Python 3.13
-   │
-   │ application code
-   ▼
-Software Release Radar
-   │
-   │ packaged and run with
-   ▼
-Docker + Docker Compose
-```
-
-The goal is that a self-hoster can run Release Radar without installing or managing Python directly on the host.
-
----
-
-# 🐳 Docker quick start
-
-The repository now includes:
-
-- `docker-compose.yml`
-- `.env.example`
-- `.gitignore` rules that keep the real `.env` and runtime data out of Git
-- [Docker deployment notes](docs/DOCKER.md)
-
-> [!WARNING]
-> The Docker deployment is still a staging scaffold because the sanitised application source and `Dockerfile` have not yet been imported into this GitHub repository. The workflow below is the intended public install path and will be marked ready only after it passes a clean-host test.
-
-### Target install flow
-
-```bash
-git clone https://github.com/muhdusama/Software-Release-Radar.git
-cd Software-Release-Radar
-cp .env.example .env
-docker compose config
-docker compose up -d --build
-```
-
-The default host port in `.env.example` is `9120`.
-
-```text
-http://localhost:9120
-```
-
-A real `.env` file belongs to the person running the application. It can contain passwords, API tokens, private URLs and other local settings. The repository therefore contains a safe `.env.example` and ignores the real `.env` file.
-
-Read **[docs/DOCKER.md](docs/DOCKER.md)** for the deployment notes and validation checklist.
-
----
-
-# 🏗️ Architecture
-
-```mermaid
-flowchart LR
-    U[Browser] --> W[Software Release Radar]
-    C[CLI / Scheduler] --> W
-    W --> DB[(SQLite)]
-    W --> GH[Upstream release APIs]
-    W --> P[Portainer]
-    W --> N[Notifications]
-    W -. optional .-> AI[OpenAI-compatible API]
-    H[Optional agent integration] --> C
-```
-
-**Design rule:** deterministic automation first. AI is used for interpretation where it adds value, not as a requirement for basic monitoring.
 
 ---
 
@@ -294,7 +327,7 @@ flowchart LR
 | [@muhdusama](https://github.com/muhdusama) | Creator and maintainer. Product direction, feature decisions, real-world testing and release decisions. |
 | **OpenAI Codex** | AI coding contributor. Implementation, refactoring, tests, debugging, documentation and code review assistance. |
 
-Codex is an AI coding tool rather than a conventional GitHub contributor account. GitHub's automatic contributor graph is based on commit authorship, so Codex may not appear there as a separate account. Its contribution is still explicitly recognised by this project.
+Codex is an AI coding tool rather than a conventional GitHub contributor account. GitHub's contributor graph is based on commit authorship, so Codex may not appear there as a separate account.
 
 See **[CONTRIBUTORS.md](CONTRIBUTORS.md)** for more detail.
 
@@ -306,14 +339,12 @@ See **[CONTRIBUTORS.md](CONTRIBUTORS.md)** for more detail.
   <img src="docs/images/feature-voting-loop.svg" alt="Feature proposal and roadmap voting process" width="1000">
 </p>
 
-I want the roadmap to reflect real problems that people are trying to solve.
-
 Once the repository is public:
 
-1. **Propose a feature** using the structured feature request form.
-2. **Vote with a 👍 reaction** on requests that would help you.
-3. Strong candidates can move into a **roadmap poll** for direct comparison.
-4. Results help guide priority alongside security, reliability and maintenance effort.
+1. propose a feature using the structured feature request form;
+2. vote with a 👍 reaction on requests that would help you;
+3. strong candidates can move into a roadmap poll for direct comparison; and
+4. results help guide priority alongside security, reliability and maintenance effort.
 
 <p align="center">
   <a href="FEATURE_VOTING.md"><strong>📊 Read how feature voting works</strong></a>
@@ -323,31 +354,30 @@ Once the repository is public:
 
 ---
 
-# 🗺️ Where the project is heading
+# 🗺️ Release-candidate status
 
 <p align="center">
   <img src="docs/images/roadmap-journey.svg" alt="Software Release Radar roadmap journey" width="1000">
 </p>
 
-The immediate job is to turn the existing v2.6.3 private production application into a clean public project that another person can install without knowing anything about the original environment.
+| Gate | Status |
+|---|---|
+| Sanitised application source imported without private Git history | ✅ Passed |
+| Earlier full regression suite | ✅ 56 tests passed |
+| Earlier clean Docker Compose installation | ✅ Passed |
+| Multi-architecture v2.6.3 container build | ✅ Passed |
+| Automatic release scheduler | 🧪 Implemented, CI validation in progress |
+| CI on every push and pull request | 🧪 Implemented, validation in progress |
+| Docker-only first-run setup | 🧪 Implemented, clean-host validation pending |
+| Backup and guarded restore workflow | 🧪 Implemented, restore validation pending |
+| Dependabot and community templates | ✅ Added |
+| Final privacy and secret scan | ⏳ Pending after code freeze |
+| Final screenshots from a clean demo deployment | ⏳ Pending |
+| Public release version and launch audit | ⏳ Pending |
 
-**Current priorities:**
-
-- 🧹 sanitise and import the v2.6.3 source;
-- 🐳 finish the Dockerfile and validate Docker Compose from a clean machine;
-- 🔐 add privacy, secret and dependency checks;
-- 🧪 add CI and regression tests;
-- 📚 finish public installation and configuration documentation;
-- 📸 replace reference images with screenshots from the sanitised build; and
-- 🚀 complete the publication audit before changing repository visibility.
+The repository stays private until the remaining gates pass.
 
 See the full **[Roadmap](ROADMAP.md)** and **[Changelog](CHANGELOG.md)**.
-
----
-
-# ⭐ Help people find the project
-
-If Release Radar is useful to you, a GitHub star is a simple way to support the project. Stars also help other self-hosters discover useful projects through GitHub search and Explore.
 
 ---
 
@@ -361,12 +391,6 @@ AGPL-3.0 permits use, modification, distribution and commercial use while applyi
 - [Commercial use and AGPL obligations](COMMERCIAL_USE.md)
 - [Security policy](SECURITY.md)
 - [Contribution guide](CONTRIBUTING.md)
-
----
-
-# 🔐 Data and privacy
-
-Runtime state belongs in the deployment, not in Git. Do not commit `.env` files containing secrets, runtime databases, API tokens, credentials, SSH private keys, backups, private infrastructure details or screenshots containing real private infrastructure data.
 
 ---
 
@@ -388,7 +412,7 @@ Financial support is optional. The project remains available under its open-sour
 
 | | Document | What it is for |
 |---|---|---|
-| 🐳 | [docs/DOCKER.md](docs/DOCKER.md) | Docker Compose deployment and validation status |
+| 🐳 | [docs/DOCKER.md](docs/DOCKER.md) | Install, configure, back up, restore, upgrade and troubleshoot |
 | 🗺️ | [ROADMAP.md](ROADMAP.md) | Current priorities and future direction |
 | 📊 | [FEATURE_VOTING.md](FEATURE_VOTING.md) | How community feature voting works |
 | 📝 | [CHANGELOG.md](CHANGELOG.md) | Release history and notable changes |
