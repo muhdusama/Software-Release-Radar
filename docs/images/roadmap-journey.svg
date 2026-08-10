@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 420" role="img" aria-labelledby="title desc">
+  <title id="title">Software Release Radar roadmap journey</title>
+  <desc id="desc">Five-stage roadmap from public release readiness through community foundation, release intelligence, integrations and exploratory assistance.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b1220"/>
+      <stop offset="1" stop-color="#111c33"/>
+    </linearGradient>
+    <linearGradient id="line" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#63e6ff"/>
+      <stop offset="1" stop-color="#8b5cf6"/>
+    </linearGradient>
+  </defs>
+  <rect width="1400" height="420" rx="34" fill="url(#bg)"/>
+  <text x="700" y="64" text-anchor="middle" fill="#f8fafc" font-family="system-ui,sans-serif" font-size="32" font-weight="700">From private tool → polished open-source platform</text>
+  <text x="700" y="98" text-anchor="middle" fill="#94a3b8" font-family="system-ui,sans-serif" font-size="17">Direction, not fixed deadlines · community input helps shape priority</text>
+  <path d="M150 230 H1240" stroke="#263650" stroke-width="12" stroke-linecap="round"/>
+  <path d="M150 230 H430" stroke="url(#line)" stroke-width="12" stroke-linecap="round"/>
+  <g font-family="system-ui,sans-serif">
+    <g transform="translate(150 230)"><circle r="35" fill="#173f4a" stroke="#63e6ff" stroke-width="4"/><text x="0" y="7" text-anchor="middle" fill="#63e6ff" font-size="20" font-weight="700">NOW</text><text x="0" y="78" text-anchor="middle" fill="#f8fafc" font-size="18" font-weight="700">Public-ready</text><text x="0" y="104" text-anchor="middle" fill="#94a3b8" font-size="14">Sanitise · test · ship</text></g>
+    <g transform="translate(430 230)"><circle r="31" fill="#1a2940" stroke="#7dd3fc" stroke-width="3"/><text x="0" y="7" text-anchor="middle" fill="#dbeafe" font-size="17" font-weight="700">NEXT</text><text x="0" y="78" text-anchor="middle" fill="#f8fafc" font-size="18" font-weight="700">Community</text><text x="0" y="104" text-anchor="middle" fill="#94a3b8" font-size="14">Easy setup · CI · docs</text></g>
+    <g transform="translate(700 230)"><circle r="31" fill="#1b2940" stroke="#a78bfa" stroke-width="3"/><text x="0" y="7" text-anchor="middle" fill="#ddd6fe" font-size="16" font-weight="700">THEN</text><text x="0" y="78" text-anchor="middle" fill="#f8fafc" font-size="18" font-weight="700">Intelligence</text><text x="0" y="104" text-anchor="middle" fill="#94a3b8" font-size="14">Better update decisions</text></g>
+    <g transform="translate(970 230)"><circle r="31" fill="#1b2940" stroke="#8b5cf6" stroke-width="3"/><text x="0" y="7" text-anchor="middle" fill="#c4b5fd" font-size="16" font-weight="700">LATER</text><text x="0" y="78" text-anchor="middle" fill="#f8fafc" font-size="18" font-weight="700">Integrations</text><text x="0" y="104" text-anchor="middle" fill="#94a3b8" font-size="14">Fleet · API · providers</text></g>
+    <g transform="translate(1240 230)"><circle r="31" fill="#1b2940" stroke="#64748b" stroke-width="3"/><text x="0" y="7" text-anchor="middle" fill="#cbd5e1" font-size="14" font-weight="700">EXPLORE</text><text x="0" y="78" text-anchor="middle" fill="#f8fafc" font-size="18" font-weight="700">Assistance</text><text x="0" y="104" text-anchor="middle" fill="#94a3b8" font-size="14">AI where it genuinely helps</text></g>
+  </g>
+  <rect x="485" y="350" width="430" height="42" rx="21" fill="#172238"/>
+  <text x="700" y="377" text-anchor="middle" fill="#c4b5fd" font-family="system-ui,sans-serif" font-size="16" font-weight="650">★ Community votes help move credible candidates forward</text>
+</svg>
