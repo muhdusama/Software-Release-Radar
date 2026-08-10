@@ -64,6 +64,7 @@ unset GENERATED
 
 cat > .env <<EOF
 RADAR_VERSION=2.6.3
+RADAR_BIND_ADDRESS=0.0.0.0
 RADAR_PORT=9120
 RADAR_SCHEDULER_INTERVAL_SECONDS=60
 RADAR_SCHEDULER_LOG_RESULTS=false
@@ -95,7 +96,11 @@ printf 'Waiting for the web application to become healthy...\n'
 healthy=false
 attempt=1
 while [[ "$attempt" -le 60 ]]; do
-  status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' software-release-radar 2>/dev/null || true)"
+  radar_id="$(docker compose ps -q radar 2>/dev/null || true)"
+  status=""
+  if [[ -n "$radar_id" ]]; then
+    status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$radar_id" 2>/dev/null || true)"
+  fi
   if [[ "$status" == "healthy" ]]; then
     healthy=true
     break
@@ -114,8 +119,12 @@ if [[ "$healthy" != "true" ]]; then
   fail "The web application did not become healthy within two minutes."
 fi
 
-scheduler_status="$(docker inspect --format '{{.State.Status}}' software-release-radar-scheduler 2>/dev/null || true)"
-worker_status="$(docker inspect --format '{{.State.Status}}' software-release-radar-portainer-worker 2>/dev/null || true)"
+scheduler_id="$(docker compose ps -q scheduler)"
+worker_id="$(docker compose ps -q portainer-worker)"
+[[ -n "$scheduler_id" ]] || fail "The automatic release scheduler container was not created."
+[[ -n "$worker_id" ]] || fail "The Portainer background worker container was not created."
+scheduler_status="$(docker inspect --format '{{.State.Status}}' "$scheduler_id")"
+worker_status="$(docker inspect --format '{{.State.Status}}' "$worker_id")"
 [[ "$scheduler_status" == "running" ]] || fail "The automatic release scheduler is not running."
 [[ "$worker_status" == "running" ]] || fail "The Portainer background worker is not running."
 
