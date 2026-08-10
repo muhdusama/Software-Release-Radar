@@ -67,13 +67,15 @@ This roadmap shows direction rather than fixed delivery dates. Priorities can ch
 - [ ] Run the existing regression suite against the public candidate.
 - [ ] Confirm a clean install can reach the application without private environment assumptions.
 
-### 📚 Documentation and visuals
+### 📚 Documentation and launch presentation
 
 - [ ] Finish installation and configuration guides.
 - [ ] Finish architecture documentation against the actual public source tree.
 - [ ] Replace reference screenshots with screenshots from the sanitised build.
 - [ ] Add an `AGENTS.md` file for AI-assisted contributors and maintainers.
 - [ ] Prepare a social preview image for GitHub and external sharing.
+- [ ] Add a concise repository description and focused GitHub topics.
+- [ ] Make the first public release page useful on its own, with screenshots, highlights and upgrade notes.
 
 ### 🚀 Launch gate
 
@@ -83,7 +85,7 @@ The repository only becomes public after the source, privacy, build and installa
 
 # 🔵 Next: Community-ready foundation
 
-> **Goal:** make the project pleasant to install, understand and contribute to.
+> **Goal:** make the project pleasant to install, understand, discover and contribute to.
 
 <table>
 <tr>
@@ -96,21 +98,34 @@ The repository only becomes public after the source, privacy, build and installa
 - [ ] Provide neutral sample data for evaluation.
 - [ ] Add health and readiness diagnostics.
 - [ ] Improve migration and upgrade instructions.
+- [ ] Add a simple demo mode that does not require real infrastructure data.
 
 </td>
 <td width="50%" valign="top">
 
-### 🤝 Better contribution flow
+### 🤝 Better community flow
 
 - [ ] Expand automated regression coverage.
 - [ ] Add `good first issue` and `help wanted` paths.
 - [ ] Document release and maintenance policy.
 - [ ] Enable GitHub Discussions for questions and roadmap polls.
 - [ ] Keep feature requests structured and easy to vote on.
+- [ ] Evaluate a disposable public demo once the first release is stable.
 
 </td>
 </tr>
 </table>
+
+### 🔎 Make the project easier to find
+
+Successful self-hosted projects usually make the purpose obvious within seconds and give visitors a fast path to try, install, follow or support the project. Release Radar should do the same without adding unnecessary marketing clutter.
+
+- [ ] Use focused GitHub topics such as `self-hosted`, `docker`, `docker-compose`, `python`, `homelab`, `release-monitoring`, `version-tracking`, `portainer` and `devops`.
+- [ ] Keep the first screenshot and one-line purpose near the top of the README.
+- [ ] Add a tested quick-start section as soon as the public Compose file is ready.
+- [ ] Enable Discussions and keep questions out of bug reports where practical.
+- [ ] Add contributor and project-activity sections once there is real public activity to show.
+- [ ] Add a star-history view only after the repository has meaningful public history.
 
 ---
 
