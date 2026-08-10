@@ -8,36 +8,70 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Added
 
-- Open-source publication preparation under GNU AGPL-3.0.
-- Public-facing README, security policy, contribution guide and support documentation.
-- Buy Me a Coffee and PayPal project-support links.
+- GNU AGPL-3.0 open-source publication baseline.
+- Sanitised Python 3.13 application source imported without the private Gitea history.
+- Production Dockerfile running the application as a non-root user.
+- Three-service Docker Compose stack for the web application, automatic release scheduler and Portainer background worker.
+- Built-in due-check scheduler so automatic release monitoring does not depend on an external cron job.
+- Docker-only first-run setup that generates secure application secrets, seeds the first administrator and waits for the stack to become healthy.
+- Docker-only SQLite online backup helper with `PRAGMA integrity_check` validation.
+- Guarded restore helper with a verified pre-restore safety backup and automatic rollback attempt when restoration fails.
+- SQLite-backed login throttling shared across Gunicorn workers.
+- Password-reset request throttling with a generic public response to avoid account enumeration.
+- Comparable password-hash work for unknown usernames to reduce an obvious login timing difference.
+- Continuous integration for Python compilation, the complete test suite, Docker image builds and clean Compose startup.
+- Dependabot configuration for Python, GitHub Actions and Docker dependencies.
+- GHCR multi-architecture image publishing workflow.
+- Structured GitHub bug report and feature request forms.
+- Pull request validation and security checklist.
+- Community code of conduct.
+- GitHub Discussions and roadmap polling process.
+- Buy Me a Coffee, Ko-fi and PayPal project-support links.
 - GitHub funding configuration.
-- Public roadmap with visual delivery phases.
-- Feature voting and roadmap polling policy.
-- Structured GitHub feature request template for community proposals.
-- Neutral reference visuals and project branding for the GitHub landing page.
-- Visual roadmap and community voting diagrams.
-- Clear project identity as a Python 3.13 application intended for Docker Compose deployment.
-- `docker-compose.yml` publication scaffold.
-- Safe `.env.example` for Docker-level defaults.
-- `.gitignore` rules to keep local environment files, runtime data, databases, backups and keys out of Git.
-- Docker deployment and clean-host validation guide under `docs/DOCKER.md`.
+- Public configuration guide.
+- Public architecture guide.
+- Self-hosting security hardening guide.
+- Docker installation, backup, restore, upgrade and troubleshooting documentation.
+- `AGENTS.md` guidance for AI-assisted contributors and maintainers.
+- Explicit contributor credit for OpenAI Codex as an AI coding contributor.
 - Public disclosure that the project is heavily Codex-assisted and vibe-coded by a maintainer who is not a software developer.
-- AI-assisted contribution guidance focused on review, testing, security and maintainability.
+- Neutral project branding, reference screenshots, roadmap visual and feature-voting visual.
 
 ### Changed
 
 - Reworked licensing from the earlier noncommercial publication plan to AGPL-3.0 so the project can be released as genuine open-source software while retaining strong copyleft protections.
-- Redesigned the README to improve visual hierarchy, project discovery, feature explanation and community participation.
-- Redesigned the roadmap to make current work, future phases and voting candidates easier to scan.
-- Updated the roadmap to distinguish the staged Docker Compose scaffold from the still-pending clean-host deployment validation.
-- Public documentation is being separated from private deployment-specific operations and infrastructure details.
-- Public-facing copy now uses Australian English, avoids contractions and avoids em dashes.
+- Docker Compose is now the primary supported deployment path for public self-hosting.
+- The recommended first run no longer requires Python to be installed or managed on the Docker host.
+- The README now describes the actual release-candidate stack instead of the earlier publication scaffold.
+- Preview images are displayed at full README width to keep dashboard text readable.
+- The roadmap now distinguishes implementation from clean-machine acceptance and keeps public visibility behind explicit launch gates.
+- Backup integrity checking now runs inside the application container so host Python is not required.
+- The Docker image now uses the hardened public application factory with authentication abuse protection.
+- Docker image metadata now declares the project description and AGPL-3.0-only licence.
+- Public documentation is separated from private deployment-specific operations and infrastructure details.
+- Public-facing copy uses Australian English, avoids contractions and avoids em dashes.
 
 ### Security
 
-- Public release preparation includes a fresh-history publication model, secret and privacy scanning, and regeneration of screenshots using demo data only.
-- Real `.env` files remain local and are ignored by Git. Only the safe example file is committed.
+- Real `.env` files, databases, SSH material, backups and runtime data remain excluded from Git.
+- Application startup requires a sufficiently strong Flask session secret and valid Fernet encryption key.
+- Stored SMTP, Pushover, Portainer and OpenAI-compatible credentials are encrypted before database storage.
+- Portainer TLS verification is enabled by default.
+- Reverse-proxy forwarding headers remain untrusted unless explicitly enabled for one directly connected trusted proxy.
+- State-changing browser routes retain CSRF protection.
+- Public Docker containers run under the non-root `radar` user.
+- SSH Docker probes retain strict host-key checking and a fixed validated inspection command rather than arbitrary remote shell execution.
+- Login and password-reset abuse controls use hashed/HMAC-derived rate-limit keys rather than storing raw usernames or client addresses in the rate-limit table.
+- Restore now preserves a verified pre-restore safety copy before replacing the active database.
+- Final public launch still requires a code-freeze privacy scan, secret scan, clean-machine acceptance test and clean public Git history.
+
+### Validation
+
+- Sanitised v2.6.3 source import passed its publication privacy guard.
+- The imported baseline passed Python compilation and Git whitespace checks.
+- The imported baseline passed the complete 56-test regression suite.
+- The imported baseline passed a clean Docker Compose start, `/healthz`, login-page and Portainer-worker smoke test.
+- New scheduler, authentication, setup and restore hardening is being validated by the new CI workflow before a public version is frozen.
 
 ---
 
@@ -46,7 +80,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 ### Changed
 
 - Hardened Portainer service rebinding behaviour for recreated containers and deployment inventory reconciliation.
-- Finalised the v2.6.x production baseline used as the source for the first planned public release.
+- Finalised the v2.6.x private production baseline used as the starting source for public-release preparation.
 
 ### Fixed
 
@@ -56,7 +90,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 ### Validated
 
 - Focused Portainer rebinding tests passed.
-- Full automated test suite passed with 55 tests during candidate validation.
+- The private v2.6.3 candidate passed the automated test suite used at that point in development.
 
 ---
 
@@ -65,7 +99,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 ### Fixed
 
 - Corrected scheduling behaviour for trackers that have never been checked before.
-- `is_due(None, 24)` is now treated as due rather than failing or being skipped incorrectly.
+- `is_due(None, 24)` is treated as due rather than being skipped incorrectly.
 
 ### Validated
 
