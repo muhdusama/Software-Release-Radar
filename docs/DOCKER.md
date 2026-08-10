@@ -193,11 +193,7 @@ Release Radar uses a fixed Docker inspect command rather than arbitrary remote s
 
 ## Data
 
-Application state is stored in the Compose-scoped `radar-data` volume. Use this command to see the exact Docker resource name on the current host:
-
-```bash
-docker compose volumes
-```
+Application state is stored in the Compose-scoped `radar-data` volume. Docker Compose automatically prefixes the actual Docker volume with the Compose project name, so independent checkouts do not share the same database by accident.
 
 The SQLite database lives at `/data/radar.db` inside the application services.
 
@@ -234,14 +230,14 @@ The restore helper:
 1. validates the requested backup;
 2. creates and validates a new pre-restore safety backup;
 3. stops all services that can write the database;
-4. restores the requested database through a one-off application container;
-5. validates the restored database;
-6. attempts automatic rollback to the safety backup if the requested restore fails; and
-7. starts the stack again.
+4. uses a one-off maintenance container with elevated filesystem access only for the restore operation;
+5. restores the database and returns ownership to the normal non-root `radar` runtime user;
+6. validates the restored database;
+7. attempts automatic rollback to the safety backup if the requested restore fails;
+8. starts the normal non-root services again; and
+9. waits for the full stack to return healthy.
 
 The safety backup is retained after a successful restore.
-
-Run `docker compose ps` after a restore and sign in before considering the restore complete.
 
 ## Upgrade
 
