@@ -1,0 +1,28 @@
+services:
+  software-release-radar:
+    container_name: software-release-radar
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: software-release-radar:${SRR_VERSION:-dev}
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "${SRR_HOST_PORT:-9120}:${SRR_CONTAINER_PORT:-9120}"
+    volumes:
+      - "${SRR_DATA_DIR:-./data}:/app/data"
+
+# Publication staging note
+# ------------------------
+# This Compose file is the intended public deployment shape, but it is not yet
+# a validated release artefact because the sanitised application source and
+# Dockerfile have not been imported into this staging repository.
+#
+# Before the repository is made public this stack must pass a clean-host test:
+#   cp .env.example .env
+#   docker compose config
+#   docker compose up -d --build
+#
+# Application-specific environment variables and any required health check will
+# be added only after they have been verified against the public source tree.
