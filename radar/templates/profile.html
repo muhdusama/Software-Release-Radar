@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Profile · Software Release Radar{% endblock %}
+{% block content %}
+<section class="page-heading compact-heading"><div><span class="eyebrow">MY ACCOUNT</span><h1>Profile and sign-in</h1><p>Change your username, email, password, and personal notification preferences.</p></div></section>
+<form method="post" class="panel tracker-form narrow-form">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="form-grid two-col">
+    <label>Username<input name="username" value="{{ current_user['username'] }}" required></label>
+    <label>Email address <small>required for password reset/email alerts</small><input type="email" name="email" value="{{ current_user['email'] or '' }}"></label>
+    <label>New password <small>leave blank to keep current</small><input type="password" name="new_password" minlength="10" autocomplete="new-password"></label>
+    <label>Confirm new password<input type="password" name="confirm_password" minlength="10" autocomplete="new-password"></label>
+    <label>Pushover user/group key <small>{{ 'configured; enter a new key to replace' if has_pushover_key else 'optional' }}</small><input type="password" name="pushover_user_key" autocomplete="off" placeholder="{{ '•••••••••• configured' if has_pushover_key else '' }}"></label>
+    <label>Current password <small>required to save</small><input type="password" name="current_password" autocomplete="current-password" required></label>
+  </div>
+  <div class="toggle-grid">
+    <label class="toggle-card"><input type="checkbox" name="notify_email" {{ 'checked' if current_user['notify_email'] else '' }}><span><strong>Email notifications</strong><small>Receive detected release updates via SMTP.</small></span></label>
+    <label class="toggle-card"><input type="checkbox" name="notify_pushover" {{ 'checked' if current_user['notify_pushover'] else '' }}><span><strong>Pushover notifications</strong><small>Requires a user key and administrator app token.</small></span></label>
+  </div>
+  {% if has_pushover_key %}<label class="inline-check"><input type="checkbox" name="clear_pushover_key"> Remove saved Pushover key</label>{% endif %}
+  <div class="form-actions"><a class="button secondary" href="{{ url_for('dashboard') }}">Cancel</a><button class="button primary" type="submit">Save profile</button></div>
+</form>
+{% endblock %}

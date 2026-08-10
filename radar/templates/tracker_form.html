@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% set source = form if form else tracker if tracker else {} %}
+{% block title %}{{ 'Edit ' ~ tracker['name'] if tracker else 'Add software' }} · Software Release Radar{% endblock %}
+{% block content %}
+<section class="page-heading compact-heading"><div><span class="eyebrow">{{ 'EDIT TRACKER' if tracker else 'NEW TRACKER' }}</span><h1>{{ tracker['name'] if tracker else 'Add software' }}</h1><p>Track upstream releases and optionally probe the deployed service and Docker image version.</p></div></section>
+<form method="post" class="panel tracker-form">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <section class="form-section">
+    <div class="section-heading"><h2>Release source</h2><p>GitHub release and update-check settings.</p></div>
+    <div class="form-grid three-col">
+      <label>Software name<input name="name" value="{{ source.get('name', '') or '' }}" maxlength="120" required></label>
+      <label>GitHub repository<input name="repository" value="{{ source.get('repository', '') or '' }}" placeholder="immich-app/immich" required></label>
+      <label>Refresh interval<select name="refresh_hours">{% set selected_refresh = source.get('refresh_hours', default_refresh)|int %}{% for hours in allowed_refresh_hours %}<option value="{{ hours }}" {{ 'selected' if selected_refresh == hours else '' }}>Every {{ hours }} hour{{ '' if hours == 1 else 's' }}{% if hours == 168 %} (weekly){% endif %}</option>{% endfor %}</select></label>
+      <label>Tracking method<select name="strategy"><option value="release" {{ 'selected' if source.get('strategy', 'release') == 'release' else '' }}>Latest GitHub release</option><option value="tag" {{ 'selected' if source.get('strategy') == 'tag' else '' }}>Latest Git tag</option></select></label>
+      <label>Tags <small>optional</small><input name="tags" value="{{ source.get('tags', '') or '' }}" placeholder="ai, production, self-hosted"></label>
+      <label>Homepage URL <small>optional</small><input type="url" name="homepage_url" value="{{ source.get('homepage_url', '') or '' }}" placeholder="https://example.com"></label>
+    </div>
+    <label>Notes <small>optional</small><textarea name="notes" rows="3" placeholder="Purpose, upgrade constraints, or deployment notes">{{ source.get('notes', '') or '' }}</textarea></label>
+    <div class="toggle-grid">
+      <label class="toggle-card"><input type="checkbox" name="enabled" {{ 'checked' if source.get('enabled', 1)|int else '' }}><span><strong>Enabled</strong><small>Include this tracker in scheduled checks.</small></span></label>
+      <label class="toggle-card"><input type="checkbox" name="include_prereleases" {{ 'checked' if source.get('include_prereleases', 0)|int else '' }}><span><strong>Include prereleases</strong><small>Allow beta, release-candidate, and prerelease builds.</small></span></label>
+    </div>
+  </section>
+
+  <section class="form-section divided-section">
+    <div class="section-heading"><h2>Installed deployment</h2><p>Optional machine, IP, port, and deployed-version details.</p></div>
+    <div class="form-grid three-col">
+      <label>Currently installed version <small>optional</small><input name="installed_version" value="{{ source.get('installed_version', '') or '' }}" placeholder="v0.20.0"></label>
+      <label>Machine name <small>optional</small><input name="machine_name" value="{{ source.get('machine_name', '') or '' }}" placeholder="media-server"></label>
+      <label>IP address or hostname <small>optional</small><input name="install_host" value="{{ source.get('install_host', '') or '' }}" placeholder="192.0.2.20"></label>
+      <label>Protocol<select name="install_scheme"><option value="http" {{ 'selected' if source.get('install_scheme', 'http') == 'http' else '' }}>HTTP</option><option value="https" {{ 'selected' if source.get('install_scheme') == 'https' else '' }}>HTTPS</option><option value="tcp" {{ 'selected' if source.get('install_scheme') == 'tcp' else '' }}>TCP only</option></select></label>
+      <label>Service port <small>optional</small><input type="number" min="1" max="65535" name="install_port" value="{{ source.get('install_port', '') or '' }}" placeholder="8080"></label>
+      <label>Health path <small>optional</small><input name="health_path" value="{{ source.get('health_path', '/') or '/' }}" placeholder="/healthz"></label>
+    </div>
+  </section>
+
+  <section class="form-section divided-section">
+    <div class="section-heading"><h2>Installed-version probe</h2><p>The deterministic probe can test reachability and retrieve the installed version without an LLM.</p></div>
+    <div class="form-grid three-col">
+      <label>Probe method<select name="probe_mode" id="probe-mode" onchange="showProbeFields()">{% for value, label in probe_modes %}<option value="{{ value }}" {{ 'selected' if source.get('probe_mode', 'manual') == value else '' }}>{{ label }}</option>{% endfor %}</select></label>
+      <label class="http-probe-field">Version endpoint path <small>optional</small><input name="version_probe_path" value="{{ source.get('version_probe_path', '') or '' }}" placeholder="/api/version"></label>
+      <label class="json-probe-field">JSON path<input name="version_json_path" value="{{ source.get('version_json_path', '') or '' }}" placeholder="version or data.version"></label>
+      <label class="regex-probe-field">Version regular expression<input name="version_regex" value="{{ source.get('version_regex', '') or '' }}" placeholder="version[\"':= ]+v?([0-9.]+)"></label>
+      <label class="ssh-probe-field">SSH username<input name="ssh_user" value="{{ source.get('ssh_user', '') or '' }}" placeholder="radar"></label>
+      <label class="ssh-probe-field">SSH port<input type="number" min="1" max="65535" name="ssh_port" value="{{ source.get('ssh_port', 22) or 22 }}"></label>
+      <label class="ssh-probe-field">Docker container name<input name="docker_container" value="{{ source.get('docker_container', '') or '' }}" placeholder="open-webui"></label>
+      <label class="ssh-probe-field">SSH key filename<input name="ssh_key_name" value="{{ source.get('ssh_key_name', '') or '' }}" placeholder="id_ed25519"></label>
+    </div>
+    <div class="info-box"><strong>Remote Docker probe:</strong> add a dedicated SSH private key and <code>known_hosts</code> file to the deployment’s <code>ssh/</code> directory. The application runs only a hard-coded <code>docker inspect</code> command and does not accept arbitrary shell commands.</div>
+  </section>
+  <div class="form-actions"><a class="button secondary" href="{{ url_for('dashboard') }}">Cancel</a><button class="button primary" type="submit">{{ 'Save changes' if tracker else 'Add software' }}</button></div>
+</form>
+<script>
+function showProbeFields(){const mode=document.getElementById('probe-mode').value;document.querySelectorAll('.http-probe-field').forEach(e=>e.hidden=!['http_auto','http_json','http_regex'].includes(mode));document.querySelectorAll('.json-probe-field').forEach(e=>e.hidden=mode!=='http_json');document.querySelectorAll('.regex-probe-field').forEach(e=>e.hidden=mode!=='http_regex');document.querySelectorAll('.ssh-probe-field').forEach(e=>e.hidden=mode!=='ssh_docker');}
+showProbeFields();
+</script>
+{% endblock %}

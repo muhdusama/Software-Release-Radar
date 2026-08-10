@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% set source = form if form else user if user else {} %}
+{% block title %}{{ 'Edit user' if user else 'Add user' }} · Software Release Radar{% endblock %}
+{% block content %}
+<section class="page-heading compact-heading"><div><span class="eyebrow">{{ 'EDIT USER' if user else 'NEW USER' }}</span><h1>{{ user['username'] if user else 'Add user' }}</h1><p>Create an administrator or standard dashboard account.</p></div></section>
+<form method="post" class="panel tracker-form narrow-form">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<div class="form-grid two-col">
+<label>Username<input name="username" value="{{ source.get('username', '') or '' }}" required></label>
+<label>Email address<input type="email" name="email" value="{{ source.get('email', '') or '' }}"></label>
+<label>Role<select name="role"><option value="user" {{ 'selected' if source.get('role', 'user') == 'user' else '' }}>User</option><option value="admin" {{ 'selected' if source.get('role') == 'admin' else '' }}>Administrator</option></select></label>
+<label>{{ 'New password (optional)' if user else 'Password' }}<input type="password" name="password" minlength="10" {{ '' if user else 'required' }} autocomplete="new-password"></label>
+</div>
+<div class="toggle-grid">
+<label class="toggle-card"><input type="checkbox" name="active" {{ 'checked' if source.get('active', 1)|int else '' }}><span><strong>Active account</strong><small>Allow this user to sign in.</small></span></label>
+<label class="toggle-card"><input type="checkbox" name="notify_email" {{ 'checked' if source.get('notify_email', 1)|int else '' }}><span><strong>Email notifications</strong><small>Send release updates to this email address.</small></span></label>
+<label class="toggle-card"><input type="checkbox" name="notify_pushover" {{ 'checked' if source.get('notify_pushover', 0)|int else '' }}><span><strong>Pushover notifications</strong><small>User configures their key in Profile.</small></span></label>
+</div>
+<div class="form-actions"><a class="button secondary" href="{{ url_for('users') }}">Cancel</a><button class="button primary" type="submit">Save user</button></div>
+</form>
+{% endblock %}

@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="Deterministic software release, deployment and Docker inventory monitoring.">
+  <meta name="theme-color" content="#07101c">
+  <meta name="color-scheme" content="dark">
+  <title>{% block title %}Software Release Radar{% endblock %}</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='brand-icon.svg', v='2.6.3') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v='2.6.3') }}">
+  <script src="{{ url_for('static', filename='app.js', v='2.6.3') }}" defer></script>
+</head>
+<body class="{{ 'authenticated' if current_user else 'guest' }}">
+<div class="page-progress" id="page-progress" aria-hidden="true"><span></span></div>
+
+{% if current_user %}
+<div class="app-shell">
+  <aside class="app-sidebar" id="primary-navigation" aria-label="Primary navigation" data-primary-nav>
+    <a class="brand sidebar-brand" href="{{ url_for('dashboard') }}" aria-label="Software Release Radar home">
+      <span class="brand-mark"><img src="{{ url_for('static', filename='software-release-radar-icon.svg', v='2.6.3') }}" alt=""></span>
+      <span class="brand-copy"><strong>Software Release Radar</strong><small>Release intelligence</small></span>
+    </a>
+
+    <nav class="sidebar-navigation">
+      <span class="nav-section-label">Monitor</span>
+      <a class="{{ 'active' if request.endpoint == 'dashboard' else '' }}" href="{{ url_for('dashboard') }}"><span class="nav-icon" aria-hidden="true">⌂</span><span>Dashboard</span><kbd>1</kbd></a>
+      <a class="{{ 'active' if request.endpoint == 'history' else '' }}" href="{{ url_for('history') }}"><span class="nav-icon" aria-hidden="true">↗</span><span>History</span><kbd>2</kbd></a>
+      <a class="{{ 'active' if request.endpoint in ['upgrades', 'upgrade_decision'] else '' }}" href="{{ url_for('upgrades') }}"><span class="nav-icon" aria-hidden="true">✓</span><span>Upgrades</span><kbd>3</kbd></a>
+      <a class="{{ 'active' if request.endpoint == 'fleet' else '' }}" href="{{ url_for('fleet') }}"><span class="nav-icon" aria-hidden="true">▦</span><span>Fleet</span><kbd>4</kbd></a>
+      {% if current_user['role'] == 'admin' %}<a class="{{ 'active' if request.endpoint == 'portainer_inventory' else '' }}" href="{{ url_for('portainer_inventory') }}"><span class="nav-icon" aria-hidden="true">⬡</span><span>Portainer</span><kbd>5</kbd></a>{% endif %}
+
+      <span class="nav-section-label">Analyse</span>
+      <a class="{{ 'active' if request.endpoint in ['assistant', 'assistant_run'] else '' }}" href="{{ url_for('assistant') }}"><span class="nav-icon" aria-hidden="true">✦</span><span>Assistant</span><kbd>6</kbd></a>
+
+      {% if current_user['role'] == 'admin' %}
+      <span class="nav-section-label">Administer</span>
+      <a class="{{ 'active' if request.endpoint == 'settings' else '' }}" href="{{ url_for('settings') }}"><span class="nav-icon" aria-hidden="true">⚙</span><span>Settings</span><kbd>7</kbd></a>
+      <a class="{{ 'active' if request.endpoint in ['users', 'user_form'] else '' }}" href="{{ url_for('users') }}"><span class="nav-icon" aria-hidden="true">◎</span><span>Users</span><kbd>8</kbd></a>
+      {% endif %}
+    </nav>
+
+    <div class="sidebar-footer">
+      <a class="profile-link {{ 'active' if request.endpoint == 'profile' else '' }}" href="{{ url_for('profile') }}">
+        <span class="user-avatar" aria-hidden="true">{{ current_user['username'][:1]|upper }}</span>
+        <span class="profile-copy"><strong>{{ current_user['username'] }}</strong><small>{{ current_user['role']|title }}</small></span>
+      </a>
+      <form method="post" action="{{ url_for('logout') }}" data-no-busy>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button class="nav-button sign-out-button" type="submit"><span aria-hidden="true">↪</span><span>Sign out</span></button>
+      </form>
+    </div>
+  </aside>
+
+  <button class="nav-backdrop" type="button" aria-label="Close navigation" data-nav-backdrop hidden></button>
+
+  <div class="app-main">
+    <header class="topbar" data-app-header>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="primary-navigation" data-nav-toggle>
+        <span class="sr-only">Open navigation</span>
+        <span class="nav-line" aria-hidden="true"></span><span class="nav-line" aria-hidden="true"></span><span class="nav-line" aria-hidden="true"></span>
+      </button>
+      <a class="mobile-brand" href="{{ url_for('dashboard') }}"><img src="{{ url_for('static', filename='software-release-radar-icon.svg', v='2.6.3') }}" alt=""><span>Release Radar</span></a>
+      <div class="topbar-context">
+        <span class="topbar-eyebrow">SOFTWARE RELEASE RADAR</span>
+        <strong>{% block topbar_title %}Release and deployment intelligence{% endblock %}</strong>
+      </div>
+      <div class="topbar-actions">
+        <button class="command-trigger" type="button" data-command-open aria-haspopup="dialog" aria-controls="command-palette">
+          <span aria-hidden="true">⌕</span><span>Find or run</span><kbd>⌘ K</kbd>
+        </button>
+      </div>
+    </header>
+{% else %}
+<header class="topbar guest-topbar" data-app-header>
+  <a class="brand" href="{{ url_for('login') }}" aria-label="Software Release Radar home">
+    <span class="brand-mark"><img src="{{ url_for('static', filename='software-release-radar-icon.svg', v='2.6.3') }}" alt=""></span>
+    <span class="brand-copy"><strong>Software Release Radar</strong><small>Release and deployment intelligence</small></span>
+  </a>
+</header>
+{% endif %}
+
+<main class="content {% block content_class %}{% endblock %}" id="main-content">
+  {% block content %}{% endblock %}
+</main>
+
+{% if current_user %}
+  </div>
+</div>
+
+<div class="command-palette" id="command-palette" role="dialog" aria-modal="true" aria-labelledby="command-palette-title" hidden data-command-palette>
+  <button class="command-palette-backdrop" type="button" aria-label="Close command palette" data-command-close></button>
+  <section class="command-palette-card">
+    <div class="command-search-wrap">
+      <span aria-hidden="true">⌕</span>
+      <label class="sr-only" for="command-search">Find a page or action</label>
+      <input id="command-search" type="search" placeholder="Find a page or action…" autocomplete="off" data-command-search>
+      <kbd>Esc</kbd>
+    </div>
+    <div class="command-results" role="listbox" aria-label="Available commands" data-command-results>
+      <div class="command-group-label" id="command-palette-title">Navigate or run</div>
+      {% if current_user['role'] == 'admin' %}
+      <a class="command-item" href="{{ url_for('add_tracker') }}" data-command-item data-command-search-text="add software new tracker create monitor"><span class="command-item-icon">＋</span><span><strong>Add software</strong><small>Create a new release tracker</small></span><kbd>A</kbd></a>
+      {% endif %}
+      <button class="command-item" type="button" data-command-item data-command-action="focus-search" data-command-search-text="search filter software dashboard"><span class="command-item-icon">⌕</span><span><strong>Search tracked software</strong><small>Open Dashboard and focus the filter</small></span><kbd>/</kbd></button>
+      <button class="command-item" type="button" data-command-item data-command-action="toggle-density" data-command-search-text="compact comfortable density rows layout"><span class="command-item-icon">↕</span><span><strong>Toggle dashboard density</strong><small>Switch between comfortable and compact rows</small></span><kbd>D</kbd></button>
+      <a class="command-item" href="{{ url_for('dashboard') }}" data-command-item data-command-search-text="dashboard home software trackers releases"><span class="command-item-icon">⌂</span><span><strong>Dashboard</strong><small>Trackers, status and update activity</small></span><kbd>1</kbd></a>
+      <a class="command-item" href="{{ url_for('history') }}" data-command-item data-command-search-text="history changes updates timeline"><span class="command-item-icon">↗</span><span><strong>Release history</strong><small>Detected upstream release transitions</small></span><kbd>2</kbd></a>
+      <a class="command-item" href="{{ url_for('upgrades') }}" data-command-item data-command-search-text="upgrades decision queue maintenance checklist rollback deployed"><span class="command-item-icon">✓</span><span><strong>Upgrade decisions</strong><small>Review, plan and record release actions</small></span><kbd>3</kbd></a>
+      <a class="command-item" href="{{ url_for('fleet') }}" data-command-item data-command-search-text="fleet machines hosts services"><span class="command-item-icon">▦</span><span><strong>Fleet</strong><small>Machines and deployed services</small></span><kbd>4</kbd></a>
+      {% if current_user['role'] == 'admin' %}<a class="command-item" href="{{ url_for('portainer_inventory') }}" data-command-item data-command-search-text="portainer docker containers stacks inventory"><span class="command-item-icon">⬡</span><span><strong>Portainer inventory</strong><small>Docker environments, stacks and containers</small></span><kbd>5</kbd></a>{% endif %}
+      <a class="command-item" href="{{ url_for('assistant') }}" data-command-item data-command-search-text="assistant ai analysis chat upgrade risk"><span class="command-item-icon">✦</span><span><strong>Release Assistant</strong><small>Deployment-aware upgrade analysis</small></span><kbd>6</kbd></a>
+      {% if current_user['role'] == 'admin' %}<a class="command-item" href="{{ url_for('settings') }}" data-command-item data-command-search-text="settings notifications smtp pushover openai"><span class="command-item-icon">⚙</span><span><strong>Settings</strong><small>Connections, notifications and Assistant</small></span><kbd>7</kbd></a>{% endif %}
+    </div>
+    <div class="command-empty" data-command-empty hidden>No matching page or action.</div>
+    <footer class="command-footer"><span><kbd>↑</kbd><kbd>↓</kbd> move</span><span><kbd>Enter</kbd> open</span><span><kbd>⌘ K</kbd> toggle</span></footer>
+  </section>
+</div>
+{% endif %}
+
+<div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="false"></div>
+<div class="alert-region sr-only" id="alert-region" role="alert" aria-live="assertive" aria-atomic="true"></div>
+{% with messages = get_flashed_messages(with_categories=true) %}
+<script id="server-flashes" type="application/json">{{ messages|tojson }}</script>
+{% endwith %}
+</body>
+</html>

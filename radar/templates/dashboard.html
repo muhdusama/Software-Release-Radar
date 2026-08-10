@@ -1,0 +1,493 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="page-heading">
+  <div>
+    <span class="eyebrow">RELEASE AND DEPLOYMENT MONITORING</span>
+    <h1>Tracked software</h1>
+    <p>The hourly no-agent job checks only due trackers. Service probes compare deployed and upstream versions without using an LLM.</p>
+  </div>
+  {% if current_user['role'] == 'admin' %}<div class="heading-actions">
+    <form method="post" action="{{ url_for('probe_everything') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button secondary" type="submit">Probe services</button></form>
+    <form method="post" action="{{ url_for('check_everything') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button secondary" type="submit">Check all now</button></form>
+    <a class="button primary" href="{{ url_for('add_tracker') }}">Add software</a>
+  </div>{% endif %}
+</section>
+
+<section class="metrics metrics-six">
+  <article class="metric"><span>Enabled trackers</span><strong>{{ metrics['enabled'] or 0 }}</strong><small>{{ metrics['total'] or 0 }} total</small></article>
+  <article class="metric accent-metric"><span>Updates available</span><strong>{{ state_counts['updates_available'] }}</strong><small>Confirmed version differences</small></article>
+  <article class="metric"><span>Needs attention</span><strong>{{ state_counts['needs_attention'] }}</strong><small>{{ state_counts['checker_errors'] }} checker · {{ state_counts['offline'] }} offline · {{ state_counts['upstream_unavailable'] }} upstream unknown</small></article>
+  <article class="metric"><span>Pending alerts</span><strong>{{ pending }}</strong><small>Queued notifications</small></article>
+  <article class="metric"><span>Updates today</span><strong>{{ updates_24h }}</strong><small>{{ updates_7d }} in seven days</small></article>
+  <article class="metric"><span>Last check</span><strong class="metric-time">{{ metrics['last_checked']|pretty_time }}</strong><small>Manual or scheduled</small></article>
+</section>
+
+<section class="insight-grid">
+  <article class="panel activity-panel">
+    <div class="panel-header compact-panel-header"><div><h2>Update activity</h2><p>Detected releases during the past 14 days.</p></div></div>
+    <div class="activity-chart">
+      {% for day in activity %}
+      <a class="activity-day activity-day-link" href="{{ url_for('history', date=day['date']) }}" title="{{ day['label'] }}: {{ day['count'] }} update(s) · open history">
+        <span>{{ day['count'] if day['count'] else '' }}</span>
+        <div class="activity-track"><i style="height: {{ day['height'] }}%"></i></div>
+        <small>{{ day['label'].split(' ')[0] }}</small>
+      </a>
+      {% endfor %}
+    </div>
+  </article>
+  <article class="panel recent-panel">
+    <div class="panel-header compact-panel-header"><div><h2>Recently updated</h2><p>Latest detected release changes.</p></div><a class="text-link" href="{{ url_for('history') }}">Full history</a></div>
+    {% if recent_events %}
+    <div class="recent-update-list">
+      {% for event in recent_events[:4] %}
+      <a class="recent-update" href="{{ event['release_url'] or ('https://github.com/' ~ event['repository']) }}" target="_blank" rel="noreferrer">
+        <span class="update-symbol">↗</span><span class="recent-update-copy"><strong>{{ event['name'] }}</strong><small>{{ event['previous_release_name'] or event['previous_version'] or 'Previous' }} → {{ event['release_name'] or event['version'] }}</small></span><span class="update-time">{{ event['detected_at']|relative_time }}</span>
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}<div class="mini-empty">No release changes have been detected after the initial baselines.</div>{% endif %}
+  </article>
+</section>
+
+<section class="panel upgrade-workflow-panel">
+  <div class="panel-header">
+    <div><h2>Upgrade decision queue</h2><p>Detected releases that still need an explicit operational decision.</p></div>
+    <div class="workflow-header-actions"><span class="workflow-count-summary"><strong>{{ workflow_counts['review'] }}</strong> review · <strong>{{ workflow_counts['update'] }}</strong> update · <strong>{{ workflow_counts['wait'] }}</strong> wait</span><a class="button secondary small" href="{{ url_for('upgrades') }}">Open upgrade queue</a></div>
+  </div>
+  {% if workflow_queue %}
+  <div class="workflow-queue-list">
+    {% for tracker in workflow_queue %}
+    <article class="workflow-queue-row">
+      <span class="decision-chip {{ tracker['decision_status'] }}">{{ tracker['decision_label'] }}</span>
+      <div class="workflow-queue-copy"><strong>{{ tracker['name'] }}</strong><small>{{ tracker['effective_installed_version'] or 'Unknown installed' }} → {{ tracker['current_release_name'] or tracker['current_version'] }}{% if tracker['machine_name'] %} · {{ tracker['machine_name'] }}{% endif %}</small></div>
+      <span class="priority-chip {{ tracker['decision_priority'] }}">{{ tracker['decision_priority']|title }}</span>
+      {% if tracker['maintenance_date'] %}<span class="maintenance-chip">{{ tracker['maintenance_date'] }}</span>{% endif %}
+      <a class="button ghost small" href="{{ url_for('upgrade_decision', tracker_id=tracker['id']) }}">Review</a>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}<div class="mini-empty">No releases currently need review. Ignored and deployed releases remain in the full upgrade queue.</div>{% endif %}
+</section>
+
+<section class="panel attention-panel">
+  <div class="panel-header">
+    <div><h2>Needs attention</h2><p>Operational problems are kept separate from confirmed software updates.</p></div>
+    <span class="workflow-count-summary"><strong>{{ state_counts['needs_attention'] }}</strong> tracker{{ '' if state_counts['needs_attention'] == 1 else 's' }}</span>
+  </div>
+  {% if attention_queue %}
+  <div class="workflow-queue-list">
+    {% for tracker in attention_queue %}
+    <article class="workflow-queue-row">
+      <span class="decision-chip wait">Attention</span>
+      <div class="workflow-queue-copy"><strong>{{ tracker['name'] }}</strong><small>{% for issue in tracker['attention'] %}{{ issue['label'] }}{% if not loop.last %} · {% endif %}{% endfor %}{% if tracker['machine_name'] %} · {{ tracker['machine_name'] }}{% endif %}</small></div>
+      <span class="priority-chip normal">{{ tracker['attention']|length }} issue{{ '' if tracker['attention']|length == 1 else 's' }}</span>
+      <a class="button ghost small" href="#tracker-{{ tracker['id'] }}">Inspect</a>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}<div class="mini-empty">No trackers currently need operational attention.</div>{% endif %}
+</section>
+
+<section class="panel">
+  <div class="panel-header repository-header">
+    <div><h2>Software list</h2><p>Upstream releases, installed versions, host reachability, and update state.</p></div>
+    <div class="filter-tools dashboard-filter-tools">
+      <input id="tracker-filter" class="filter" type="search" placeholder="Filter software, machine, IP, repository or tag">
+      <select id="machine-filter" class="tag-filter" aria-label="Filter by machine"><option value="">All machines</option>{% set machine_names = trackers|map(attribute='machine_name')|select|unique|sort %}{% for machine in machine_names %}<option value="{{ machine|lower }}">{{ machine }}</option>{% endfor %}</select>
+      <select id="connectivity-filter" class="tag-filter" aria-label="Filter by connectivity"><option value="">All connectivity</option><option value="online">Online</option><option value="offline">Offline</option><option value="not-probed">Not probed</option></select>
+      <select id="update-filter" class="tag-filter" aria-label="Filter by update state"><option value="">All update states</option><option value="installed-current">Installed current</option><option value="major">Major update</option><option value="minor">Minor update</option><option value="patch">Patch update</option><option value="update-available">Any update available</option><option value="unknown">Version unknown</option><option value="no-update-data">No comparison available</option></select>
+      <select id="tag-filter" class="tag-filter"><option value="">All tags</option>{% for tag in all_tags %}<option value="{{ tag }}">{{ tag }}</option>{% endfor %}</select>
+    </div>
+  </div>
+  {% if trackers %}
+  <div class="dashboard-view-toolbar" aria-label="Dashboard views and layout">
+    <div class="view-presets" id="dashboard-view-presets">
+      <button class="view-preset active" type="button" data-view-preset="all">All <span class="view-count" data-view-count="all"></span></button>
+      <button class="view-preset" type="button" data-view-preset="updates">Updates <span class="view-count" data-view-count="updates"></span></button>
+      <button class="view-preset" type="button" data-view-preset="attention">Attention <span class="view-count" data-view-count="attention"></span></button>
+      <button class="view-preset" type="button" data-view-preset="paused">Paused <span class="view-count" data-view-count="paused"></span></button>
+    </div>
+    <span class="view-toolbar-spacer"></span>
+    <div class="view-management">
+      <label class="sr-only" for="saved-dashboard-view">Saved dashboard view</label>
+      <select id="saved-dashboard-view"><option value="">Saved views…</option></select>
+      <button class="toolbar-icon-button" id="save-dashboard-view" type="button">Save view</button>
+      <button class="toolbar-icon-button" id="delete-dashboard-view" type="button" disabled>Delete</button>
+      <button class="toolbar-icon-button" id="reset-dashboard-view" type="button">Reset</button>
+      <div class="density-control" aria-label="Row density">
+        <button type="button" data-density="comfortable">Comfortable</button><button type="button" data-density="compact">Compact</button>
+      </div>
+    </div>
+  </div>
+  <div class="active-filter-summary" id="active-filter-summary" hidden aria-live="polite"><span id="active-filter-tokens"></span><span class="filter-result-count" id="active-filter-result-count"></span></div>
+  {% if current_user['role'] == 'admin' %}<form id="bulk-form" class="bulk-toolbar" method="post" action="{{ url_for('bulk_trackers') }}" onsubmit="return confirmBulkAction();">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label class="select-all-control"><input id="select-all-trackers" type="checkbox" onchange="toggleSelectAll(this.checked)"><span>Select all visible</span></label>
+    <span id="selected-count" class="selected-count">0 selected</span>
+    <select id="bulk-action" name="bulk_action" onchange="updateBulkControls()">
+      <option value="">Edit selected…</option><option value="check">Check upstream now</option><option value="probe">Probe installed services</option><option value="refresh">Change refresh interval</option><option value="pause">Pause</option><option value="enable">Enable</option><option value="delete">Delete</option>
+    </select>
+    <select id="bulk-refresh-hours" name="bulk_refresh_hours" class="bulk-refresh" hidden>{% for hours in allowed_refresh_hours %}<option value="{{ hours }}">Every {{ hours }} hour{{ '' if hours == 1 else 's' }}</option>{% endfor %}</select>
+    <button id="bulk-apply" class="button secondary" type="submit" disabled>Apply</button>
+  </form>{% endif %}
+  <div class="tracker-column-header" id="tracker-column-header" aria-label="Sortable software columns">
+    <div class="tracker-header-select"></div>
+    <button type="button" class="tracker-sort-header active" data-sort="name" data-type="text">Software <span class="sort-indicator">▲</span><i class="column-resizer" data-column="software" aria-hidden="true"></i></button>
+    <div class="tracker-fact-headers">
+      <button type="button" class="tracker-sort-header" data-sort="installed" data-type="version">Installed version <span class="sort-indicator"></span><i class="column-resizer" data-column="installed" aria-hidden="true"></i></button>
+      <button type="button" class="tracker-sort-header" data-sort="current" data-type="version">Current release <span class="sort-indicator"></span><i class="column-resizer" data-column="current" aria-hidden="true"></i></button>
+      <button type="button" class="tracker-sort-header" data-sort="refresh" data-type="number">Refresh <span class="sort-indicator"></span><i class="column-resizer" data-column="refresh" aria-hidden="true"></i></button>
+      <button type="button" class="tracker-sort-header" data-sort="checked" data-type="date">Last checked <span class="sort-indicator"></span><i class="column-resizer" data-column="checked" aria-hidden="true"></i></button>
+      <button type="button" class="tracker-sort-header" data-sort="status" data-type="text">Status <span class="sort-indicator"></span></button>
+    </div>
+    <div class="tracker-header-actions">Actions</div>
+  </div>
+  <div class="tracker-list" id="tracker-list">
+    {% for tracker in trackers %}
+    <article id="tracker-{{ tracker['id'] }}" class="tracker-row {% if tracker['recently_updated'] %}recently-updated{% endif %}"
+      data-search="{{ tracker['name']|lower }} {{ tracker['repository']|lower }} {{ tracker['tags']|lower }} {{ (tracker['machine_name'] or '')|lower }} {{ (tracker['install_host'] or '')|lower }}"
+      data-tags="{{ tracker['tags']|lower }}"
+      data-name="{{ tracker['name']|lower }}"
+      data-installed="{{ (tracker['effective_installed_version'] or '')|lower }}"
+      data-current="{{ (tracker['current_release_name'] or tracker['current_version'] or '')|lower }}"
+      data-refresh="{{ tracker['refresh_hours'] or 0 }}"
+      data-checked="{{ tracker['last_checked_at'] or '' }}"
+      data-status="{{ 'paused' if not tracker['enabled'] else ('error' if tracker['last_status'] == 'error' else ('pending' if tracker['pending_count'] else 'active')) }}"
+      data-machine="{{ (tracker['machine_name'] or '')|lower }}"
+      data-connectivity="{{ 'online' if tracker['last_probe_status'] == 'ok' else ('offline' if tracker['last_probe_status'] == 'error' else 'not-probed') }}"
+      data-decision="{{ tracker['decision_status'] or '' }}"
+      data-attention="{{ 'true' if tracker['needs_attention'] else 'false' }}"
+      data-update="{% if tracker['update_available'] %}{{ tracker['upgrade']['level'] or 'update-available' }} update-available{% elif tracker['version_current'] %}installed-current{% elif not tracker['effective_installed_version'] %}unknown{% else %}no-update-data{% endif %}">
+      <div class="tracker-select">{% if current_user['role'] == 'admin' %}<input class="tracker-checkbox" type="checkbox" name="tracker_ids" value="{{ tracker['id'] }}" form="bulk-form" aria-label="Select {{ tracker['name'] }}" onchange="updateSelectedCount()">{% endif %}</div>
+      <div class="tracker-main">
+        <div class="tracker-title-line"><span class="status-dot {% if not tracker['enabled'] %}paused{% elif tracker['last_status'] == 'error' %}error{% else %}ok{% endif %}"></span><div><div class="tracker-name-line"><h3>{{ tracker['name'] }}</h3>{% if tracker['recently_updated'] %}<span class="updated-badge">Updated</span>{% endif %}{% if tracker['update_available'] %}<span class="upgrade-chip {{ tracker['upgrade']['level'] }}">{{ tracker['upgrade']['label'] }}</span>{% elif tracker['version_current'] %}<span class="current-badge">{{ tracker['upgrade']['label'] }}</span>{% endif %}{% if tracker['needs_attention'] %}<span class="pill warning-pill">Needs attention</span>{% endif %}{% if tracker['decision_status'] %}<span class="decision-chip {{ tracker['decision_status'] }}">{{ tracker['decision_status']|title }}</span>{% endif %}</div><a href="https://github.com/{{ tracker['repository'] }}" target="_blank" rel="noreferrer">{{ tracker['repository'] }}</a></div></div>
+        {% if tracker['machine_name'] or tracker['install_host'] %}<div class="machine-line"><strong>{{ tracker['machine_name'] or 'Installed service' }}</strong><span>{{ tracker['install_host'] or 'No IP' }}{% if tracker['install_port'] %}:{{ tracker['install_port'] }}{% endif %}</span>{% if tracker['last_probe_status'] == 'ok' %}<span class="online-chip">Online · {{ tracker['last_probe_latency_ms'] }} ms</span>{% elif tracker['last_probe_status'] == 'error' %}<span class="offline-chip">Offline</span>{% else %}<span class="muted-chip">Not probed</span>{% endif %}</div>{% endif %}
+        {% if tracker['tags_list'] %}<div class="tag-list tracker-tags">{% for tag in tracker['tags_list'] %}<span class="tag-chip">{{ tag }}</span>{% endfor %}</div>{% endif %}
+        {% if tracker['notes'] %}<p class="tracker-notes">{{ tracker['notes'] }}</p>{% endif %}
+      </div>
+      <div class="tracker-facts tracker-facts-wide">
+        <div class="release-fact"><span>Installed version</span><strong>{{ tracker['effective_installed_version'] or 'Not recorded' }}</strong><small>{{ tracker['probe_mode']|replace('_', ' ')|title }}</small></div>
+        <div class="release-fact"><span>Current release</span><strong>{{ tracker['current_release_name'] or tracker['current_version'] or 'Not checked' }}</strong>{% if tracker['current_release_name'] and tracker['current_version'] and tracker['current_release_name']|lower != tracker['current_version']|lower %}<small>Git tag {{ tracker['current_version'] }}</small>{% endif %}</div>
+        <div><span>Refresh</span><strong>Every {{ tracker['refresh_hours'] }}h</strong><small>Next {{ tracker['next_due_at']|relative_time }}</small></div>
+        <div><span>Last checked</span><strong>{{ tracker['last_checked_at']|relative_time }}</strong><small>{{ tracker['last_checked_at']|pretty_time }}</small></div>
+        <div><span>Status</span>{% if not tracker['enabled'] %}<strong class="pill muted-pill">Paused</strong>{% elif tracker['last_status'] == 'error' %}<strong class="pill error-pill">Error</strong>{% elif tracker['pending_count'] %}<strong class="pill warning-pill">Alert pending</strong>{% else %}<strong class="pill success-pill">Active</strong>{% endif %}</div>
+      </div>
+      {% if tracker['needs_attention'] %}<div class="inline-error">Needs attention: {% for issue in tracker['attention'] %}{{ issue['label'] }}{% if issue['detail'] %} - {{ issue['detail'] }}{% endif %}{% if not loop.last %}; {% endif %}{% endfor %}</div>{% endif %}
+      {% if tracker['last_error'] %}<div class="inline-error">Upstream check: {{ tracker['last_error'] }}</div>{% endif %}
+      {% if tracker['last_probe_error'] %}<div class="inline-error probe-error">Service probe: {{ tracker['last_probe_error'] }}</div>{% endif %}
+      <div class="tracker-actions">
+        {% if tracker['current_release_url'] %}<a class="button ghost small" href="{{ tracker['current_release_url'] }}" target="_blank" rel="noreferrer">Release</a>{% endif %}
+        <a class="button ghost small" href="{{ url_for('assistant', tracker_id=tracker['id']) }}">Analyse</a>
+        {% if tracker['update_available'] or tracker['decision_id'] %}<a class="button ghost small" href="{{ url_for('upgrade_decision', tracker_id=tracker['id']) }}">Plan</a>{% endif %}
+        {% if current_user['role'] == 'admin' %}
+        {% if tracker['probe_mode'] == 'portainer' or tracker['install_host'] %}<form method="post" action="{{ url_for('probe_one', tracker_id=tracker['id']) }}" data-preserve-dashboard-state><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button ghost small" type="submit">Probe</button></form>{% else %}<a class="button ghost small" href="{{ url_for('edit_tracker', tracker_id=tracker['id']) }}" data-preserve-dashboard-state title="Configure machine, port or Portainer mapping before probing">Configure probe</a>{% endif %}
+        <form method="post" action="{{ url_for('check_one', tracker_id=tracker['id']) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button ghost small" type="submit">Check</button></form>
+        <a class="button ghost small" href="{{ url_for('edit_tracker', tracker_id=tracker['id']) }}">Edit</a>
+        <form method="post" action="{{ url_for('toggle_tracker', tracker_id=tracker['id']) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button ghost small" type="submit">{{ 'Pause' if tracker['enabled'] else 'Enable' }}</button></form>
+        <form method="post" action="{{ url_for('delete_tracker', tracker_id=tracker['id']) }}" onsubmit='return confirm({{ ("Delete " ~ tracker["name"] ~ " and its release history?")|tojson }});'><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button danger small" type="submit">Delete</button></form>
+        {% endif %}
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+  <div class="pagination-bar" id="tracker-pagination">
+    <div class="pagination-info" id="tracker-page-info" aria-live="polite"></div>
+    <label class="pagination-size">Show<select id="tracker-page-size"><option value="10">10</option><option value="25" selected>25</option><option value="50">50</option><option value="100">100</option><option value="200">200</option></select>per page</label>
+    <div class="pagination-buttons"><button class="button ghost small" id="tracker-first" type="button" aria-label="First page">«</button><button class="button ghost small" id="tracker-prev" type="button" aria-label="Previous page">‹</button><span class="pagination-page" id="tracker-page-label"></span><button class="button ghost small" id="tracker-next" type="button" aria-label="Next page">›</button><button class="button ghost small" id="tracker-last" type="button" aria-label="Last page">»</button></div>
+  </div>
+  {% else %}<div class="empty-state"><h3>No software is being tracked</h3><p>An administrator can add a GitHub repository and its deployed machine details.</p>{% if current_user['role'] == 'admin' %}<a class="button primary" href="{{ url_for('add_tracker') }}">Add first tracker</a>{% endif %}</div>{% endif %}
+</section>
+<script>
+(() => {
+  'use strict';
+  const trackerList = document.getElementById('tracker-list');
+  const trackerRows = Array.from(document.querySelectorAll('.tracker-row'));
+  if (!trackerList || !trackerRows.length) return;
+
+  const storageKeys = {
+    page: 'softwareReleaseRadarDashboardPage',
+    pageSize: 'softwareReleaseRadarPageSize',
+    sortKey: 'softwareReleaseRadarSortKey',
+    sortDirection: 'softwareReleaseRadarSortDirection',
+    columns: 'softwareReleaseRadarColumnWidths',
+    state: 'softwareReleaseRadarDashboardState',
+    views: 'softwareReleaseRadarSavedViews',
+    density: 'softwareReleaseRadarDensity',
+  };
+  const fields = {
+    filter: document.getElementById('tracker-filter'),
+    machine: document.getElementById('machine-filter'),
+    connectivity: document.getElementById('connectivity-filter'),
+    update: document.getElementById('update-filter'),
+    tag: document.getElementById('tag-filter'),
+  };
+  const collator = new Intl.Collator('en-AU', { numeric: true, sensitivity: 'base' });
+  let trackerPage = Number(sessionStorage.getItem(storageKeys.page) || 1);
+  let trackerPageSize = Number(localStorage.getItem(storageKeys.pageSize) || 25);
+  let trackerSort = {
+    key: localStorage.getItem(storageKeys.sortKey) || 'name',
+    direction: localStorage.getItem(storageKeys.sortDirection) || 'asc',
+    type: 'text',
+  };
+  let activePreset = 'all';
+  let dashboardDensity = localStorage.getItem(storageKeys.density) || 'comfortable';
+  if (![10, 25, 50, 100, 200].includes(trackerPageSize)) trackerPageSize = 25;
+
+  function readJson(key, fallback) {
+    try { return JSON.parse(localStorage.getItem(key) || '') || fallback; } catch (error) { return fallback; }
+  }
+  function sortValue(row, key, type) {
+    const raw = row.dataset[key] || '';
+    if (type === 'number') return Number(raw) || 0;
+    if (type === 'date') return raw ? Date.parse(raw) || 0 : 0;
+    return raw;
+  }
+  function compareRows(a, b) {
+    const av = sortValue(a, trackerSort.key, trackerSort.type);
+    const bv = sortValue(b, trackerSort.key, trackerSort.type);
+    let result = 0;
+    if (typeof av === 'number' && typeof bv === 'number') result = av - bv;
+    else result = collator.compare(String(av), String(bv));
+    return trackerSort.direction === 'asc' ? result : -result;
+  }
+  function applyTrackerSort() {
+    trackerRows.sort(compareRows);
+    trackerRows.forEach((row) => trackerList.appendChild(row));
+    document.querySelectorAll('.tracker-sort-header').forEach((button) => {
+      const active = button.dataset.sort === trackerSort.key;
+      button.classList.toggle('active', active);
+      button.querySelector('.sort-indicator').textContent = active ? (trackerSort.direction === 'asc' ? '▲' : '▼') : '';
+    });
+    localStorage.setItem(storageKeys.sortKey, trackerSort.key);
+    localStorage.setItem(storageKeys.sortDirection, trackerSort.direction);
+  }
+  function matchesPreset(row, preset = activePreset) {
+    if (preset === 'updates') return (row.dataset.update || '').split(/\s+/).includes('update-available');
+    if (preset === 'attention') return row.dataset.attention === 'true';
+    if (preset === 'paused') return row.dataset.status === 'paused';
+    return true;
+  }
+  function filteredTrackerRows() {
+    const q = (fields.filter?.value || '').toLowerCase().trim();
+    const tag = (fields.tag?.value || '').toLowerCase().trim();
+    const machine = (fields.machine?.value || '').toLowerCase().trim();
+    const connectivity = (fields.connectivity?.value || '').toLowerCase().trim();
+    const update = (fields.update?.value || '').toLowerCase().trim();
+    return trackerRows.filter((row) => {
+      const tags = row.dataset.tags ? row.dataset.tags.split(',').map((value) => value.trim()) : [];
+      const updateStates = (row.dataset.update || '').split(/\s+/).filter(Boolean);
+      return matchesPreset(row)
+        && (!q || row.dataset.search.includes(q))
+        && (!tag || tags.includes(tag))
+        && (!machine || row.dataset.machine === machine)
+        && (!connectivity || row.dataset.connectivity === connectivity)
+        && (!update || updateStates.includes(update));
+    });
+  }
+  function visibleCheckboxes() { return Array.from(document.querySelectorAll('.tracker-row:not([hidden]) .tracker-checkbox')); }
+  function updateFilterSummary(matches) {
+    const summary = document.getElementById('active-filter-summary');
+    const tokens = document.getElementById('active-filter-tokens');
+    const resultCount = document.getElementById('active-filter-result-count');
+    if (!summary || !tokens || !resultCount) return;
+    const labels = [];
+    if (activePreset !== 'all') labels.push(`View: ${activePreset[0].toUpperCase()}${activePreset.slice(1)}`);
+    if (fields.filter?.value.trim()) labels.push(`Search: ${fields.filter.value.trim()}`);
+    ['machine', 'connectivity', 'update', 'tag'].forEach((key) => {
+      const field = fields[key];
+      if (field?.value) labels.push(`${key[0].toUpperCase()}${key.slice(1)}: ${field.options[field.selectedIndex]?.text || field.value}`);
+    });
+    tokens.replaceChildren(...labels.map((label) => {
+      const token = document.createElement('span'); token.className = 'filter-token'; token.textContent = label; return token;
+    }));
+    resultCount.textContent = `${matches.length} of ${trackerRows.length} software shown`;
+    summary.hidden = labels.length === 0;
+  }
+  function renderTrackerPage(reset = false) {
+    if (reset) trackerPage = 1;
+    applyTrackerSort();
+    const matches = filteredTrackerRows();
+    const pages = Math.max(1, Math.ceil(matches.length / trackerPageSize));
+    trackerPage = Math.min(Math.max(1, trackerPage), pages);
+    sessionStorage.setItem(storageKeys.page, String(trackerPage));
+    const start = (trackerPage - 1) * trackerPageSize;
+    const end = Math.min(start + trackerPageSize, matches.length);
+    const shown = new Set(matches.slice(start, end));
+    trackerRows.forEach((row) => { row.hidden = !shown.has(row); });
+    document.getElementById('tracker-page-info').textContent = matches.length ? `Showing ${start + 1}–${end} of ${matches.length} matching software` : 'No matching software';
+    document.getElementById('tracker-page-label').textContent = `Page ${trackerPage} of ${pages}`;
+    document.getElementById('tracker-first').disabled = trackerPage <= 1;
+    document.getElementById('tracker-prev').disabled = trackerPage <= 1;
+    document.getElementById('tracker-next').disabled = trackerPage >= pages;
+    document.getElementById('tracker-last').disabled = trackerPage >= pages;
+    updateFilterSummary(matches);
+    updateSelectedCount();
+  }
+  function filterTrackers() { renderTrackerPage(true); }
+
+  window.toggleSelectAll = function toggleSelectAll(checked) { visibleCheckboxes().forEach((box) => { box.checked = checked; }); updateSelectedCount(); };
+  window.updateSelectedCount = function updateSelectedCount() {
+    const all = Array.from(document.querySelectorAll('.tracker-checkbox'));
+    const selected = all.filter((box) => box.checked);
+    const visible = visibleCheckboxes();
+    const selectedVisible = visible.filter((box) => box.checked);
+    const count = document.getElementById('selected-count');
+    if (count) count.textContent = `${selected.length} selected`;
+    const apply = document.getElementById('bulk-apply');
+    const action = document.getElementById('bulk-action');
+    if (apply) apply.disabled = selected.length === 0 || !action?.value;
+    const selectAll = document.getElementById('select-all-trackers');
+    if (selectAll) {
+      selectAll.checked = visible.length > 0 && selectedVisible.length === visible.length;
+      selectAll.indeterminate = selectedVisible.length > 0 && selectedVisible.length < visible.length;
+    }
+  };
+  window.updateBulkControls = function updateBulkControls() {
+    const action = document.getElementById('bulk-action')?.value || '';
+    const refresh = document.getElementById('bulk-refresh-hours');
+    if (refresh) refresh.hidden = action !== 'refresh';
+    updateSelectedCount();
+  };
+  window.confirmBulkAction = function confirmBulkAction() {
+    const action = document.getElementById('bulk-action')?.value || '';
+    const count = document.querySelectorAll('.tracker-checkbox:checked').length;
+    if (!action || !count) return false;
+    return action !== 'delete' || confirm(`Delete ${count} selected tracker(s) and their history?`);
+  };
+
+  function setDensity(density, announce = false) {
+    dashboardDensity = density === 'compact' ? 'compact' : 'comfortable';
+    document.body.classList.toggle('dashboard-compact', dashboardDensity === 'compact');
+    document.querySelectorAll('[data-density]').forEach((button) => button.classList.toggle('active', button.dataset.density === dashboardDensity));
+    localStorage.setItem(storageKeys.density, dashboardDensity);
+    if (announce) window.SRR?.notify(`Dashboard rows are now ${dashboardDensity}.`, 'info');
+  }
+  function setPreset(preset, resetPage = true) {
+    activePreset = ['all', 'updates', 'attention', 'paused'].includes(preset) ? preset : 'all';
+    document.querySelectorAll('[data-view-preset]').forEach((button) => button.classList.toggle('active', button.dataset.viewPreset === activePreset));
+    renderTrackerPage(resetPage);
+  }
+  function updatePresetCounts() {
+    ['all', 'updates', 'attention', 'paused'].forEach((preset) => {
+      const count = trackerRows.filter((row) => matchesPreset(row, preset)).length;
+      const target = document.querySelector(`[data-view-count="${preset}"]`);
+      if (target) target.textContent = count;
+    });
+  }
+  function currentViewState() {
+    return {
+      preset: activePreset,
+      filter: fields.filter?.value || '', machine: fields.machine?.value || '',
+      connectivity: fields.connectivity?.value || '', update: fields.update?.value || '', tag: fields.tag?.value || '',
+      sortKey: trackerSort.key, sortDirection: trackerSort.direction, pageSize: trackerPageSize, density: dashboardDensity,
+    };
+  }
+  function applyViewState(state, announce = false) {
+    activePreset = state.preset || 'all';
+    Object.keys(fields).forEach((key) => { if (fields[key] && typeof state[key] === 'string') fields[key].value = state[key]; });
+    trackerSort.key = state.sortKey || 'name'; trackerSort.direction = state.sortDirection || 'asc';
+    trackerPageSize = [10,25,50,100,200].includes(Number(state.pageSize)) ? Number(state.pageSize) : trackerPageSize;
+    const pageSize = document.getElementById('tracker-page-size'); if (pageSize) pageSize.value = String(trackerPageSize);
+    const activeButton = document.querySelector(`.tracker-sort-header[data-sort="${trackerSort.key}"]`); trackerSort.type = activeButton?.dataset.type || 'text';
+    setDensity(state.density || dashboardDensity);
+    document.querySelectorAll('[data-view-preset]').forEach((button) => button.classList.toggle('active', button.dataset.viewPreset === activePreset));
+    renderTrackerPage(true);
+    if (announce) window.SRR?.notify('Saved dashboard view applied.', 'success');
+  }
+  function savedViews() { return readJson(storageKeys.views, {}); }
+  function renderSavedViews(selected = '') {
+    const select = document.getElementById('saved-dashboard-view'); if (!select) return;
+    const views = savedViews(); select.innerHTML = '<option value="">Saved views…</option>';
+    Object.keys(views).sort(collator.compare).forEach((name) => { const option = document.createElement('option'); option.value = name; option.textContent = name; select.append(option); });
+    select.value = selected in views ? selected : '';
+    document.getElementById('delete-dashboard-view').disabled = !select.value;
+  }
+  function resetDashboard() {
+    Object.values(fields).forEach((field) => { if (field) field.value = ''; });
+    activePreset = 'all'; trackerSort = { key: 'name', direction: 'asc', type: 'text' }; trackerPageSize = 25;
+    document.getElementById('tracker-page-size').value = '25';
+    document.documentElement.style.removeProperty('--tracker-software-width');
+    ['software','installed','current','refresh','checked'].forEach((key) => document.documentElement.style.removeProperty(`--tracker-${key}-width`));
+    localStorage.removeItem(storageKeys.columns); localStorage.removeItem(storageKeys.sortKey); localStorage.removeItem(storageKeys.sortDirection); localStorage.removeItem(storageKeys.pageSize);
+    setDensity('comfortable'); setPreset('all'); renderSavedViews(); window.SRR?.notify('Dashboard filters and layout reset.', 'success');
+  }
+
+  function initialiseColumnResizers() {
+    const root = document.documentElement;
+    const widths = readJson(storageKeys.columns, {});
+    Object.entries(widths).forEach(([key, value]) => root.style.setProperty(`--tracker-${key}-width`, `${value}px`));
+    document.querySelectorAll('.column-resizer').forEach((handle) => {
+      handle.addEventListener('pointerdown', (event) => {
+        event.preventDefault(); event.stopPropagation();
+        const key = handle.dataset.column; const property = `--tracker-${key}-width`;
+        const computed = parseFloat(getComputedStyle(root).getPropertyValue(property)) || handle.parentElement.getBoundingClientRect().width;
+        const startX = event.clientX; const minimum = key === 'software' ? 220 : 90;
+        document.body.classList.add('resizing-columns');
+        const move = (moveEvent) => { const width = Math.max(minimum, computed + moveEvent.clientX - startX); root.style.setProperty(property, `${width}px`); widths[key] = Math.round(width); };
+        const up = () => { document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up); document.body.classList.remove('resizing-columns'); localStorage.setItem(storageKeys.columns, JSON.stringify(widths)); };
+        document.addEventListener('pointermove', move); document.addEventListener('pointerup', up);
+      });
+    });
+  }
+  function saveDashboardState() {
+    const state = { ...currentViewState(), page: trackerPage, scrollY: window.scrollY };
+    sessionStorage.setItem(storageKeys.state, JSON.stringify(state));
+    sessionStorage.setItem(storageKeys.page, String(trackerPage));
+  }
+  function restoreDashboardState() {
+    let state = {}; try { state = JSON.parse(sessionStorage.getItem(storageKeys.state) || '{}'); } catch (error) {}
+    if (Number.isFinite(Number(state.page)) && Number(state.page) > 0) trackerPage = Number(state.page);
+    applyViewState(state);
+    return Number(state.scrollY) || 0;
+  }
+
+  document.querySelectorAll('.tracker-sort-header').forEach((button) => button.addEventListener('click', (event) => {
+    if (event.target.classList.contains('column-resizer')) return;
+    const key = button.dataset.sort; trackerSort.type = button.dataset.type || 'text';
+    if (trackerSort.key === key) trackerSort.direction = trackerSort.direction === 'asc' ? 'desc' : 'asc';
+    else { trackerSort.key = key; trackerSort.direction = 'asc'; }
+    renderTrackerPage(true);
+  }));
+  document.querySelectorAll('[data-view-preset]').forEach((button) => button.addEventListener('click', () => setPreset(button.dataset.viewPreset)));
+  document.querySelectorAll('[data-density]').forEach((button) => button.addEventListener('click', () => setDensity(button.dataset.density, true)));
+  const size = document.getElementById('tracker-page-size'); size.value = String(trackerPageSize);
+  size.addEventListener('change', () => { trackerPageSize = Number(size.value); localStorage.setItem(storageKeys.pageSize, String(trackerPageSize)); renderTrackerPage(true); });
+  fields.filter?.addEventListener('input', filterTrackers);
+  ['machine', 'connectivity', 'update', 'tag'].forEach((key) => fields[key]?.addEventListener('change', filterTrackers));
+  document.getElementById('tracker-first').addEventListener('click', () => { trackerPage = 1; renderTrackerPage(); });
+  document.getElementById('tracker-prev').addEventListener('click', () => { trackerPage -= 1; renderTrackerPage(); });
+  document.getElementById('tracker-next').addEventListener('click', () => { trackerPage += 1; renderTrackerPage(); });
+  document.getElementById('tracker-last').addEventListener('click', () => { trackerPage = Math.ceil(filteredTrackerRows().length / trackerPageSize) || 1; renderTrackerPage(); });
+  document.getElementById('saved-dashboard-view')?.addEventListener('change', (event) => {
+    const name = event.target.value; document.getElementById('delete-dashboard-view').disabled = !name;
+    if (name) applyViewState(savedViews()[name], true);
+  });
+  document.getElementById('save-dashboard-view')?.addEventListener('click', () => {
+    const suggested = document.getElementById('saved-dashboard-view')?.value || '';
+    const name = prompt('Name this dashboard view:', suggested); if (!name?.trim()) return;
+    const views = savedViews(); views[name.trim()] = currentViewState(); localStorage.setItem(storageKeys.views, JSON.stringify(views)); renderSavedViews(name.trim()); window.SRR?.notify(`Saved view “${name.trim()}”.`, 'success');
+  });
+  document.getElementById('delete-dashboard-view')?.addEventListener('click', () => {
+    const select = document.getElementById('saved-dashboard-view'); const name = select?.value; if (!name) return;
+    const views = savedViews(); delete views[name]; localStorage.setItem(storageKeys.views, JSON.stringify(views)); renderSavedViews(); window.SRR?.notify(`Deleted view “${name}”.`, 'info');
+  });
+  document.getElementById('reset-dashboard-view')?.addEventListener('click', resetDashboard);
+  document.querySelectorAll('form').forEach((form) => form.addEventListener('submit', saveDashboardState));
+  document.querySelectorAll('a[data-preserve-dashboard-state], .tracker-actions a').forEach((link) => link.addEventListener('click', saveDashboardState));
+  window.addEventListener('beforeunload', saveDashboardState);
+
+  window.SRR = Object.assign(window.SRR || {}, {
+    focusDashboardSearch() { fields.filter?.focus(); fields.filter?.scrollIntoView({ block: 'center' }); },
+    toggleDashboardDensity() { setDensity(dashboardDensity === 'compact' ? 'comfortable' : 'compact', true); },
+  });
+
+  initialiseColumnResizers(); updatePresetCounts(); renderSavedViews(); setDensity(dashboardDensity);
+  const restoredScrollY = restoreDashboardState();
+  const commandParams = new URLSearchParams(window.location.search);
+  if (commandParams.get('density') === 'toggle') setDensity(dashboardDensity === 'compact' ? 'comfortable' : 'compact', true);
+  if (commandParams.get('focus') === 'search') requestAnimationFrame(() => window.SRR?.focusDashboardSearch?.());
+  if (commandParams.has('density') || commandParams.has('focus')) history.replaceState(null, '', window.location.pathname);
+  requestAnimationFrame(() => requestAnimationFrame(() => window.scrollTo({ top: restoredScrollY, behavior: 'instant' })));
+})();
+</script>
+{% endblock %}

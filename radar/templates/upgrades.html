@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}Upgrade decisions · Software Release Radar{% endblock %}
+{% block topbar_title %}Upgrade decision queue{% endblock %}
+{% block content %}
+<section class="page-heading">
+  <div><span class="eyebrow">MANAGED RELEASE ACTIONS</span><h1>Upgrade decisions</h1><p>{{ workflow_counts.values()|sum }} confirmed update{{ '' if workflow_counts.values()|sum == 1 else 's' }}. Tracker errors and missing version data are listed separately and never inflate this queue.</p></div>
+</section>
+
+<section class="metrics metrics-five upgrade-metrics">
+  <article class="metric"><span>Needs review</span><strong>{{ workflow_counts['review'] }}</strong><small>Untriaged releases</small></article>
+  <article class="metric accent-metric"><span>Update</span><strong>{{ workflow_counts['update'] }}</strong><small>Approved or planned</small></article>
+  <article class="metric"><span>Waiting</span><strong>{{ workflow_counts['wait'] }}</strong><small>Deferred deliberately</small></article>
+  <article class="metric"><span>Ignored</span><strong>{{ workflow_counts['ignore'] }}</strong><small>Suppressed for this release</small></article>
+  <article class="metric"><span>Deployed</span><strong>{{ workflow_counts['deployed'] }}</strong><small>Recorded completions</small></article>
+</section>
+
+<section class="panel">
+  <form class="upgrade-filter-panel" method="get" action="{{ url_for('upgrades') }}">
+    <label>Search<input type="search" name="q" value="{{ query }}" placeholder="Software, repository or machine"></label>
+    <label>Decision<select name="decision"><option value="">All decisions</option>{% for value, label in decision_choices %}<option value="{{ value }}" {{ 'selected' if decision_filter == value else '' }}>{{ label }}</option>{% endfor %}</select></label>
+    <label>Priority<select name="priority"><option value="">All priorities</option>{% for value, label in priority_choices %}<option value="{{ value }}" {{ 'selected' if priority_filter == value else '' }}>{{ label }}</option>{% endfor %}</select></label>
+    <label>Risk<select name="risk"><option value="">All risks</option>{% for value, label in risk_choices %}<option value="{{ value }}" {{ 'selected' if risk_filter == value else '' }}>{{ label }}</option>{% endfor %}</select></label>
+    <button class="button secondary" type="submit">Apply filters</button>
+    {% if query or decision_filter or priority_filter or risk_filter %}<a class="button ghost" href="{{ url_for('upgrades') }}">Clear</a>{% endif %}
+  </form>
+
+  {% if items %}
+  <div class="upgrade-queue-list">
+    {% for item in items %}
+    <article class="upgrade-queue-row decision-{{ item['decision_status'] }} priority-{{ item['priority'] }}">
+      <div class="upgrade-queue-main">
+        <div class="upgrade-queue-title"><span class="decision-chip {{ item['decision_status'] }}">{{ item['decision_label'] }}</span><h3>{{ item['name'] }}</h3><span class="upgrade-chip {{ item['upgrade']['level'] }}">{{ item['upgrade']['label'] }}</span></div>
+        <p><strong>{{ item['effective_installed_version'] or 'Unknown installed version' }}</strong> → <strong>{{ item['current_release_name'] or item['current_version'] }}</strong></p>
+        <small>{{ item['machine_name'] or item['install_host'] or 'Machine not recorded' }} · {{ item['repository'] }}</small>
+      </div>
+      <div class="upgrade-queue-meta">
+        <span class="priority-chip {{ item['priority'] }}">{{ item['priority']|title }} priority</span>
+        <span class="risk-chip {{ item['risk'] }}">{{ 'Not assessed' if item['risk'] == 'unknown' else item['risk']|title ~ ' risk' }}</span>
+        {% if item['maintenance_date'] %}<span class="maintenance-chip">Planned {{ item['maintenance_date'] }}</span>{% endif %}
+        {% if item['checklist_summary']['total'] %}<span class="checklist-chip">{{ item['checklist_summary']['complete'] }}/{{ item['checklist_summary']['total'] }} checks</span>{% endif %}
+      </div>
+      <a class="button {{ 'primary' if item['decision_status'] in ['review', 'update'] else 'secondary' }} small" href="{{ url_for('upgrade_decision', tracker_id=item['id']) }}">{{ 'Review decision' if item['decision_status'] == 'review' else 'Open plan' }}</a>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}<div class="empty-state"><h3>No matching upgrade decisions</h3><p>New upstream releases will appear here after an installed version can be compared.</p></div>{% endif %}
+</section>
+
+<section class="panel attention-panel">
+  <div class="panel-header"><div><h2>Needs attention</h2><p>Checker failures, offline services and unavailable version data are operational diagnostics, not confirmed updates.</p></div><span class="workflow-count-summary"><strong>{{ attention_items|length }}</strong> tracker{{ '' if attention_items|length == 1 else 's' }}</span></div>
+  {% if attention_items %}
+  <div class="upgrade-queue-list">
+    {% for item in attention_items %}
+    <article class="upgrade-queue-row">
+      <div class="upgrade-queue-main">
+        <div class="upgrade-queue-title"><span class="decision-chip wait">Attention</span><h3>{{ item['name'] }}</h3></div>
+        <p>{% for issue in item['attention'] %}<strong>{{ issue['label'] }}</strong>{% if issue['detail'] %}: {{ issue['detail'] }}{% endif %}{% if not loop.last %}<br>{% endif %}{% endfor %}</p>
+        <small>{{ item['machine_name'] or item['install_host'] or 'Machine not recorded' }} · {{ item['repository'] }}</small>
+      </div>
+      <div class="upgrade-queue-meta"><span class="priority-chip normal">{{ item['effective_installed_version'] or 'Installed unknown' }}</span><span class="risk-chip unknown">{{ item['current_version'] or 'Upstream unknown' }}</span></div>
+      <a class="button ghost small" href="{{ url_for('assistant', tracker_id=item['id']) }}">Inspect</a>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}<div class="empty-state"><h3>No trackers need attention</h3><p>Operational diagnostics are clear.</p></div>{% endif %}
+</section>
+
+{% if deployment_history %}
+<section class="panel deployment-history-panel">
+  <div class="panel-header"><div><h2>Recorded deployments</h2><p>Previous and deployed versions retained for audit and rollback reference.</p></div></div>
+  <div class="deployment-history-list">
+    {% for item in deployment_history %}
+    <article class="deployment-history-row">
+      <span class="deployment-history-icon">✓</span>
+      <div><strong>{{ item['name'] }}</strong><p>{{ item['previous_version'] or 'Unknown previous version' }} → {{ item['deployed_version'] or item['release_version'] }}</p><small>{{ item['deployed_at']|pretty_time }}{% if item['machine_name'] %} · {{ item['machine_name'] }}{% endif %}</small></div>
+      <a class="button ghost small" href="{{ url_for('upgrade_decision', tracker_id=item['tracker_id'], release=item['release_version']) }}">Record</a>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}

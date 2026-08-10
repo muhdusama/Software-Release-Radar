@@ -1,0 +1,14 @@
+.git
+.github
+__pycache__
+*.pyc
+*.pyo
+*.db
+.env
+data
+ssh
+backups
+candidates
+legacy-state
+docs
+tests

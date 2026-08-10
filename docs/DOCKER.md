@@ -1,134 +1,67 @@
-# 🐳 Docker deployment
+# Docker deployment
 
-Docker Compose is the intended primary deployment method for Software Release Radar.
+Docker Compose is the primary supported deployment method for Software Release Radar.
 
-> [!WARNING]
-> The repository is still in publication staging. `docker-compose.yml` and `.env.example` are now present, but the sanitised application source and `Dockerfile` have not yet been imported into this GitHub repository. The commands below describe the target public workflow and must pass a clean-host validation before the repository is made public.
-
-## What Docker is doing here
-
-Software Release Radar is a Python 3.13 application. Docker is simply the packaging and deployment layer.
-
-```text
-Python application
-      │
-      ▼
-Docker image
-      │
-      ▼
-Docker Compose
-      │
-      ▼
-Browser access + persistent data
-```
-
-The aim is that a self-hoster does not need to install or manage Python directly on the host.
-
-## Target quick start
-
-Once the public source and Dockerfile are staged and validated, the normal install path will be:
+## Quick start
 
 ```bash
 git clone https://github.com/muhdusama/Software-Release-Radar.git
 cd Software-Release-Radar
-cp .env.example .env
-docker compose config
+python3 scripts/bootstrap-env.py
 docker compose up -d --build
 ```
 
-Then open the service on the port configured by `SRR_HOST_PORT` in `.env`.
+Open `http://localhost:9120` after the `software-release-radar` container reports healthy.
 
-The current default is:
+## What the stack runs
 
-```text
-http://localhost:9120
-```
+The Compose stack contains two containers built from the same Python image:
 
-## Files
+- `software-release-radar` runs the Flask application through Gunicorn.
+- `software-release-radar-portainer-worker` processes Portainer synchronisation and bulk import jobs.
 
-| File | Purpose |
-|---|---|
-| `docker-compose.yml` | Defines the Release Radar container, port mapping and persistent data mount |
-| `.env.example` | Safe template containing non-secret Docker defaults |
-| `.env` | Your local configuration. This file is deliberately ignored by Git |
-| `Dockerfile` | Builds the Python application image. This will be added with the sanitised source |
-| `data/` | Local persistent application data. This directory is ignored by Git |
+Both containers share the `software-release-radar-data` Docker volume, which contains the SQLite database.
 
 ## Environment file
 
-Create your local environment file with:
+`.env` is local deployment configuration and must not be committed. `scripts/bootstrap-env.py` creates it from `.env.example`, generates the Flask session secret and Fernet encryption key, and stores only a PBKDF2 password hash for the initial administrator.
+
+## HTTPS and reverse proxies
+
+`SESSION_COOKIE_SECURE=false` is suitable for a local HTTP test. Set it to `true` when Release Radar is accessed only over HTTPS.
+
+`TRUST_PROXY_HEADERS=false` is the safe default. Set it to `true` only when the application is directly behind one trusted reverse proxy that sets the forwarding headers. Do not enable it when the application is directly exposed to untrusted clients.
+
+## GitHub token
+
+`GITHUB_TOKEN` is optional. Anonymous GitHub API access works for light use, but an access token provides a higher API rate limit.
+
+Use the least-privileged token that meets your needs. Release Radar only needs read access to public release information for public repositories.
+
+## SSH Docker probes
+
+The stack mounts `./ssh` read-only at `/ssh`. SSH Docker probes are optional. If you use them, place only the dedicated key files required for those probes in `./ssh` and add a `known_hosts` file. The application uses strict host-key checking and runs a fixed `docker inspect` command.
+
+## Data
+
+Application state is kept in the named volume `software-release-radar-data`.
+
+Back up the SQLite database before upgrades. The repository includes a portable online backup helper that uses SQLite's backup API:
 
 ```bash
-cp .env.example .env
+./scripts/backup.sh
 ```
 
-Do not commit `.env`. It may later contain API keys, passwords, private URLs or other deployment-specific settings.
+Backups are written to `./backups` by default and are checked with `PRAGMA integrity_check` before the script reports success. Do not copy the live database file directly while writes may be in progress.
 
-The staging template currently exposes only the Docker-level settings that are safe to publish:
+## Upgrade
 
-```dotenv
-SRR_VERSION=dev
-SRR_HOST_PORT=9120
-SRR_CONTAINER_PORT=9120
-SRR_DATA_DIR=./data
-```
-
-Application-specific variables will be added after the public configuration surface has been checked against the sanitised v2.6.3 source.
-
-## Useful commands
-
-Validate the Compose file:
+For a source checkout:
 
 ```bash
-docker compose config
+git pull
+docker compose build --pull
+docker compose up -d
 ```
 
-Build and start:
-
-```bash
-docker compose up -d --build
-```
-
-See container state:
-
-```bash
-docker compose ps
-```
-
-Follow logs:
-
-```bash
-docker compose logs -f software-release-radar
-```
-
-Stop the stack:
-
-```bash
-docker compose down
-```
-
-Rebuild after an update:
-
-```bash
-docker compose pull
-docker compose up -d --build
-```
-
-The final release process may change the update command if a published container image is introduced.
-
-## Publication validation
-
-Before Docker deployment is described as production-ready, the following must pass on a clean Linux host:
-
-- [ ] `cp .env.example .env`
-- [ ] `docker compose config`
-- [ ] fresh image build from the public source tree
-- [ ] first start with an empty `data/` directory
-- [ ] browser access on the documented port
-- [ ] restart with persistent state retained
-- [ ] application health and release checks
-- [ ] upgrade from one public release to the next
-- [ ] backup and restore of persistent state
-- [ ] no dependency on private hostnames, paths, credentials or infrastructure
-
-Until those checks pass, the Compose files are a public deployment scaffold rather than a final release artefact.
+Review the changelog before upgrading between public releases.

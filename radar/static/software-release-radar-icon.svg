@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Software Release Radar logo</title>
+  <desc id="desc">A stylised radar display with a release signal and upward arrow.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b1220"/>
+      <stop offset="1" stop-color="#111c33"/>
+    </linearGradient>
+    <linearGradient id="sweep" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#63e6ff" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#8b5cf6" stop-opacity="0.48"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <circle cx="256" cy="256" r="172" fill="none" stroke="#34425f" stroke-width="4"/>
+  <circle cx="256" cy="256" r="118" fill="none" stroke="#34425f" stroke-width="4"/>
+  <circle cx="256" cy="256" r="64" fill="none" stroke="#34425f" stroke-width="4"/>
+  <path d="M256 256 L402 150 A172 172 0 0 1 428 256 Z" fill="url(#sweep)"/>
+  <path d="M256 256 L404 148" stroke="#63e6ff" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="256" cy="256" r="11" fill="#f8fafc"/>
+  <circle cx="364" cy="186" r="13" fill="#63e6ff"/>
+  <circle cx="332" cy="302" r="9" fill="#8b5cf6"/>
+  <circle cx="185" cy="170" r="7" fill="#94a3b8"/>
+  <path d="M167 351h73v-63h32v63h73l-89 82z" fill="#f8fafc" transform="rotate(180 256 360)"/>
+</svg>

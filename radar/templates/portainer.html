@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}Portainer · Software Release Radar{% endblock %}
+{% block content %}
+<section class="page-heading portainer-heading">
+  <div><span class="eyebrow">DOCKER INVENTORY</span><h1>Portainer</h1><p>Synchronise every Docker environment, review discovered containers, and import selected software into release tracking.</p></div>
+  <form method="post" action="{{ url_for('portainer_sync_route') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button primary" type="submit">Synchronise now</button></form>
+</section>
+
+<section class="metrics metrics-six portainer-metrics">
+  <article class="metric portainer-metric"><span>Environments</span><strong>{{ inventory.environments|length }}</strong><small>{{ inventory.environment_counts.online }} online · {{ inventory.environment_counts.offline }} offline{% if inventory.environment_counts.error %} · {{ inventory.environment_counts.error }} error{% endif %}</small></article>
+  <article class="metric portainer-metric"><span>Containers</span><strong>{{ inventory.services|length }}</strong><small>Current and previously seen</small></article>
+  <article class="metric portainer-metric"><span>Running</span><strong>{{ inventory.services|selectattr('state','equalto','running')|list|length }}</strong><small>Portainer container state</small></article>
+  <article class="metric portainer-metric"><span>Linked trackers</span><strong>{{ inventory.services|selectattr('tracker_id')|list|length }}</strong><small>Linked to release trackers</small></article>
+  <article class="metric portainer-metric"><span>Repositories detected</span><strong>{{ inventory.services|selectattr('detected_repository')|list|length }}</strong><small>OCI or custom labels</small></article>
+  <article class="metric portainer-metric"><span>Last sync</span><strong class="metric-time">{{ settings['portainer_last_sync_at']|relative_time if settings['portainer_last_sync_at'] else 'Never' }}</strong><small>{{ settings['portainer_last_sync_status'] or 'never' }}</small></article>
+</section>
+
+{% if sync_job %}
+<section id="portainer-sync-progress" class="panel sync-progress-panel" data-status-url="{{ url_for('portainer_sync_status_route') }}" data-job-id="{{ sync_job.id }}">
+  <div class="sync-progress-header"><div><h2>Inventory synchronisation</h2><p id="sync-message">{{ sync_job.message or sync_job.status|title }}</p></div><span id="sync-status" class="status-badge {{ 'active' if sync_job.status in ['queued','running'] else '' }}">{{ sync_job.status }}</span></div>
+  <div class="sync-progress-track"><span id="sync-progress-bar" style="width: {{ ((sync_job.processed_environments or 0) * 100 / (sync_job.total_environments or 1))|round|int }}%"></span></div>
+  <div class="sync-progress-stats"><span><strong id="sync-processed">{{ sync_job.processed_environments or 0 }}</strong> / <strong id="sync-total">{{ sync_job.total_environments or 0 }}</strong> environments</span><span><strong id="sync-services">{{ sync_job.services_found or 0 }}</strong> containers</span><span><strong id="sync-offline">{{ sync_job.offline_environments or 0 }}</strong> offline</span><span><strong id="sync-errors">{{ sync_job.unexpected_errors or 0 }}</strong> unexpected errors</span></div>
+  <small id="sync-current">{{ sync_job.current_environment or '' }}</small><pre id="sync-error" class="sync-error" {% if not sync_job.error %}hidden{% endif %}>{{ sync_job.error or '' }}</pre>
+</section>
+{% endif %}
+{% if import_job %}
+<section id="portainer-import-progress" class="panel sync-progress-panel import-progress-panel" data-status-url="{{ url_for('portainer_import_status_route') }}">
+  <div class="sync-progress-header"><div><h2>Bulk tracker import</h2><p id="import-message">{{ import_job.message or import_job.status|title }}</p></div><span id="import-status" class="status-badge {{ 'active' if import_job.status in ['queued','running'] else '' }}">{{ import_job.status }}</span></div>
+  <div class="sync-progress-track"><span id="import-progress-bar" style="width: {{ ((import_job.processed_items or 0) * 100 / (import_job.total_items or 1))|round|int }}%"></span></div>
+  <div class="sync-progress-stats"><span><strong id="import-processed">{{ import_job.processed_items or 0 }}</strong> / <strong id="import-total">{{ import_job.total_items or 0 }}</strong> items</span><span><strong id="import-imported">{{ import_job.imported_items or 0 }}</strong> imported</span><span><strong id="import-failed">{{ import_job.failed_items or 0 }}</strong> need attention</span></div>
+  <small id="import-current">{{ import_job.current_item or '' }}</small><pre id="import-error" class="sync-error" {% if not import_job.error %}hidden{% endif %}>{{ import_job.error or '' }}</pre>
+</section>
+{% endif %}
+{% if settings['portainer_enabled'] != '1' %}<div class="flash warning">Portainer integration is disabled. Configure and enable it under Settings before synchronising.</div>{% endif %}
+{% if settings['portainer_last_sync_error'] %}<div class="flash warning">{{ settings['portainer_last_sync_error'] }}</div>{% endif %}
+{% if inventory.environment_counts.offline %}<div class="flash info">{{ inventory.environment_counts.offline }} Portainer environment(s) are currently offline. Their last known containers remain in the inventory and will refresh automatically when the hosts return.</div>{% endif %}
+
+<form method="post" action="{{ url_for('portainer_import_route') }}" class="panel portainer-panel">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="panel-header repository-header portainer-repository-header">
+    <div><h2>Discovered containers</h2><p>Repository fields are detected from OCI labels when available. Fill missing mappings manually before importing.</p></div>
+    <div class="filter-tools"><input id="portainerFilter" class="filter" placeholder="Filter environment, stack, container or image"><select id="environmentFilter"><option value="">All environments</option>{% for env in inventory.environments %}<option value="{{ env.name|lower }}">{{ env.name }}</option>{% endfor %}</select></div>
+  </div>
+  <div class="bulk-toolbar portainer-toolbar">
+    <label class="select-all-control"><input type="checkbox" id="selectAllPortainer"> Select all visible</label>
+    <span class="selected-count" id="portainerSelectedCount">0 selected</span>
+    <label>Refresh<select name="refresh_hours">{% for hours in allowed_refresh_hours %}<option value="{{ hours }}" {{ 'selected' if settings['default_refresh_hours']|int == hours else '' }}>{{ hours }}h</option>{% endfor %}</select></label>
+    <label>Tags<input name="tags" value="portainer,docker"></label>
+    <button class="button primary" name="action" value="import" type="submit">Import selected</button>
+    <button class="button secondary" name="action" value="ignore" type="submit">Ignore selected</button>
+    <button class="button ghost" name="action" value="unignore" type="submit">Unignore selected</button>
+  </div>
+  <div class="portainer-list">
+    {% for service in inventory.services %}
+    <article class="portainer-row {{ 'ignored-row' if service.ignored else '' }}" data-search="{{ (service.environment_name ~ ' ' ~ (service.stack_name or '') ~ ' ' ~ service.container_name ~ ' ' ~ (service.image or '') ~ ' ' ~ (service.detected_repository or ''))|lower }}" data-environment="{{ service.environment_name|lower }}">
+      <div class="portainer-select"><input class="portainer-checkbox" type="checkbox" name="selected" value="{{ service.id }}"></div>
+      <div class="portainer-service-main">
+        <div class="tracker-name-line"><h3>{{ service.container_name }}</h3>{% if service.state == 'running' %}<span class="online-chip">Running</span>{% else %}<span class="offline-chip">{{ service.state or 'unknown' }}</span>{% endif %}{% if service.health_status %}<span class="muted-chip">{{ service.health_status }}</span>{% endif %}{% if service.ignored %}<span class="warning-badge">Ignored</span>{% endif %}</div>
+        <span class="environment-name">{{ service.environment_name }}</span>{% if service.stack_name %}<span class="portainer-stack"> / {{ service.stack_name }}{% if service.service_name %} / {{ service.service_name }}{% endif %}</span>{% endif %}
+        <small>{{ service.image or 'Image unavailable' }}</small>
+      </div>
+      <div class="portainer-fields">
+        <label>Software name<input name="name_{{ service.id }}" value="{{ service.service_name or service.container_name }}"></label>
+        <label>GitHub repository<input name="repository_{{ service.id }}" value="{{ service.repository_override or service.detected_repository or '' }}" placeholder="owner/repository"></label>
+      </div>
+      <div class="portainer-facts">
+        <div><span>Installed</span><strong>{{ service.detected_version or 'Unknown' }}</strong></div>
+        <div><span>Published port</span><strong>{{ service.primary_port or '-' }}</strong></div>
+        <div><span>Tracker</span><strong>{{ service.tracker_name or 'Not linked' }}</strong>{% if service.tracker_repository %}<small>{{ service.tracker_repository }}</small>{% endif %}</div>
+      </div>
+    </article>
+    {% else %}<div class="empty-state"><h3>No Portainer inventory yet</h3><p>Save Portainer settings, test the connection, then synchronise.</p></div>{% endfor %}
+  </div>
+  {% if inventory.services %}<div class="pagination-bar portainer-pagination">
+    <div class="pagination-info" id="portainer-page-info" aria-live="polite"></div>
+    <label class="pagination-size">Show<select id="portainer-page-size"><option value="10">10</option><option value="25" selected>25</option><option value="50">50</option><option value="100">100</option><option value="200">200</option></select>per page</label>
+    <div class="pagination-buttons"><button class="button ghost small" id="portainer-first" type="button" aria-label="First page">«</button><button class="button ghost small" id="portainer-prev" type="button" aria-label="Previous page">‹</button><span class="pagination-page" id="portainer-page-label"></span><button class="button ghost small" id="portainer-next" type="button" aria-label="Next page">›</button><button class="button ghost small" id="portainer-last" type="button" aria-label="Last page">»</button></div>
+  </div>{% endif %}
+</form>
+<script>
+(() => {
+  const rows=[...document.querySelectorAll('.portainer-row')], search=document.getElementById('portainerFilter'), env=document.getElementById('environmentFilter'), all=document.getElementById('selectAllPortainer'), count=document.getElementById('portainerSelectedCount');
+  if(!rows.length) return;
+  let page=1, pageSize=Number(localStorage.getItem('softwareReleaseRadarPortainerPageSize')||25);
+  if(![10,25,50,100,200].includes(pageSize)) pageSize=25;
+  const matches=()=>{const q=(search.value||'').trim().toLowerCase(), e=(env.value||'').trim().toLowerCase();return rows.filter(row=>(!q||row.dataset.search.includes(q))&&(!e||row.dataset.environment===e));};
+  const visibleBoxes=()=>rows.filter(row=>!row.hidden).map(row=>row.querySelector('.portainer-checkbox'));
+  const updateSelection=()=>{const selected=document.querySelectorAll('.portainer-checkbox:checked').length;count.textContent=`${selected} selected`;const visible=visibleBoxes();all.checked=visible.length>0&&visible.every(box=>box.checked);all.indeterminate=visible.some(box=>box.checked)&&!all.checked;};
+  const render=(reset=false)=>{if(reset)page=1;const filtered=matches(),pages=Math.max(1,Math.ceil(filtered.length/pageSize));page=Math.min(Math.max(1,page),pages);const start=(page-1)*pageSize,end=Math.min(start+pageSize,filtered.length),shown=new Set(filtered.slice(start,end));rows.forEach(row=>row.hidden=!shown.has(row));document.getElementById('portainer-page-info').textContent=filtered.length?`Showing ${start+1}–${end} of ${filtered.length} matching containers`:'No matching containers';document.getElementById('portainer-page-label').textContent=`Page ${page} of ${pages}`;document.getElementById('portainer-first').disabled=page<=1;document.getElementById('portainer-prev').disabled=page<=1;document.getElementById('portainer-next').disabled=page>=pages;document.getElementById('portainer-last').disabled=page>=pages;updateSelection();};
+  const size=document.getElementById('portainer-page-size');size.value=String(pageSize);size.addEventListener('change',()=>{pageSize=Number(size.value);localStorage.setItem('softwareReleaseRadarPortainerPageSize',String(pageSize));render(true);});
+  search.addEventListener('input',()=>render(true));env.addEventListener('change',()=>render(true));all.addEventListener('change',()=>{visibleBoxes().forEach(box=>box.checked=all.checked);updateSelection();});document.querySelectorAll('.portainer-checkbox').forEach(box=>box.addEventListener('change',updateSelection));document.getElementById('portainer-first').addEventListener('click',()=>{page=1;render();});document.getElementById('portainer-prev').addEventListener('click',()=>{page-=1;render();});document.getElementById('portainer-next').addEventListener('click',()=>{page+=1;render();});document.getElementById('portainer-last').addEventListener('click',()=>{page=Math.ceil(matches().length/pageSize)||1;render();});render();
+})();
+</script>
+
+<script>
+(() => {
+  const panel=document.getElementById('portainer-sync-progress'); if(!panel) return;
+  const terminal=new Set(['completed','failed']); let prior=panel.querySelector('#sync-status').textContent.trim();
+  const update=(j)=>{
+    const total=Number(j.total_environments||0), done=Number(j.processed_environments||0);
+    document.getElementById('sync-status').textContent=j.status||'unknown';
+    document.getElementById('sync-message').textContent=j.message||j.status||'';
+    document.getElementById('sync-progress-bar').style.width=`${total?Math.min(100,done*100/total):0}%`;
+    document.getElementById('sync-processed').textContent=done; document.getElementById('sync-total').textContent=total;
+    document.getElementById('sync-services').textContent=j.services_found||0; document.getElementById('sync-offline').textContent=j.offline_environments||0; document.getElementById('sync-errors').textContent=j.unexpected_errors||0;
+    document.getElementById('sync-current').textContent=j.current_environment||'';
+    const error=document.getElementById('sync-error'); error.textContent=j.error||''; error.hidden=!j.error;
+    if(terminal.has(j.status)&&!terminal.has(prior)){setTimeout(()=>location.reload(),1200)} prior=j.status;
+  };
+  const poll=async()=>{try{const r=await fetch(panel.dataset.statusUrl,{headers:{Accept:'application/json'},cache:'no-store'});if(r.ok)update(await r.json())}catch(e){} if(!terminal.has(prior))setTimeout(poll,2000)};
+  if(!terminal.has(prior))setTimeout(poll,1000);
+})();
+</script>
+
+<script>
+(() => {
+  const panel=document.getElementById('portainer-import-progress'); if(!panel) return;
+  const terminal=new Set(['completed','failed']); let prior=panel.querySelector('#import-status').textContent.trim();
+  const update=(job)=>{
+    const total=Number(job.total_items||0), done=Number(job.processed_items||0);
+    document.getElementById('import-status').textContent=job.status||'unknown';
+    document.getElementById('import-message').textContent=job.message||job.status||'';
+    document.getElementById('import-progress-bar').style.width=`${total?Math.min(100,done*100/total):0}%`;
+    document.getElementById('import-processed').textContent=done;
+    document.getElementById('import-total').textContent=total;
+    document.getElementById('import-imported').textContent=job.imported_items||0;
+    document.getElementById('import-failed').textContent=job.failed_items||0;
+    document.getElementById('import-current').textContent=job.current_item||'';
+    const error=document.getElementById('import-error'); error.textContent=job.error||''; error.hidden=!job.error;
+    if(terminal.has(job.status)&&!terminal.has(prior)){setTimeout(()=>location.reload(),1200)}
+    prior=job.status;
+  };
+  const poll=async()=>{try{const response=await fetch(panel.dataset.statusUrl,{headers:{Accept:'application/json'},cache:'no-store'});if(response.ok)update(await response.json())}catch(error){}if(!terminal.has(prior))setTimeout(poll,1500)};
+  if(!terminal.has(prior))setTimeout(poll,700);
+})();
+</script>
+{% endblock %}

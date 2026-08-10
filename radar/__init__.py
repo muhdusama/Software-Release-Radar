@@ -1,0 +1,1 @@
+"""Software Release Radar dashboard."""

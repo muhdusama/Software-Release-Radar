@@ -1,28 +1,54 @@
 services:
-  software-release-radar:
-    container_name: software-release-radar
+  radar:
+    image: "software-release-radar:${RADAR_VERSION:-2.6.3}"
     build:
       context: .
-      dockerfile: Dockerfile
-    image: software-release-radar:${SRR_VERSION:-dev}
+      args:
+        APP_VERSION: "${RADAR_VERSION:-2.6.3}"
+    container_name: software-release-radar
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      RADAR_DB: /data/radar.db
+      RADAR_SSH_DIR: /ssh
     ports:
-      - "${SRR_HOST_PORT:-9120}:${SRR_CONTAINER_PORT:-9120}"
+      - "${RADAR_PORT:-9120}:8080"
     volumes:
-      - "${SRR_DATA_DIR:-./data}:/app/data"
+      - radar-data:/data
+      - ./ssh:/ssh:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import json,urllib.request; d=json.load(urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=5)); assert d.get('status') == 'ok'"]
+      interval: 30s
+      timeout: 8s
+      retries: 3
+      start_period: 20s
 
-# Publication staging note
-# ------------------------
-# This Compose file is the intended public deployment shape, but it is not yet
-# a validated release artefact because the sanitised application source and
-# Dockerfile have not been imported into this staging repository.
-#
-# Before the repository is made public this stack must pass a clean-host test:
-#   cp .env.example .env
-#   docker compose config
-#   docker compose up -d --build
-#
-# Application-specific environment variables and any required health check will
-# be added only after they have been verified against the public source tree.
+  portainer-worker:
+    image: "software-release-radar:${RADAR_VERSION:-2.6.3}"
+    build:
+      context: .
+      args:
+        APP_VERSION: "${RADAR_VERSION:-2.6.3}"
+    container_name: software-release-radar-portainer-worker
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      RADAR_DB: /data/radar.db
+      RADAR_SSH_DIR: /ssh
+    command: ["python", "-m", "radar.portainer_worker"]
+    depends_on:
+      radar:
+        condition: service_healthy
+    volumes:
+      - radar-data:/data
+      - ./ssh:/ssh:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  radar-data:
+    name: software-release-radar-data

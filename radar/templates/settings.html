@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}Settings · Software Release Radar{% endblock %}
+{% block content %}
+<section class="page-heading"><div><span class="eyebrow">ADMINISTRATION</span><h1>Settings</h1><p>Configure one area at a time. Secrets remain encrypted in the application database and are never displayed after saving.</p></div></section>
+<div class="settings-shell" data-initial-section="{{ request.args.get('section', 'general') }}">
+  <aside class="panel settings-nav" aria-label="Settings sections">
+    <button type="button" data-settings-target="general"><span>General</span><small>URLs and defaults</small></button>
+    <button type="button" data-settings-target="smtp"><span>SMTP email</span><small>Mail and password reset</small></button>
+    <button type="button" data-settings-target="pushover"><span>Pushover</span><small>Push notifications</small></button>
+    <button type="button" data-settings-target="portainer"><span>Portainer</span><small>Docker inventory</small></button>
+    <button type="button" data-settings-target="openai"><span>AI assistant</span><small>LiteLLM analysis and chat</small></button>
+  </aside>
+
+  <div class="settings-content">
+    <section class="settings-section" data-settings-section="general">
+      <form method="post" class="panel settings-card wide-card">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="section" value="general">
+        <div class="section-heading"><h2>General</h2><p>Dashboard address and default release-check interval.</p></div>
+        <div class="form-grid two-col">
+          <label>Default refresh interval<select name="default_refresh_hours">{% for hours in allowed_refresh_hours %}<option value="{{ hours }}" {{ 'selected' if settings['default_refresh_hours']|int == hours else '' }}>Every {{ hours }} hour{{ '' if hours == 1 else 's' }}</option>{% endfor %}</select></label>
+          <label>Application base URL<input type="url" name="app_base_url" value="{{ settings['app_base_url'] }}" placeholder="https://radar.example.com"><small>Password-reset links use this address.</small></label>
+        </div>
+        <div class="form-actions left-actions"><button class="button primary" type="submit">Save general settings</button></div>
+      </form>
+    </section>
+
+    <section class="settings-section" data-settings-section="smtp" hidden>
+      <form method="post" class="panel settings-card wide-card">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="section" value="smtp">
+        <div class="section-heading"><h2>SMTP email</h2><p>Release notifications and email-based password reset.</p></div>
+        <label class="inline-check"><input type="checkbox" name="smtp_enabled" {{ 'checked' if settings['smtp_enabled'] == '1' else '' }}> Enable SMTP</label>
+        <div class="form-grid two-col">
+          <label>SMTP host<input name="smtp_host" value="{{ settings['smtp_host'] }}" placeholder="smtp.example.com"></label>
+          <label>Port<input type="number" min="1" max="65535" name="smtp_port" value="{{ settings['smtp_port'] or '587' }}"></label>
+          <label>Security<select name="smtp_security"><option value="starttls" {{ 'selected' if settings['smtp_security'] == 'starttls' else '' }}>STARTTLS</option><option value="ssl" {{ 'selected' if settings['smtp_security'] == 'ssl' else '' }}>Implicit TLS/SSL</option><option value="none" {{ 'selected' if settings['smtp_security'] == 'none' else '' }}>None</option></select></label>
+          <label>Username<input name="smtp_username" value="{{ settings['smtp_username'] }}"></label>
+          <label>Password <small>{{ 'configured; leave blank to keep' if has_smtp_password else 'not configured' }}</small><input type="password" name="smtp_password" autocomplete="off"></label>
+          <label>Timeout seconds<input type="number" min="3" max="60" name="smtp_timeout" value="{{ settings['smtp_timeout'] or '15' }}"></label>
+          <label>From email<input type="email" name="smtp_from_email" value="{{ settings['smtp_from_email'] }}"></label>
+          <label>From name<input name="smtp_from_name" value="{{ settings['smtp_from_name'] or 'Software Release Radar' }}"></label>
+        </div>
+        {% if has_smtp_password %}<label class="inline-check"><input type="checkbox" name="clear_smtp_password"> Remove saved SMTP password</label>{% endif %}
+        <div class="form-actions left-actions"><button class="button primary" type="submit">Save SMTP settings</button></div>
+      </form>
+      <section class="panel settings-card test-card wide-card"><div class="section-heading"><h2>Test email</h2><p>Save SMTP settings before running the test.</p></div><form method="post" action="{{ url_for('test_email') }}" class="inline-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="email" name="target_email" placeholder="{{ current_user['email'] or 'recipient@example.com' }}"><button class="button secondary" type="submit">Send test email</button></form></section>
+    </section>
+
+    <section class="settings-section" data-settings-section="pushover" hidden>
+      <form method="post" class="panel settings-card wide-card">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="section" value="pushover">
+        <div class="section-heading"><h2>Pushover</h2><p>Push release notifications to users or delivery groups.</p></div>
+        <label class="inline-check"><input type="checkbox" name="pushover_enabled" {{ 'checked' if settings['pushover_enabled'] == '1' else '' }}> Enable Pushover</label>
+        <label>Application API token <small>{{ 'configured; leave blank to keep' if has_pushover_token else 'register an application at pushover.net' }}</small><input type="password" name="pushover_app_token" autocomplete="off"></label>
+        <div class="form-grid two-col"><label>Priority<select name="pushover_priority">{% for priority in [-2,-1,0,1] %}<option value="{{ priority }}" {{ 'selected' if settings['pushover_priority']|int == priority else '' }}>{{ priority }}</option>{% endfor %}</select></label><label>Sound<input name="pushover_sound" value="{{ settings['pushover_sound'] or 'pushover' }}"></label></div>
+        {% if has_pushover_token %}<label class="inline-check"><input type="checkbox" name="clear_pushover_app_token"> Remove saved application token</label>{% endif %}
+        <div class="form-actions left-actions"><button class="button primary" type="submit">Save Pushover settings</button></div>
+      </form>
+      <section class="panel settings-card test-card wide-card"><div class="section-heading"><h2>Test Pushover</h2><p>Uses the entered key or your saved Profile key.</p></div><form method="post" action="{{ url_for('test_pushover_route') }}" class="inline-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="password" name="test_pushover_key" placeholder="Pushover user/group key"><button class="button secondary" type="submit">Send test push</button></form></section>
+    </section>
+
+    <section class="settings-section" data-settings-section="portainer" hidden>
+      <form method="post" class="panel settings-card wide-card">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="section" value="portainer">
+        <div class="section-heading"><h2>Portainer inventory</h2><p>Discover Docker environments, Compose stacks and containers through one Portainer API connection.</p></div>
+        <label class="inline-check"><input type="checkbox" name="portainer_enabled" {{ 'checked' if settings['portainer_enabled'] == '1' else '' }}> Enable Portainer synchronisation</label>
+        <div class="form-grid two-col">
+          <label>Portainer base URL<input type="url" name="portainer_base_url" value="{{ settings['portainer_base_url'] }}" placeholder="https://portainer.example.com"><small>Use the direct LAN endpoint where possible.</small></label>
+          <label>API access token <small>{{ 'configured; leave blank to keep' if has_portainer_token else 'create a dedicated read-only token in Portainer' }}</small><input type="password" name="portainer_api_token" autocomplete="off"></label>
+          <label>Inventory interval<select name="portainer_sync_hours">{% for hours in allowed_refresh_hours %}<option value="{{ hours }}" {{ 'selected' if settings['portainer_sync_hours']|int == hours else '' }}>Every {{ hours }} hour{{ '' if hours == 1 else 's' }}</option>{% endfor %}</select></label>
+          <label>API timeout seconds<input type="number" min="5" max="120" name="portainer_timeout" value="{{ settings['portainer_timeout'] or '20' }}"></label>
+        </div>
+        <label class="inline-check"><input type="checkbox" name="portainer_verify_tls" {{ 'checked' if settings['portainer_verify_tls'] == '1' else '' }}> Verify Portainer TLS certificate <small>Disable only for a self-signed direct-LAN certificate.</small></label>
+        {% if has_portainer_token %}<label class="inline-check"><input type="checkbox" name="clear_portainer_api_token"> Remove saved Portainer token</label>{% endif %}
+        <div class="info-box">Last synchronisation: {{ settings['portainer_last_sync_at'] or 'Never' }} · Status: {{ settings['portainer_last_sync_status'] or 'never' }}{% if settings['portainer_last_sync_error'] %}<br>{{ settings['portainer_last_sync_error'] }}{% endif %}</div>
+        <div class="form-actions left-actions"><button class="button primary" type="submit">Save Portainer settings</button><a class="button secondary" href="{{ url_for('portainer_inventory') }}">Open inventory</a></div>
+      </form>
+      <section class="panel settings-card test-card wide-card"><div class="section-heading"><h2>Test Portainer</h2><p>Save the settings first. The test lists environments available to the token and makes no changes.</p></div><form method="post" action="{{ url_for('test_portainer_route') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button secondary" type="submit">Test Portainer connection</button></form></section>
+    </section>
+
+    <section class="settings-section" data-settings-section="openai" hidden>
+      <form method="post" class="panel settings-card wide-card">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="section" value="openai">
+        <div class="section-heading"><h2>OpenAI-compatible assistant</h2><p>Optional explicit-use analysis and chat. Scheduled release checks remain deterministic and use no LLM tokens.</p></div>
+        <label class="inline-check"><input type="checkbox" name="openai_enabled" {{ 'checked' if settings['openai_enabled'] == '1' else '' }}> Enable assistant</label>
+        <label class="inline-check"><input type="checkbox" name="openai_auto_analyse" {{ 'checked' if settings['openai_auto_analyse'] == '1' else '' }}> Automatically analyse newly detected releases <small>(optional; consumes LiteLLM/model tokens)</small></label>
+        <div class="form-grid two-col">
+          <label>Base URL<input type="url" name="openai_base_url" value="{{ settings['openai_base_url'] }}" placeholder="https://api.example.com/v1"></label>
+          <label>Model name<input name="openai_model" value="{{ settings['openai_model'] }}" placeholder="gpt-5.5-mini"></label>
+          <label>API key <small>{{ 'configured; leave blank to keep' if has_openai_key else 'provider API key' }}</small><input type="password" name="openai_api_key" autocomplete="off"></label>
+          <label>Timeout seconds<input type="number" min="10" max="600" name="openai_timeout" value="{{ settings['openai_timeout'] or '120' }}"></label>
+          <label>Maximum response tokens<input type="number" min="200" max="16000" name="openai_max_tokens" value="{{ settings['openai_max_tokens'] or '1800' }}"></label>
+        </div>
+        {% if has_openai_key %}<label class="inline-check"><input type="checkbox" name="clear_openai_api_key"> Remove saved API key</label>{% endif %}
+        <div class="form-actions left-actions"><button class="button primary" type="submit">Save assistant settings</button></div>
+      </form>
+      <section class="panel settings-card test-card wide-card"><div class="section-heading"><h2>Test assistant</h2><p>Save settings first. The test makes one small Chat Completions request.</p></div><form method="post" action="{{ url_for('test_openai_route') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button secondary" type="submit">Test OpenAI-compatible connection</button></form></section>
+    </section>
+  </div>
+</div>
+<script>
+(() => {
+  const shell = document.querySelector('.settings-shell');
+  const buttons = [...document.querySelectorAll('[data-settings-target]')];
+  const sections = [...document.querySelectorAll('[data-settings-section]')];
+  const allowed = new Set(sections.map(section => section.dataset.settingsSection));
+  function show(name, updateUrl = true) {
+    if (!allowed.has(name)) name = 'general';
+    buttons.forEach(button => button.classList.toggle('active', button.dataset.settingsTarget === name));
+    sections.forEach(section => section.hidden = section.dataset.settingsSection !== name);
+    if (updateUrl) history.replaceState(null, '', `?section=${encodeURIComponent(name)}`);
+  }
+  buttons.forEach(button => button.addEventListener('click', () => show(button.dataset.settingsTarget)));
+  const initial = new URLSearchParams(location.search).get('section') || shell.dataset.initialSection || 'general';
+  show(initial, false);
+})();
+</script>
+{% endblock %}

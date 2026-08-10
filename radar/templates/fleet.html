@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Fleet · Software Release Radar{% endblock %}
+{% block content %}
+<section class="page-heading fleet-heading">
+  <div><span class="eyebrow">DEPLOYMENT FLEET</span><h1>Machines and services</h1><p>Installed software grouped by machine, with reachability and release status.</p></div>
+  <div class="heading-search"><label for="fleet-filter">Search fleet</label><input id="fleet-filter" class="filter" type="search" placeholder="Machine, IP, service, repository or container"></div>
+</section>
+<div id="fleet-results-summary" class="list-summary" aria-live="polite"></div>
+<div class="fleet-grid" id="fleet-grid">
+{% for machine in machines %}
+<section class="panel fleet-card" data-machine-search="{{ (machine.name ~ ' ' ~ (machine.host or ''))|lower }}">
+  <div class="fleet-head"><div><h2>{{ machine.name }}</h2><p>{{ machine.host or 'No host assigned' }}</p></div><div class="fleet-stats"><span class="success-pill">{{ machine.online }} online</span>{% if machine.offline %}<span class="error-pill">{{ machine.offline }} offline</span>{% endif %}{% if machine.updates %}<span class="warning-pill">{{ machine.updates }} updates</span>{% endif %}{% if machine.needs_attention %}<span class="warning-pill">{{ machine.needs_attention }} need attention</span>{% endif %}</div></div>
+  <div class="fleet-services">
+  {% for tracker in machine.trackers %}
+    <article class="fleet-service" data-service-search="{{ (tracker.name ~ ' ' ~ (tracker.install_host or '') ~ ' ' ~ (tracker.docker_container or '') ~ ' ' ~ tracker.repository ~ ' ' ~ (tracker.effective_installed_version or ''))|lower }}"><div><strong>{{ tracker.name }}</strong><small>{{ tracker.install_host or 'No IP' }}{% if tracker.install_port %}:{{ tracker.install_port }}{% endif %} · {{ tracker.docker_container or tracker.repository }}</small></div><div><span>{{ tracker.effective_installed_version or 'Installed unknown' }}</span><span class="upgrade-chip {{ tracker.upgrade.level }}">{{ tracker.upgrade.label }}</span>{% if tracker.needs_attention %}<span class="warning-pill">Needs attention</span>{% endif %}</div><div class="fleet-actions"><a class="button ghost small" href="{{ url_for('assistant', tracker_id=tracker.id) }}">Analyse</a>{% if current_user.role == 'admin' %}<form method="post" action="{{ url_for('probe_one', tracker_id=tracker.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button ghost small">Probe</button></form>{% endif %}</div></article>
+  {% endfor %}
+  </div>
+</section>
+{% else %}<div class="empty-state"><h3>No fleet data</h3><p>Add machine details to tracked software to populate this view.</p></div>{% endfor %}
+</div>
+<div id="fleet-empty" class="empty-state" hidden><h3>No matching machines or services</h3><p>Try a different machine name, IP address, service, container, or repository.</p></div>
+<script>
+(() => {
+  const input = document.getElementById('fleet-filter');
+  const cards = [...document.querySelectorAll('.fleet-card')];
+  const summary = document.getElementById('fleet-results-summary');
+  const empty = document.getElementById('fleet-empty');
+  function apply() {
+    const query = (input.value || '').trim().toLowerCase();
+    let visibleMachines = 0;
+    let visibleServices = 0;
+    cards.forEach(card => {
+      const machineMatch = !query || card.dataset.machineSearch.includes(query);
+      let cardServices = 0;
+      card.querySelectorAll('.fleet-service').forEach(service => {
+        const match = machineMatch || !query || service.dataset.serviceSearch.includes(query);
+        service.hidden = !match;
+        if (match) cardServices += 1;
+      });
+      card.hidden = cardServices === 0;
+      if (!card.hidden) {
+        visibleMachines += 1;
+        visibleServices += cardServices;
+      }
+    });
+    summary.textContent = `${visibleMachines} machine${visibleMachines === 1 ? '' : 's'} · ${visibleServices} service${visibleServices === 1 ? '' : 's'}`;
+    empty.hidden = visibleMachines !== 0 || cards.length === 0;
+  }
+  input.addEventListener('input', apply);
+  apply();
+})();
+</script>
+{% endblock %}

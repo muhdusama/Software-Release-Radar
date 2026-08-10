@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% block title %}Release Assistant · Software Release Radar{% endblock %}
+{% block content_class %}assistant-page{% endblock %}
+{% block content %}
+<section class="page-heading assistant-heading">
+  <div>
+    <span class="eyebrow">OPTIONAL LLM ANALYSIS</span>
+    <h1>Release Assistant</h1>
+    <p>Assess upgrade safety, breaking changes and operational risk using your installed deployment and upstream release history.</p>
+  </div>
+  <div class="privacy-chip" title="The model is called only after you submit a request">
+    <span class="privacy-dot" aria-hidden="true"></span>
+    Read-only · on demand
+  </div>
+</section>
+
+<section class="assistant-layout" data-assistant-root data-run-url="{{ url_for('assistant_run') }}" data-tracker-id="{{ tracker['id'] if tracker else '' }}">
+  <aside class="panel assistant-sidebar" aria-label="Software selection">
+    <div class="assistant-sidebar-heading">
+      <div>
+        <span class="section-kicker">SOFTWARE CONTEXT</span>
+        <h2>Choose software</h2>
+      </div>
+      <span class="count-chip">{{ trackers|length }}</span>
+    </div>
+    <label class="search-field" for="assistant-tracker-filter">
+      <span>Search software</span>
+      <input id="assistant-tracker-filter" class="filter" type="search" placeholder="Name, machine or repository" autocomplete="off">
+    </label>
+    <nav class="assistant-tracker-list" id="assistant-tracker-list" aria-label="Tracked software">
+      {% for item in trackers %}
+      <a class="assistant-tracker-option {{ 'active' if tracker and item['id'] == tracker['id'] else '' }}"
+         data-search="{{ (item['name'] ~ ' ' ~ item['repository'] ~ ' ' ~ (item['machine_name'] or '') ~ ' ' ~ (item['install_host'] or ''))|lower }}"
+         href="{{ url_for('assistant', tracker_id=item['id']) }}">
+        <span class="tracker-option-icon" aria-hidden="true">{{ item['name'][:1]|upper }}</span>
+        <span class="tracker-option-copy">
+          <strong>{{ item['name'] }}</strong>
+          <small>{{ item['machine_name'] or item['install_host'] or item['repository'] }}</small>
+        </span>
+      </a>
+      {% endfor %}
+    </nav>
+    <div id="assistant-tracker-empty" class="mini-empty compact-empty" hidden>No matching software.</div>
+
+    {% if tracker %}
+    <div class="context-card assistant-context-card">
+      <div class="context-title-row">
+        <strong>{{ tracker['name'] }}</strong>
+        <span class="status-badge {{ 'active' if tracker['last_probe_status'] == 'ok' else 'muted' }}">{{ tracker['last_probe_status'] or 'Not checked' }}</span>
+      </div>
+      <dl class="context-facts">
+        <div><dt>Installed</dt><dd>{{ tracker['detected_installed_version'] or tracker['installed_version'] or 'Unknown' }}</dd></div>
+        <div><dt>Current</dt><dd>{{ tracker['current_release_name'] or tracker['current_version'] or 'Unknown' }}</dd></div>
+        <div><dt>Machine</dt><dd>{{ tracker['machine_name'] or tracker['install_host'] or 'Not specified' }}</dd></div>
+        <div><dt>Repository</dt><dd>{{ tracker['repository'] }}</dd></div>
+      </dl>
+    </div>
+    <form method="post" class="assistant-analyse-form" data-assistant-form data-assistant-action="analyse" data-busy-message="Analysing release history and deployment context…">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="tracker_id" value="{{ tracker['id'] }}">
+      <input type="hidden" name="action" value="analyse">
+      <button class="button primary wide assistant-primary-action" type="submit">
+        <span class="button-icon" aria-hidden="true">✦</span>
+        <span data-button-label>Analyse meaningful changes</span>
+      </button>
+    </form>
+    {% endif %}
+  </aside>
+
+  <div class="assistant-main">
+    {% if not tracker %}
+    <section class="panel empty-state assistant-empty-state">
+      <div class="empty-state-icon" aria-hidden="true">⌁</div>
+      <h2>Select software to begin</h2>
+      <p>The Assistant combines the installed version, machine details, service health and upstream release notes before answering.</p>
+    </section>
+    {% else %}
+    <section class="panel prompt-template-panel">
+      <div class="panel-header assistant-section-header">
+        <div>
+          <span class="section-kicker">START WITH A FOCUSED QUESTION</span>
+          <h2>Quick analysis templates</h2>
+          <p>Choose a template, then edit it before sending.</p>
+        </div>
+      </div>
+      <div class="prompt-template-grid">
+        <button type="button" class="prompt-template" data-prompt="Is this upgrade safe for my current deployment? Identify breaking changes, required migrations, compatibility risks, and anything that could cause downtime. Finish with a clear update now, wait, or avoid recommendation.">
+          <span class="template-icon" aria-hidden="true">✓</span><strong>Safe to upgrade?</strong><span>Breaking changes, downtime and a clear recommendation.</span>
+        </button>
+        <button type="button" class="prompt-template" data-prompt="Summarise only the meaningful changes between my installed version and the latest release. Ignore cosmetic or low-impact changes unless they affect reliability, security or operations.">
+          <span class="template-icon" aria-hidden="true">◆</span><strong>Meaningful changes</strong><span>Filter out noise and highlight what matters.</span>
+        </button>
+        <button type="button" class="prompt-template" data-prompt="What could break in my deployment if I upgrade? Check configuration changes, environment variables, database migrations, ports, authentication, APIs, integrations and dependency compatibility.">
+          <span class="template-icon" aria-hidden="true">!</span><strong>What could break?</strong><span>Configuration, database, API and dependency risks.</span>
+        </button>
+        <button type="button" class="prompt-template" data-prompt="Create a practical pre-upgrade checklist for this deployment. Include backups, configuration checks, migration steps, validation tests and a rollback plan.">
+          <span class="template-icon" aria-hidden="true">☷</span><strong>Pre-upgrade checklist</strong><span>Backups, validation and rollback steps.</span>
+        </button>
+        <button type="button" class="prompt-template" data-prompt="Identify security, privacy, reliability and performance changes since my installed version. Explain whether any change makes the upgrade urgent.">
+          <span class="template-icon" aria-hidden="true">◇</span><strong>Security and reliability</strong><span>Urgent fixes, stability and performance impact.</span>
+        </button>
+        <button type="button" class="prompt-template" data-prompt="Compare the upgrade benefits with the operational risk for my homelab. Recommend update now, wait for a later patch, or ignore this release, and explain why.">
+          <span class="template-icon" aria-hidden="true">→</span><strong>Update, wait or ignore?</strong><span>Balanced operational recommendation.</span>
+        </button>
+      </div>
+    </section>
+
+    {% if latest_analysis %}
+    <section class="panel analysis-card" id="latest-analysis">
+      <div class="panel-header assistant-section-header">
+        <div>
+          <span class="section-kicker">LATEST SAVED COMPARISON</span>
+          <h2>Upgrade assessment</h2>
+          <p>{{ latest_analysis['model'] }} · {{ latest_analysis['created_at']|relative_time }}</p>
+        </div>
+        <div class="analysis-actions"><button class="analysis-copy" type="button" data-copy-target="#latest-analysis .prose-output">Copy assessment</button></div>
+      </div>
+      <div class="prose-output assistant-rich-text">{{ latest_analysis['content']|assistant_markdown }}</div>
+    </section>
+    {% endif %}
+
+    <section class="panel chat-card" aria-busy="false">
+      <div class="panel-header assistant-section-header chat-header">
+        <div>
+          <span class="section-kicker">DEPLOYMENT-AWARE CHAT</span>
+          <h2>Chat about {{ tracker['name'] }}</h2>
+          <p>Uses machine details, installed version, service health and GitHub release notes.</p>
+        </div>
+        {% if messages %}
+        <form method="post" data-busy-message="Clearing the conversation…">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="tracker_id" value="{{ tracker['id'] }}">
+          <button class="button ghost small" name="action" value="clear" type="submit">Clear chat</button>
+        </form>
+        {% endif %}
+      </div>
+
+      <div class="chat-messages" id="assistant-chat-messages" role="log" aria-live="polite" aria-relevant="additions text">
+        {% if messages %}
+          {% for message in messages %}
+          <article class="chat-message {{ message['role'] }}">
+            <div class="message-avatar" aria-hidden="true">{{ 'U' if message['role'] == 'user' else 'R' }}</div>
+            <div class="message-body">
+              <div class="message-heading"><strong>{{ 'You' if message['role'] == 'user' else 'Radar Assistant' }}</strong>{% if message['role'] == 'assistant' %}<button class="message-copy" type="button" data-copy-message>Copy</button>{% endif %}</div>
+              <div class="assistant-rich-text">{{ message['content']|assistant_markdown }}</div>
+            </div>
+          </article>
+          {% endfor %}
+        {% else %}
+        <div class="mini-empty assistant-chat-empty">
+          <span class="empty-state-icon" aria-hidden="true">✦</span>
+          <strong>Ask an upgrade question</strong>
+          <span>Use a template above or ask about migrations, downtime, compatibility, security and rollback.</span>
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="assistant-processing" id="assistant-processing" hidden role="status" aria-live="polite">
+        <span class="processing-spinner" aria-hidden="true"></span>
+        <div class="assistant-processing-copy"><strong id="assistant-processing-title">Analysing your deployment…</strong><span id="assistant-processing-detail">Reviewing version and release context.</span>
+          <ol class="assistant-progress-steps" aria-label="Analysis progress">
+            <li data-progress-step>Versions</li><li data-progress-step>Release notes</li><li data-progress-step>Compatibility</li><li data-progress-step>Operations</li><li data-progress-step>Recommendation</li>
+          </ol>
+        </div>
+        <time id="assistant-processing-time">0s</time>
+        <button class="button ghost small assistant-cancel" id="assistant-cancel" type="button">Cancel</button>
+      </div>
+
+      <form method="post" class="chat-form assistant-composer" id="assistant-chat-form" data-assistant-form data-assistant-action="chat" data-busy-message="Preparing a deployment-aware answer…">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="tracker_id" value="{{ tracker['id'] }}">
+        <input type="hidden" name="action" value="chat">
+        <label class="sr-only" for="assistant-message">Upgrade question</label>
+        <textarea id="assistant-message" name="message" rows="4" placeholder="Choose a template above or ask your own upgrade question." required></textarea>
+        <div class="composer-footer">
+          <span><span class="composer-hint">Enter to send · Shift + Enter for a new line</span><span class="draft-status" id="assistant-draft-status" hidden>Draft saved</span></span>
+          <button class="button primary assistant-send-button" type="submit">
+            <span data-button-label>Send</span>
+            <span class="send-icon" aria-hidden="true">↑</span>
+          </button>
+        </div>
+      </form>
+    </section>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

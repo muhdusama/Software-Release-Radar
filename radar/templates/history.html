@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Release history · Software Release Radar{% endblock %}
+{% block topbar_title %}Detected release history{% endblock %}
+{% block content %}
+<section class="page-heading">
+  <div><span class="eyebrow">CHANGE LOG</span><h1>Release history</h1><p>Detected upstream release transitions after each tracker’s initial baseline.</p></div>
+</section>
+<section class="panel">
+  <form class="history-filter-panel" method="get" action="{{ url_for('history') }}">
+    <label>Search history<input type="search" name="q" value="{{ history_query }}" placeholder="Software, repository or version"></label>
+    <label class="history-date">Detected date<input type="date" name="date" value="{{ selected_date }}"></label>
+    <button class="button secondary" type="submit">Apply filters</button>
+    {% if selected_date or history_query %}<a class="button ghost" href="{{ url_for('history') }}">Clear</a>{% endif %}
+  </form>
+  <div class="history-summary"><strong>{{ event_count }}</strong> release event{{ '' if event_count == 1 else 's' }}{% if selected_date %}<span>· detected on {{ selected_date }}</span>{% endif %}{% if history_query %}<span>· matching “{{ history_query }}”</span>{% endif %}</div>
+  {% if events %}
+  <div class="history-list">
+    {% for event in events %}
+    <article class="history-row" id="event-{{ event['id'] }}">
+      <span class="history-icon">↗</span>
+      <div class="history-main">
+        <div class="history-title"><strong>{{ event['name'] }}</strong><span>{{ event['detected_at']|relative_time }}</span></div>
+        <p>{{ event['previous_release_name'] or event['previous_version'] or 'Previous version' }} → <strong>{{ event['release_name'] or event['version'] }}</strong></p>
+        <small>{{ event['repository'] }}{% if event['tags'] %} · {{ event['tags']|replace(',', ', ') }}{% endif %} · {{ event['detected_at']|pretty_time }}</small>
+      </div>
+      {% if event['release_url'] %}<a class="button ghost small" href="{{ event['release_url'] }}" target="_blank" rel="noreferrer">Release</a>{% endif %}
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-state"><h3>No matching release events</h3><p>{% if selected_date or history_query %}Adjust or clear the filters to see more history.{% else %}Initial baselines do not create history entries.{% endif %}</p></div>
+  {% endif %}
+</section>
+{% endblock %}

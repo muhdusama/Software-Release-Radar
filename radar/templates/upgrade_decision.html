@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}{{ tracker['name'] }} upgrade decision · Software Release Radar{% endblock %}
+{% block topbar_title %}Upgrade plan for {{ tracker['name'] }}{% endblock %}
+{% block content %}
+<section class="page-heading upgrade-detail-heading">
+  <div><span class="eyebrow">UPGRADE DECISION</span><h1>{{ tracker['name'] }}</h1><p>{{ tracker['repository'] }} · {{ tracker['machine_name'] or tracker['install_host'] or 'Machine not recorded' }}</p></div>
+  <div class="heading-actions"><a class="button ghost" href="{{ url_for('upgrades') }}">Back to queue</a>{% if tracker['current_release_url'] and not historical_release %}<a class="button secondary" href="{{ tracker['current_release_url'] }}" target="_blank" rel="noreferrer">Open release</a>{% endif %}{% if not historical_release %}<a class="button secondary" href="{{ url_for('assistant', tracker_id=tracker['id']) }}">Analyse release</a>{% endif %}</div>
+</section>
+
+<section class="upgrade-version-hero panel">
+  <div><span>Installed</span><strong>{{ effective_installed_version or 'Unknown' }}</strong></div><span class="version-arrow">→</span><div><span>Current upstream release</span><strong>{{ target_release_name or release_key or 'Not checked' }}</strong>{% if target_release_name and release_key and target_release_name|lower != release_key|lower %}<small>Git tag {{ release_key }}</small>{% endif %}</div><span class="upgrade-chip {{ upgrade['level'] }}">{{ upgrade['label'] }}</span>
+</section>
+
+{% if historical_release %}<div class="notice-banner warning"><strong>Historical record</strong><span>You are viewing the decision for {{ release_key }}, not the tracker's current upstream release.</span></div>{% endif %}
+
+<form class="upgrade-plan-form" method="post" action="{% if historical_release %}{{ url_for('upgrade_decision', tracker_id=tracker['id'], release=release_key) }}{% else %}{{ url_for('upgrade_decision', tracker_id=tracker['id']) }}{% endif %}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <section class="upgrade-plan-grid">
+    <article class="panel upgrade-plan-primary">
+      <div class="panel-header"><div><h2>Decision and scheduling</h2><p>Make the operational intent explicit for this release.</p></div></div>
+      <div class="form-grid upgrade-decision-fields">
+        <label>Decision<select name="decision_status" {% if current_user['role'] != 'admin' or decision['decision_status'] == 'deployed' %}disabled{% endif %}>{% for value, label in decision_choices %}{% if value != 'deployed' %}<option value="{{ value }}" {{ 'selected' if decision['decision_status'] == value else '' }}>{{ label }}</option>{% endif %}{% endfor %}{% if decision['decision_status'] == 'deployed' %}<option value="deployed" selected>Deployed</option>{% endif %}</select></label>
+        <label>Priority<select name="priority" {% if current_user['role'] != 'admin' %}disabled{% endif %}>{% for value, label in priority_choices %}<option value="{{ value }}" {{ 'selected' if decision['priority'] == value else '' }}>{{ label }}</option>{% endfor %}</select></label>
+        <label>Risk<select name="risk" {% if current_user['role'] != 'admin' %}disabled{% endif %}>{% for value, label in risk_choices %}<option value="{{ value }}" {{ 'selected' if decision['risk'] == value else '' }}>{{ label }}</option>{% endfor %}</select></label>
+        <label>Planned maintenance date<input type="date" name="maintenance_date" value="{{ decision['maintenance_date'] or '' }}" {% if current_user['role'] != 'admin' %}disabled{% endif %}></label>
+      </div>
+      <label>Decision notes<textarea name="decision_notes" rows="5" placeholder="Why update now, wait, or ignore this release?" {% if current_user['role'] != 'admin' %}disabled{% endif %}>{{ decision['decision_notes'] or '' }}</textarea></label>
+      <label>Obsidian change record link<input type="text" name="change_record_url" value="{{ decision['change_record_url'] or '' }}" placeholder="obsidian://open?... or https://..." {% if current_user['role'] != 'admin' %}disabled{% endif %}></label>
+      {% if decision['change_record_url'] %}<a class="text-link" href="{{ decision['change_record_url'] }}">Open linked change record</a>{% endif %}
+    </article>
+
+    <article class="panel checklist-panel">
+      <div class="panel-header"><div><h2>Pre-upgrade checklist</h2><p>One item per line. Tick completed controls before deployment.</p></div><span class="checklist-progress-label">{{ checklist_summary['complete'] }}/{{ checklist_summary['total'] }}</span></div>
+      <div class="checklist-progress-track"><span style="width: {{ checklist_summary['percent'] }}%"></span></div>
+      {% if checklist %}<div class="upgrade-checklist">{% for item in checklist %}<label><input type="checkbox" name="checklist_done" value="{{ loop.index0 }}" {{ 'checked' if item['done'] else '' }} {% if current_user['role'] != 'admin' %}disabled{% endif %}><span>{{ item['text'] }}</span></label>{% endfor %}</div>{% endif %}
+      <label>Checklist items<textarea name="checklist_items" rows="10" placeholder="Back up application data&#10;Confirm rollback command&#10;Review migrations&#10;Validate maintenance window" {% if current_user['role'] != 'admin' %}disabled{% endif %}>{% for item in checklist %}{{ item['text'] }}{{ '\n' if not loop.last else '' }}{% endfor %}</textarea></label>
+    </article>
+
+    <article class="panel rollback-panel">
+      <div class="panel-header"><div><h2>Rollback plan</h2><p>Record the exact recovery path before approving the update.</p></div></div>
+      <label>Rollback notes<textarea name="rollback_notes" rows="8" placeholder="Backup location, rollback command, previous image or package, and validation checks." {% if current_user['role'] != 'admin' %}disabled{% endif %}>{{ decision['rollback_notes'] or '' }}</textarea></label>
+      {% if decision['decision_status'] == 'deployed' %}
+      <div class="deployment-record"><span>Deployment recorded</span><strong>{{ decision['previous_version'] or 'Unknown previous' }} → {{ decision['deployed_version'] or release_key }}</strong><small>{{ decision['deployed_at']|pretty_time }}</small></div>
+      {% endif %}
+    </article>
+  </section>
+
+  {% if current_user['role'] == 'admin' and decision['decision_status'] != 'deployed' and not historical_release %}
+  <section class="sticky-form-actions upgrade-plan-actions">
+    <button class="button secondary" type="submit" name="action" value="save">Save decision</button>
+    <button class="button primary" type="submit" name="action" value="mark_deployed" onclick='return confirm({{ ("Record " ~ tracker["name"] ~ " " ~ release_key ~ " as deployed? This retains the previous version for rollback reference.")|tojson }});'>Mark release deployed</button>
+  </section>
+  {% elif current_user['role'] == 'admin' and decision['decision_status'] != 'deployed' %}
+  <section class="sticky-form-actions upgrade-plan-actions"><button class="button secondary" type="submit" name="action" value="save">Save historical notes</button></section>
+  {% endif %}
+</form>
+{% endblock %}
