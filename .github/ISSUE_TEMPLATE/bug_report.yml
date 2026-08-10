@@ -1,0 +1,87 @@
+name: Bug report
+description: Report a reproducible problem with Software Release Radar
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a problem. Please remove private hostnames, IP addresses, tokens, passwords and other sensitive information before submitting logs or screenshots.
+
+  - type: input
+    id: version
+    attributes:
+      label: Release Radar version
+      description: Shown in the footer or returned by /healthz.
+      placeholder: "2.6.3"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: deployment
+    attributes:
+      label: Deployment method
+      options:
+        - Docker Compose
+        - Docker without Compose
+        - Source / Python
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: platform
+    attributes:
+      label: Host platform
+      description: For example Ubuntu 24.04 amd64, Debian 13 arm64, macOS Docker Desktop.
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Describe the problem and what you expected instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Provide the smallest reliable sequence that reproduces the issue.
+      placeholder: |
+        1. Open ...
+        2. Configure ...
+        3. Click ...
+        4. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Paste only the relevant section. Redact secrets and private infrastructure information first.
+      render: shell
+
+  - type: textarea
+    id: compose
+    attributes:
+      label: Relevant configuration
+      description: Optional. Do not paste your real .env file. Include only non-sensitive settings needed to understand the issue.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues for the same problem.
+          required: true
+        - label: I removed passwords, tokens, private keys and other secrets.
+          required: true
+        - label: I removed or anonymised private hostnames, domains and IP addresses where they are not needed.
+          required: true
+        - label: This is not a security vulnerability. Security reports belong in the private vulnerability reporting workflow described in SECURITY.md.
+          required: true
