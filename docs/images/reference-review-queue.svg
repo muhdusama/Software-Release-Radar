@@ -1,15 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="980" viewBox="0 0 1440 980" role="img" aria-labelledby="title desc">
   <title id="title">Software Release Radar review queue reference</title>
   <desc id="desc">Neutral demo review queue showing release decisions, priority, risk and release-note summaries.</desc>
-  <rect width="1440" height="900" fill="#0b1220"/>
-  <rect x="24" y="24" width="1392" height="852" rx="28" fill="#10192b" stroke="#27344d"/>
-  <rect x="24" y="24" width="250" height="852" rx="28" fill="#0e1728"/>
+
+  <rect width="1440" height="980" fill="#0b1220"/>
+  <rect x="24" y="24" width="1392" height="932" rx="28" fill="#10192b" stroke="#27344d"/>
+  <rect x="24" y="24" width="250" height="932" rx="28" fill="#0e1728"/>
+
   <circle cx="76" cy="78" r="24" fill="none" stroke="#63e6ff" stroke-width="3"/>
   <circle cx="76" cy="78" r="13" fill="none" stroke="#34425f" stroke-width="2"/>
   <path d="M76 78l17-13" stroke="#63e6ff" stroke-width="3"/>
 
   <g font-family="Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
     <text x="114" y="78" dominant-baseline="middle" fill="#f8fafc" font-size="22" font-weight="700">Release Radar</text>
+
     <g font-size="18">
       <text x="56" y="160" dominant-baseline="middle" fill="#94a3b8">○  Dashboard</text>
       <text x="56" y="210" dominant-baseline="middle" fill="#63e6ff">●  Review Queue</text>
@@ -21,55 +24,86 @@
     <text x="318" y="78" dominant-baseline="middle" fill="#f8fafc" font-size="34" font-weight="700">Review Queue</text>
     <text x="318" y="114" dominant-baseline="middle" fill="#94a3b8" font-size="16">Decide what to update, wait on or ignore · Demo data</text>
 
-    <rect x="318" y="150" width="1026" height="62" rx="16" fill="#131e33"/>
-    <text x="342" y="181" dominant-baseline="middle" fill="#94a3b8" font-size="15">7 updates</text>
-    <rect x="455" y="164" width="128" height="34" rx="17" fill="#163b42"/>
-    <text x="519" y="181" text-anchor="middle" dominant-baseline="middle" fill="#63e6ff" font-size="14">ALL PRIORITIES</text>
-    <rect x="599" y="164" width="116" height="34" rx="17" fill="#1f3146"/>
-    <text x="657" y="181" text-anchor="middle" dominant-baseline="middle" fill="#c4b5fd" font-size="14">ALL RISKS</text>
+    <g transform="translate(318 150)">
+      <rect width="1026" height="62" rx="16" fill="#131e33"/>
+      <text x="34" y="31" dominant-baseline="middle" fill="#94a3b8" font-size="15">7 updates</text>
+
+      <rect x="150" y="14" width="168" height="34" rx="17" fill="#163b42"/>
+      <text x="234" y="31" text-anchor="middle" dominant-baseline="middle" fill="#63e6ff" font-size="14" font-weight="700">ALL PRIORITIES</text>
+
+      <rect x="338" y="14" width="154" height="34" rx="17" fill="#1f3146"/>
+      <text x="415" y="31" text-anchor="middle" dominant-baseline="middle" fill="#c4b5fd" font-size="14" font-weight="700">ALL RISKS</text>
+    </g>
 
     <g transform="translate(318 238)">
-      <rect width="1026" height="174" rx="18" fill="#131e33"/>
-      <text x="28" y="34" dominant-baseline="middle" fill="#f8fafc" font-size="21" font-weight="700">Demo Media Server · 1.4.2 → 1.5.0</text>
-      <rect x="28" y="55" width="74" height="30" rx="15" fill="#422d19"/>
-      <text x="65" y="70" text-anchor="middle" dominant-baseline="middle" fill="#f5c56b" font-size="13" font-weight="650">HIGH</text>
-      <rect x="114" y="55" width="116" height="30" rx="15" fill="#3d2330"/>
-      <text x="172" y="70" text-anchor="middle" dominant-baseline="middle" fill="#fda4af" font-size="13" font-weight="650">MEDIUM RISK</text>
-      <text x="28" y="116" dominant-baseline="middle" fill="#94a3b8" font-size="15">Highlights: security fixes, database migration notes and improved transcoding reliability.</text>
-      <rect x="744" y="109" width="104" height="38" rx="19" fill="#173f34"/>
-      <text x="796" y="128" text-anchor="middle" dominant-baseline="middle" fill="#a7f3d0" font-size="14" font-weight="650">UPDATE</text>
-      <rect x="862" y="109" width="78" height="38" rx="19" fill="#263650"/>
-      <text x="901" y="128" text-anchor="middle" dominant-baseline="middle" fill="#e2e8f0" font-size="14">WAIT</text>
+      <rect width="1026" height="206" rx="20" fill="#131e33"/>
+
+      <text x="40" y="48" dominant-baseline="middle" fill="#f8fafc" font-size="25" font-weight="700">Demo Media Server · 1.4.2 → 1.5.0</text>
+
+      <rect x="40" y="78" width="108" height="38" rx="19" fill="#422d19"/>
+      <text x="94" y="97" text-anchor="middle" dominant-baseline="middle" fill="#f5c56b" font-size="15" font-weight="700">HIGH</text>
+
+      <rect x="164" y="78" width="164" height="38" rx="19" fill="#3d2330"/>
+      <text x="246" y="97" text-anchor="middle" dominant-baseline="middle" fill="#fda4af" font-size="15" font-weight="700">MEDIUM RISK</text>
+
+      <text x="40" y="150" fill="#94a3b8" font-size="16">
+        <tspan x="40" dy="0">Highlights: security fixes and database migration notes.</tspan>
+        <tspan x="40" dy="27">Improved transcoding reliability is also included.</tspan>
+      </text>
+
+      <rect x="782" y="146" width="108" height="42" rx="21" fill="#173f34"/>
+      <text x="836" y="167" text-anchor="middle" dominant-baseline="middle" fill="#a7f3d0" font-size="14" font-weight="700">UPDATE</text>
+
+      <rect x="906" y="146" width="80" height="42" rx="21" fill="#263650"/>
+      <text x="946" y="167" text-anchor="middle" dominant-baseline="middle" fill="#e2e8f0" font-size="14" font-weight="700">WAIT</text>
     </g>
 
-    <g transform="translate(318 428)">
-      <rect width="1026" height="174" rx="18" fill="#131e33"/>
-      <text x="28" y="34" dominant-baseline="middle" fill="#f8fafc" font-size="21" font-weight="700">Demo Reverse Proxy · 2.9.0 → 2.9.1</text>
-      <rect x="28" y="55" width="90" height="30" rx="15" fill="#173f34"/>
-      <text x="73" y="70" text-anchor="middle" dominant-baseline="middle" fill="#a7f3d0" font-size="13" font-weight="650">NORMAL</text>
-      <rect x="130" y="55" width="92" height="30" rx="15" fill="#1f3146"/>
-      <text x="176" y="70" text-anchor="middle" dominant-baseline="middle" fill="#cbd5e1" font-size="13" font-weight="650">LOW RISK</text>
-      <text x="28" y="116" dominant-baseline="middle" fill="#94a3b8" font-size="15">Highlights: patch release with bug fixes; no configuration migration noted.</text>
-      <rect x="744" y="109" width="104" height="38" rx="19" fill="#173f34"/>
-      <text x="796" y="128" text-anchor="middle" dominant-baseline="middle" fill="#a7f3d0" font-size="14" font-weight="650">UPDATE</text>
-      <rect x="862" y="109" width="78" height="38" rx="19" fill="#263650"/>
-      <text x="901" y="128" text-anchor="middle" dominant-baseline="middle" fill="#e2e8f0" font-size="14">WAIT</text>
+    <g transform="translate(318 472)">
+      <rect width="1026" height="206" rx="20" fill="#131e33"/>
+
+      <text x="40" y="48" dominant-baseline="middle" fill="#f8fafc" font-size="25" font-weight="700">Demo Reverse Proxy · 2.9.0 → 2.9.1</text>
+
+      <rect x="40" y="78" width="128" height="38" rx="19" fill="#173f34"/>
+      <text x="104" y="97" text-anchor="middle" dominant-baseline="middle" fill="#a7f3d0" font-size="15" font-weight="700">NORMAL</text>
+
+      <rect x="184" y="78" width="136" height="38" rx="19" fill="#1f3146"/>
+      <text x="252" y="97" text-anchor="middle" dominant-baseline="middle" fill="#cbd5e1" font-size="15" font-weight="700">LOW RISK</text>
+
+      <text x="40" y="150" fill="#94a3b8" font-size="16">
+        <tspan x="40" dy="0">Highlights: patch release with bug fixes.</tspan>
+        <tspan x="40" dy="27">No configuration migration is noted.</tspan>
+      </text>
+
+      <rect x="782" y="146" width="108" height="42" rx="21" fill="#173f34"/>
+      <text x="836" y="167" text-anchor="middle" dominant-baseline="middle" fill="#a7f3d0" font-size="14" font-weight="700">UPDATE</text>
+
+      <rect x="906" y="146" width="80" height="42" rx="21" fill="#263650"/>
+      <text x="946" y="167" text-anchor="middle" dominant-baseline="middle" fill="#e2e8f0" font-size="14" font-weight="700">WAIT</text>
     </g>
 
-    <g transform="translate(318 618)">
-      <rect width="1026" height="174" rx="18" fill="#131e33"/>
-      <text x="28" y="34" dominant-baseline="middle" fill="#f8fafc" font-size="21" font-weight="700">Demo Metrics Agent · 0.18.5 → 0.19.0</text>
-      <rect x="28" y="55" width="90" height="30" rx="15" fill="#1f3146"/>
-      <text x="73" y="70" text-anchor="middle" dominant-baseline="middle" fill="#cbd5e1" font-size="13" font-weight="650">NORMAL</text>
-      <rect x="130" y="55" width="116" height="30" rx="15" fill="#422d19"/>
-      <text x="188" y="70" text-anchor="middle" dominant-baseline="middle" fill="#f5c56b" font-size="13" font-weight="650">MEDIUM RISK</text>
-      <text x="28" y="116" dominant-baseline="middle" fill="#94a3b8" font-size="15">Highlights: new collector features; review configuration compatibility before rollout.</text>
-      <rect x="744" y="109" width="104" height="38" rx="19" fill="#173f34"/>
-      <text x="796" y="128" text-anchor="middle" dominant-baseline="middle" fill="#a7f3d0" font-size="14" font-weight="650">UPDATE</text>
-      <rect x="862" y="109" width="78" height="38" rx="19" fill="#263650"/>
-      <text x="901" y="128" text-anchor="middle" dominant-baseline="middle" fill="#e2e8f0" font-size="14">WAIT</text>
+    <g transform="translate(318 706)">
+      <rect width="1026" height="206" rx="20" fill="#131e33"/>
+
+      <text x="40" y="48" dominant-baseline="middle" fill="#f8fafc" font-size="25" font-weight="700">Demo Metrics Agent · 0.18.5 → 0.19.0</text>
+
+      <rect x="40" y="78" width="128" height="38" rx="19" fill="#1f3146"/>
+      <text x="104" y="97" text-anchor="middle" dominant-baseline="middle" fill="#cbd5e1" font-size="15" font-weight="700">NORMAL</text>
+
+      <rect x="184" y="78" width="172" height="38" rx="19" fill="#422d19"/>
+      <text x="270" y="97" text-anchor="middle" dominant-baseline="middle" fill="#f5c56b" font-size="15" font-weight="700">MEDIUM RISK</text>
+
+      <text x="40" y="150" fill="#94a3b8" font-size="16">
+        <tspan x="40" dy="0">Highlights: new collector features are available.</tspan>
+        <tspan x="40" dy="27">Review configuration compatibility before rollout.</tspan>
+      </text>
+
+      <rect x="782" y="146" width="108" height="42" rx="21" fill="#173f34"/>
+      <text x="836" y="167" text-anchor="middle" dominant-baseline="middle" fill="#a7f3d0" font-size="14" font-weight="700">UPDATE</text>
+
+      <rect x="906" y="146" width="80" height="42" rx="21" fill="#263650"/>
+      <text x="946" y="167" text-anchor="middle" dominant-baseline="middle" fill="#e2e8f0" font-size="14" font-weight="700">WAIT</text>
     </g>
 
-    <text x="318" y="835" dominant-baseline="middle" fill="#64748b" font-size="14">Reference screenshot · neutral demo data · not a production capture</text>
+    <text x="318" y="940" dominant-baseline="middle" fill="#64748b" font-size="14">Reference screenshot · neutral demo data · not a production capture</text>
   </g>
 </svg>
