@@ -14,7 +14,8 @@
   <a href="#-eli5">ELI5</a> ·
   <a href="#-preview">Preview</a> ·
   <a href="#-what-it-does">Features</a> ·
-  <a href="#-python-app-docker-deployment">Deployment</a> ·
+  <a href="#-vibe-coded-and-open-about-it">How it was built</a> ·
+  <a href="#-docker-quick-start">Docker</a> ·
   <a href="#-help-shape-the-roadmap">Vote</a> ·
   <a href="ROADMAP.md">Roadmap</a> ·
   <a href="CHANGELOG.md">Changelog</a> ·
@@ -125,6 +126,47 @@ A version number alone does not tell you enough. I wanted one place that could a
 
 ---
 
+# 🎛️ Vibe-coded and open about it
+
+Software Release Radar is very much a **vibe-coded project**.
+
+I am not a software developer. I started building this because I had a practical problem in my own self-hosted setup and wanted a better way to solve it.
+
+I have used **OpenAI Codex heavily** to help design, write, refactor, test and document the project. I set the direction, decide what the application should do, test it in a real environment, review the results and make the final call on changes.
+
+I am being open about this because I think contributors should know how the project came together. There may be places where an experienced developer would choose a cleaner pattern or spot something that I missed. If you find one, please open an issue or pull request.
+
+<table>
+<tr>
+<td width="33%" valign="top">
+
+### 🧭 Human direction
+
+Product decisions, priorities and release decisions stay human-led.
+
+</td>
+<td width="33%" valign="top">
+
+### 🤖 Codex-assisted
+
+Codex has been used extensively for implementation, testing, refactoring and documentation.
+
+</td>
+<td width="33%" valign="top">
+
+### 🧪 Tested in practice
+
+The project is run in a real self-hosted environment and changes go through validation before release.
+
+</td>
+</tr>
+</table>
+
+> [!NOTE]
+> "Vibe-coded" does not mean unreviewed or untested. Correctness, security, maintainability and clear tests matter. Contributions that improve those areas are especially welcome.
+
+---
+
 # ✨ What it does
 
 | Area | Capability |
@@ -169,7 +211,7 @@ An OpenAI-compatible endpoint can be used for release-note analysis and tracker 
 
 # 🐍 Python app, Docker deployment
 
-The two labels describe different parts of the project:
+Python and Docker describe different parts of the project.
 
 ```text
 Python 3.13
@@ -183,24 +225,51 @@ Software Release Radar
 Docker + Docker Compose
 ```
 
-The public release is being prepared with **Docker Compose as the main supported installation path**. The goal is a simple, repeatable setup with persistent data, an example environment file and clear upgrade instructions.
+The goal is that a self-hoster can run Release Radar without installing or managing Python directly on the host.
 
-### Public release deployment target
+---
 
-```text
-git clone repository
-        │
-        ▼
-copy .env.example to .env
-        │
-        ▼
-docker compose up -d
-        │
-        ▼
-open Release Radar in your browser
+# 🐳 Docker quick start
+
+The repository now includes:
+
+- `docker-compose.yml`
+- `.env.example`
+- `.gitignore` rules that keep the real `.env` and runtime data out of Git
+- [Docker deployment notes](docs/DOCKER.md)
+
+> [!WARNING]
+> The Docker deployment is still a staging scaffold because the sanitised application source and `Dockerfile` have not yet been imported into this GitHub repository. The workflow below is the intended public install path and will be marked ready only after it passes a clean-host test.
+
+### Target install flow
+
+```bash
+git clone https://github.com/muhdusama/Software-Release-Radar.git
+cd Software-Release-Radar
+cp .env.example .env
+docker compose config
+docker compose up -d --build
 ```
 
-The exact commands will be added after the sanitised source and Compose files pass a clean-machine installation test.
+The default host port in `.env.example` is `9120`.
+
+```text
+http://localhost:9120
+```
+
+### Why there is no committed `.env`
+
+A real `.env` file belongs to the person running the application. It can contain passwords, API tokens, private URLs and other local settings.
+
+For that reason, the repository contains a safe **`.env.example`** and ignores the real `.env` file. The normal setup is:
+
+```bash
+cp .env.example .env
+```
+
+Then edit `.env` locally for your deployment.
+
+Read **[docs/DOCKER.md](docs/DOCKER.md)** for the full deployment status and validation checklist.
 
 ---
 
@@ -258,7 +327,7 @@ The immediate job is to turn the existing v2.6.3 private production application 
 **Current priorities:**
 
 - 🧹 sanitise and import the v2.6.3 source;
-- 🐳 validate Docker Compose deployment from a clean machine;
+- 🐳 finish the Dockerfile and validate Docker Compose from a clean machine;
 - 🔐 add privacy, secret and dependency checks;
 - 🧪 add CI and regression tests;
 - 📚 finish public installation and configuration documentation;
@@ -273,7 +342,7 @@ See the full **[Roadmap](ROADMAP.md)** and **[Changelog](CHANGELOG.md)**.
 
 If Release Radar is useful to you, a GitHub star is a simple way to support the project. Stars also help other self-hosters discover useful projects through GitHub search and Explore.
 
-When the repository is public, I will also use GitHub topics, Discussions, releases and a proper social preview so the project is easier to find and understand.
+When the repository is public, I also plan to use GitHub topics, Discussions, releases and a proper social preview so the project is easier to find and understand.
 
 ---
 
@@ -326,6 +395,7 @@ Financial support is optional. The project remains available under its open-sour
 
 | | Document | What it is for |
 |---|---|---|
+| 🐳 | [docs/DOCKER.md](docs/DOCKER.md) | Docker Compose deployment and validation status |
 | 🗺️ | [ROADMAP.md](ROADMAP.md) | Current priorities and future direction |
 | 📊 | [FEATURE_VOTING.md](FEATURE_VOTING.md) | How community feature voting works |
 | 📝 | [CHANGELOG.md](CHANGELOG.md) | Release history and notable changes |
