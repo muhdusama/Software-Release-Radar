@@ -26,9 +26,11 @@ This roadmap shows direction rather than fixed delivery dates. Priorities can ch
 | v2.6.3 production baseline | ✅ Ready | Existing private application baseline |
 | Public documentation | 🟢 In progress | README, roadmap, changelog, security and contribution material |
 | Public-safe visuals | ✅ Ready | Logo, wordmark and neutral reference screenshots |
+| Build approach disclosure | ✅ Ready | README explains the project is Codex-assisted and vibe-coded |
 | AGPL-3.0 licensing | ✅ Ready | GitHub detects the licence correctly |
+| Docker Compose scaffold | ✅ Staged | `docker-compose.yml`, `.env.example`, `.gitignore` and Docker guide are present |
 | Sanitised application source | 🟡 Pending | Must be imported from the private source repository |
-| Clean Docker Compose install | 🟡 Pending | Must be validated on a clean machine |
+| Clean Docker Compose install | 🟡 Pending | Must be validated after the source and Dockerfile are staged |
 | CI and security checks | 🟡 Pending | Added after the application source is staged |
 | Public launch | 🔒 Not yet | Repository stays private until the release gates pass |
 
@@ -50,13 +52,17 @@ This roadmap shows direction rather than fixed delivery dates. Priorities can ch
 
 **Primary public deployment method: Docker Compose.**
 
-- [ ] Add a clean production-ready `Dockerfile`.
-- [ ] Add a public `compose.yaml` or `docker-compose.yml`.
-- [ ] Add a safe `.env.example` with useful comments and no secrets.
-- [ ] Use persistent volumes or bind mounts for application state.
+- [ ] Add a clean production-ready `Dockerfile` after the source is imported.
+- [x] Add a public `docker-compose.yml`.
+- [x] Add a safe `.env.example` with useful comments and no secrets.
+- [x] Add `.gitignore` rules for `.env`, runtime data, databases, backups and keys.
+- [x] Add a persistent data mount to the Compose scaffold.
+- [x] Add a Docker deployment and validation guide.
+- [ ] Confirm the application-specific environment variables against the sanitised source.
 - [ ] Add health checks where they provide useful failure information.
-- [ ] Test `docker compose up -d` on a clean Linux host.
-- [ ] Document upgrades, backups and rollback basics.
+- [ ] Test `docker compose up -d --build` on a clean Linux host.
+- [ ] Validate restart with persistent state retained.
+- [ ] Document final upgrade, backup and rollback procedures.
 - [ ] Confirm the container runs the Python 3.13 application without requiring manual host-side Python setup.
 
 ### 🧪 Quality and security
@@ -69,7 +75,10 @@ This roadmap shows direction rather than fixed delivery dates. Priorities can ch
 
 ### 📚 Documentation and launch presentation
 
-- [ ] Finish installation and configuration guides.
+- [x] Explain clearly that the application is Python and Docker is the deployment layer.
+- [x] Document the Codex-assisted, vibe-coded origin of the project.
+- [x] Add Docker quick-start scaffolding without presenting it as already validated.
+- [ ] Finish installation and configuration guides against the actual public source.
 - [ ] Finish architecture documentation against the actual public source tree.
 - [ ] Replace reference screenshots with screenshots from the sanitised build.
 - [ ] Add an `AGENTS.md` file for AI-assisted contributors and maintainers.
@@ -122,7 +131,7 @@ Successful self-hosted projects usually make the purpose obvious within seconds 
 
 - [ ] Use focused GitHub topics such as `self-hosted`, `docker`, `docker-compose`, `python`, `homelab`, `release-monitoring`, `version-tracking`, `portainer` and `devops`.
 - [ ] Keep the first screenshot and one-line purpose near the top of the README.
-- [ ] Add a tested quick-start section as soon as the public Compose file is ready.
+- [ ] Replace the staging Docker warning with a tested quick-start section after clean-host validation.
 - [ ] Enable Discussions and keep questions out of bug reports where practical.
 - [ ] Add contributor and project-activity sections once there is real public activity to show.
 - [ ] Add a star-history view only after the repository has meaningful public history.
