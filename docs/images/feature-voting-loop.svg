@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 420" role="img" aria-labelledby="title desc">
+  <title id="title">Software Release Radar feature voting loop</title>
+  <desc id="desc">A visual flow from idea to feature proposal, community voting, roadmap poll, planned work and shipped release.</desc>
+  <rect width="1400" height="420" rx="34" fill="#0b1220"/>
+  <text x="700" y="62" text-anchor="middle" fill="#f8fafc" font-family="system-ui,sans-serif" font-size="32" font-weight="700">Help decide what gets built next</text>
+  <text x="700" y="96" text-anchor="middle" fill="#94a3b8" font-family="system-ui,sans-serif" font-size="17">Propose · discuss · vote · prioritise · ship</text>
+  <g font-family="system-ui,sans-serif">
+    <g transform="translate(95 155)"><rect width="185" height="120" rx="22" fill="#131e33" stroke="#263650"/><text x="92" y="43" text-anchor="middle" fill="#63e6ff" font-size="28">💡</text><text x="92" y="75" text-anchor="middle" fill="#f8fafc" font-size="18" font-weight="700">Idea</text><text x="92" y="99" text-anchor="middle" fill="#94a3b8" font-size="13">A real problem</text></g>
+    <text x="307" y="222" fill="#64748b" font-size="30">→</text>
+    <g transform="translate(330 155)"><rect width="185" height="120" rx="22" fill="#131e33" stroke="#263650"/><text x="92" y="43" text-anchor="middle" fill="#7dd3fc" font-size="28">📝</text><text x="92" y="75" text-anchor="middle" fill="#f8fafc" font-size="18" font-weight="700">Proposal</text><text x="92" y="99" text-anchor="middle" fill="#94a3b8" font-size="13">Structured issue</text></g>
+    <text x="542" y="222" fill="#64748b" font-size="30">→</text>
+    <g transform="translate(565 155)"><rect width="185" height="120" rx="22" fill="#131e33" stroke="#63e6ff"/><text x="92" y="43" text-anchor="middle" fill="#63e6ff" font-size="28">👍</text><text x="92" y="75" text-anchor="middle" fill="#f8fafc" font-size="18" font-weight="700">Community signal</text><text x="92" y="99" text-anchor="middle" fill="#94a3b8" font-size="13">Votes + discussion</text></g>
+    <text x="777" y="222" fill="#64748b" font-size="30">→</text>
+    <g transform="translate(800 155)"><rect width="185" height="120" rx="22" fill="#131e33" stroke="#8b5cf6"/><text x="92" y="43" text-anchor="middle" fill="#c4b5fd" font-size="28">🗳️</text><text x="92" y="75" text-anchor="middle" fill="#f8fafc" font-size="18" font-weight="700">Roadmap poll</text><text x="92" y="99" text-anchor="middle" fill="#94a3b8" font-size="13">Compare candidates</text></g>
+    <text x="1012" y="222" fill="#64748b" font-size="30">→</text>
+    <g transform="translate(1035 155)"><rect width="185" height="120" rx="22" fill="#131e33" stroke="#8b5cf6"/><text x="92" y="43" text-anchor="middle" fill="#ddd6fe" font-size="28">🛠️</text><text x="92" y="75" text-anchor="middle" fill="#f8fafc" font-size="18" font-weight="700">Planned</text><text x="92" y="99" text-anchor="middle" fill="#94a3b8" font-size="13">Design + build</text></g>
+    <text x="1247" y="222" fill="#64748b" font-size="30">→</text>
+    <g transform="translate(1270 155)"><rect width="90" height="120" rx="22" fill="#173f34" stroke="#34d399"/><text x="45" y="43" text-anchor="middle" fill="#a7f3d0" font-size="26">🚀</text><text x="45" y="75" text-anchor="middle" fill="#f8fafc" font-size="15" font-weight="700">Ship</text><text x="45" y="99" text-anchor="middle" fill="#a7f3d0" font-size="12">Release</text></g>
+  </g>
+  <rect x="375" y="326" width="650" height="52" rx="26" fill="#172238"/>
+  <text x="700" y="357" text-anchor="middle" fill="#e2e8f0" font-family="system-ui,sans-serif" font-size="16">Votes guide priority — security, reliability and maintainability can still outrank popularity.</text>
+</svg>
