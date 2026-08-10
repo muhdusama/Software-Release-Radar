@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions and deployment help
+    url: https://github.com/muhdusama/Software-Release-Radar/discussions
+    about: Use Discussions for configuration questions, deployment patterns and general help.
+  - name: Security vulnerability
+    url: https://github.com/muhdusama/Software-Release-Radar/security
+    about: Do not disclose security vulnerabilities in a public issue. Follow SECURITY.md and use private vulnerability reporting when available.
