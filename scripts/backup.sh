@@ -14,18 +14,8 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 docker compose exec -T radar python -c "import sqlite3; source=sqlite3.connect('/data/radar.db'); target=sqlite3.connect('${CONTAINER_COPY}'); source.backup(target); target.close(); source.close()"
+docker compose exec -T radar python -c "import sqlite3; conn=sqlite3.connect('file:${CONTAINER_COPY}?mode=ro', uri=True); result=conn.execute('PRAGMA integrity_check').fetchone()[0]; conn.close(); assert result == 'ok', f'Backup integrity check failed: {result}'"
 docker compose cp "radar:${CONTAINER_COPY}" "$HOST_COPY" >/dev/null
 
-python3 - "$HOST_COPY" <<'PY'
-import sqlite3
-import sys
-
-path = sys.argv[1]
-conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
-result = conn.execute("PRAGMA integrity_check").fetchone()[0]
-conn.close()
-if result != "ok":
-    raise SystemExit(f"Backup integrity check failed: {result}")
-print(f"Backup created: {path}")
-print("SQLite integrity_check: ok")
-PY
+printf 'Backup created: %s\n' "$HOST_COPY"
+printf 'SQLite integrity_check: ok\n'
