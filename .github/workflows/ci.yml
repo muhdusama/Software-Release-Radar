@@ -53,6 +53,7 @@ jobs:
           import os
           import secrets
           print("RADAR_VERSION=ci")
+          print("RADAR_BIND_ADDRESS=127.0.0.1")
           print("RADAR_PORT=9120")
           print("RADAR_SCHEDULER_INTERVAL_SECONDS=60")
           print("RADAR_SCHEDULER_LOG_RESULTS=false")
@@ -95,9 +96,15 @@ jobs:
           assert payload['name'] == 'Software Release Radar', payload
           PY
 
-          test "$(docker inspect --format '{{.State.Health.Status}}' software-release-radar)" = "healthy"
-          test "$(docker inspect --format '{{.State.Status}}' software-release-radar-scheduler)" = "running"
-          test "$(docker inspect --format '{{.State.Status}}' software-release-radar-portainer-worker)" = "running"
+          radar_id="$(docker compose ps -q radar)"
+          scheduler_id="$(docker compose ps -q scheduler)"
+          worker_id="$(docker compose ps -q portainer-worker)"
+          test -n "$radar_id"
+          test -n "$scheduler_id"
+          test -n "$worker_id"
+          test "$(docker inspect --format '{{.State.Health.Status}}' "$radar_id")" = "healthy"
+          test "$(docker inspect --format '{{.State.Status}}' "$scheduler_id")" = "running"
+          test "$(docker inspect --format '{{.State.Status}}' "$worker_id")" = "running"
 
           curl -fsS http://127.0.0.1:9120/login >/dev/null
           docker compose ps
