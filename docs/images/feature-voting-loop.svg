@@ -18,5 +18,5 @@
     <g transform="translate(1270 155)"><rect width="90" height="120" rx="22" fill="#173f34" stroke="#34d399"/><text x="45" y="43" text-anchor="middle" fill="#a7f3d0" font-size="26">🚀</text><text x="45" y="75" text-anchor="middle" fill="#f8fafc" font-size="15" font-weight="700">Ship</text><text x="45" y="99" text-anchor="middle" fill="#a7f3d0" font-size="12">Release</text></g>
   </g>
   <rect x="375" y="326" width="650" height="52" rx="26" fill="#172238"/>
-  <text x="700" y="357" text-anchor="middle" fill="#e2e8f0" font-family="system-ui,sans-serif" font-size="16">Votes guide priority — security, reliability and maintainability can still outrank popularity.</text>
+  <text x="700" y="357" text-anchor="middle" fill="#e2e8f0" font-family="system-ui,sans-serif" font-size="16">Votes guide priority. Security, reliability and maintainability can still outrank popularity.</text>
 </svg>
