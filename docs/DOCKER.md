@@ -30,8 +30,9 @@ The setup script:
 4. writes `.env` with mode `0600`;
 5. creates the optional `ssh/` directory;
 6. validates the Compose configuration;
-7. builds and starts the stack; and
-8. waits for the web application to report healthy.
+7. builds and starts the stack;
+8. waits for the web application to report healthy; and
+9. confirms the scheduler and Portainer worker are running.
 
 The administrator password itself is not written to `.env`.
 
@@ -43,15 +44,15 @@ http://localhost:9120
 
 ## What the stack runs
 
-The Compose stack contains three long-running containers built from the same Python application image.
+The Compose stack contains three long-running services built from the same Python application image.
 
-| Container | Purpose |
+| Compose service | Purpose |
 |---|---|
-| `software-release-radar` | Flask application served by Gunicorn |
-| `software-release-radar-scheduler` | Runs due release checks automatically and dispatches notifications for new releases |
-| `software-release-radar-portainer-worker` | Processes Portainer synchronisation and bulk-import jobs |
+| `radar` | Flask application served by Gunicorn |
+| `scheduler` | Runs due release checks automatically and dispatches notifications for new releases |
+| `portainer-worker` | Processes Portainer synchronisation and bulk-import jobs |
 
-All three containers share the `software-release-radar-data` Docker volume.
+Compose assigns project-scoped container and volume names automatically. The repository deliberately does not hard-code global container names or a global database-volume name. This prevents two independent checkouts from silently colliding or sharing the same database.
 
 The scheduler wakes every 60 seconds by default, but it only checks trackers whose individual refresh interval is due. The scheduler interval is therefore a lightweight polling interval, not the release-check interval for every tracker.
 
@@ -61,7 +62,7 @@ The scheduler wakes every 60 seconds by default, but it only checks trackers who
 docker compose ps
 ```
 
-The web container should show `healthy`. The scheduler and Portainer worker should show `running`.
+The `radar` service should show `healthy`. The `scheduler` and `portainer-worker` services should show `running`.
 
 Check the health endpoint:
 
@@ -87,22 +88,23 @@ docker compose logs --tail=100 radar scheduler portainer-worker
 
 The safe template is `.env.example`.
 
-Important values include:
-
 | Setting | Purpose | Default |
 |---|---|---|
+| `RADAR_BIND_ADDRESS` | Address that publishes the web port on the Docker host | `0.0.0.0` |
 | `RADAR_PORT` | Host port for the web interface | `9120` |
 | `RADAR_SCHEDULER_INTERVAL_SECONDS` | How often the scheduler looks for due trackers | `60` |
-| `RADAR_LOG_LEVEL` | Application worker log level | `INFO` |
+| `RADAR_LOG_LEVEL` | Scheduler log level | `INFO` |
 | `GITHUB_TOKEN` | Optional GitHub API token for higher rate limits | empty |
 | `SESSION_COOKIE_SECURE` | Require secure session cookies | `false` |
 | `TRUST_PROXY_HEADERS` | Trust one directly connected reverse proxy | `false` |
+
+`RADAR_BIND_ADDRESS=0.0.0.0` makes the application reachable through the Docker host interfaces when the host firewall permits it. Use `127.0.0.1` when Release Radar should only be reachable through a reverse proxy running on the same host.
 
 `SECRET_KEY`, `ENCRYPTION_KEY` and `ADMIN_PASSWORD_HASH` must contain real secure values. `scripts/setup.sh` generates them for you.
 
 ### Manual setup
 
-The Docker-only setup script is recommended. If Python 3 is already installed and you prefer the older manual path, this remains available:
+The Docker-only setup script is recommended. If Python 3 is already installed and you prefer the manual path, this remains available:
 
 ```bash
 python3 scripts/bootstrap-env.py
@@ -125,13 +127,7 @@ Useful scheduler logs:
 docker compose logs -f scheduler
 ```
 
-To change how frequently the scheduler looks for due work, edit:
-
-```text
-RADAR_SCHEDULER_INTERVAL_SECONDS=60
-```
-
-Allowed values are 30 to 3600 seconds.
+Allowed scheduler polling values are 30 to 3600 seconds.
 
 ## HTTPS and reverse proxies
 
@@ -151,13 +147,21 @@ TRUST_PROXY_HEADERS=true
 
 Only enable `TRUST_PROXY_HEADERS` when Release Radar is directly behind the proxy that sets the forwarding headers. Do not enable it when untrusted clients can connect directly to the application port.
 
+If the reverse proxy runs on the same Docker host, consider:
+
+```text
+RADAR_BIND_ADDRESS=127.0.0.1
+```
+
 Recommended reverse-proxy behaviour:
 
 - terminate TLS at the proxy;
-- forward traffic to port `9120` on the Docker host;
-- restrict direct access to port `9120` when practical;
+- forward traffic to the configured Release Radar host port;
+- restrict direct access to that port when practical;
 - use a valid certificate; and
 - preserve the original HTTPS scheme and host headers.
+
+See [Security hardening](SECURITY-HARDENING.md) for the full production checklist.
 
 ## GitHub token
 
@@ -189,13 +193,13 @@ Release Radar uses a fixed Docker inspect command rather than arbitrary remote s
 
 ## Data
 
-Application state is stored in the named volume:
+Application state is stored in the Compose-scoped `radar-data` volume. Use this command to see the exact Docker resource name on the current host:
 
-```text
-software-release-radar-data
+```bash
+docker compose volumes
 ```
 
-The SQLite database lives at `/data/radar.db` inside the containers.
+The SQLite database lives at `/data/radar.db` inside the application services.
 
 Do not copy the live SQLite file directly while the application may be writing to it.
 
@@ -227,11 +231,15 @@ bash scripts/restore.sh ./backups/radar-20260811-010000.db --confirm
 
 The restore helper:
 
-1. validates the backup with SQLite integrity checking;
-2. stops the scheduler, Portainer worker and web container;
-3. restores the database through a one-off application container;
-4. validates the restored database; and
-5. starts the stack again.
+1. validates the requested backup;
+2. creates and validates a new pre-restore safety backup;
+3. stops all services that can write the database;
+4. restores the requested database through a one-off application container;
+5. validates the restored database;
+6. attempts automatic rollback to the safety backup if the requested restore fails; and
+7. starts the stack again.
+
+The safety backup is retained after a successful restore.
 
 Run `docker compose ps` after a restore and sign in before considering the restore complete.
 
@@ -251,7 +259,7 @@ docker compose build --pull
 docker compose up -d --build
 ```
 
-Check the health endpoint and logs after the containers restart.
+Check the health endpoint and logs after the services restart.
 
 Review `CHANGELOG.md` before every upgrade. If a future release requires a special migration step, it will be called out in the release notes and upgrade documentation.
 
@@ -263,18 +271,18 @@ Stop the application without deleting data:
 docker compose down
 ```
 
-Removing the named volume deletes the Release Radar database. Do not use `docker compose down -v` unless you deliberately want to remove all application state or you have a verified backup.
+Deleting the Compose volume deletes the Release Radar database. Do not use `docker compose down -v` unless you deliberately want to remove all application state or you have a verified backup.
 
 ## Troubleshooting
 
-### Web container is unhealthy
+### Web service is unhealthy
 
 ```bash
 docker compose ps
 docker compose logs --tail=150 radar
 ```
 
-Common causes are missing or invalid `SECRET_KEY` or `ENCRYPTION_KEY` values, an invalid `.env`, or a filesystem problem with the data volume.
+Common causes are missing or invalid `SECRET_KEY` or `ENCRYPTION_KEY` values, an invalid `.env`, or a data-volume problem.
 
 ### Scheduler is restarting
 
@@ -294,8 +302,10 @@ docker compose up -d
 
 ### Portainer connection fails
 
-Use the Settings page to test Portainer. Verify the URL, API token, certificate trust and network path from the Release Radar container to Portainer.
+Use the Settings page to test Portainer. Verify the URL, API token, certificate trust and network path from the Release Radar service to Portainer.
 
 ### Need more help
 
 Use GitHub Discussions for deployment and configuration questions. Use GitHub Issues for reproducible defects. Follow `SECURITY.md` for vulnerabilities.
+
+See [Configuration](CONFIGURATION.md), [Architecture](ARCHITECTURE.md) and [Security hardening](SECURITY-HARDENING.md) for more detail.
