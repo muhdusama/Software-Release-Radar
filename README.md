@@ -5,14 +5,23 @@
 
 **Track releases. Compare versions. Know what changed.**
 
-![Version](https://img.shields.io/badge/version-2.6.3-2f81f7) ![Self-hosted](https://img.shields.io/badge/self--hosted-Docker-2496ED) ![Python](https://img.shields.io/badge/Python-3.13-3776AB) ![License](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-7B42BC)
+![Version](https://img.shields.io/badge/version-2.6.3-2f81f7) ![Self-hosted](https://img.shields.io/badge/self--hosted-Docker-2496ED) ![Python](https://img.shields.io/badge/Python-3.13-3776AB) ![License](https://img.shields.io/badge/license-AGPL--3.0-663399)
 
 > [!IMPORTANT]
-> Software Release Radar is **source-available for noncommercial use**. It is not OSI-approved open-source software because commercial use is intentionally restricted. See [Licensing](#licensing).
+> Software Release Radar is **open-source software licensed under the GNU Affero General Public License v3.0 (AGPL-3.0)**. AGPL-3.0 is a strong copyleft licence designed for software that may be run over a network. Modified versions must remain under the same licence, and modified versions offered to users over a network must provide those users access to the corresponding source code. See [Licensing](#licensing).
 
 Software Release Radar is a self-hosted dashboard for monitoring upstream software releases, comparing them with deployed versions, and turning release information into an operational review queue.
 
-It is designed for homelabs, personal infrastructure, research environments, educational use and other permitted noncommercial deployments.
+It is designed for homelabs, personal infrastructure, teams, research environments and other self-hosted deployments.
+
+## Support the project
+
+Software Release Radar is a side project I’m building and maintaining while looking for my next role. If it saves you time or is useful in your environment, any support is appreciated and helps me keep developing it.
+
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-FFDD00?logo=buymeacoffee&logoColor=000000)](https://buymeacoffee.com/muhdusama)
+[![PayPal](https://img.shields.io/badge/PayPal-support-003087?logo=paypal&logoColor=white)](https://www.paypal.com/paypalme/muhdusama)
+
+Support is entirely optional. The project remains available under its open-source licence regardless of whether you contribute financially.
 
 ## Why Software Release Radar?
 
@@ -109,7 +118,7 @@ Runtime data belongs in the deployment's persistent state directories and **must
 - [Contributing](CONTRIBUTING.md)
 - [Support](SUPPORT.md)
 - [Security policy](SECURITY.md)
-- [Commercial-use policy](COMMERCIAL_USE.md)
+- [Commercial use and AGPL obligations](COMMERCIAL_USE.md)
 - [Publication checklist](PUBLICATION-CHECKLIST.md)
 
 ## Project status
@@ -118,6 +127,8 @@ The intended first public-source baseline is **v2.6.3**. Before this repository 
 
 ## Licensing
 
-Software Release Radar is licensed under the **PolyForm Noncommercial License 1.0.0** (`PolyForm-Noncommercial-1.0.0`). Commercial use is not granted by the public licence.
+Software Release Radar is licensed under the **GNU Affero General Public License v3.0** (`AGPL-3.0`). This is a strong copyleft open-source licence.
 
-Read [LICENSE](LICENSE) and [COMMERCIAL_USE.md](COMMERCIAL_USE.md) before using or redistributing the software.
+In practical terms, the licence allows use, modification, distribution and commercial use, but covered modifications and derivative works must remain under AGPL-3.0. If a modified version is used to provide a network service, users interacting with that modified version must be offered access to its corresponding source code under the licence.
+
+You may not add restrictions that remove rights granted by AGPL-3.0. Read [LICENSE](LICENSE) and [COMMERCIAL_USE.md](COMMERCIAL_USE.md) for the governing terms and a plain-language project summary.
