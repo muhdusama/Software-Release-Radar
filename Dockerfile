@@ -6,7 +6,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
 LABEL org.opencontainers.image.title="Software Release Radar" \
+      org.opencontainers.image.description="Self-hosted software release monitoring and upgrade review dashboard" \
       org.opencontainers.image.version="${APP_VERSION}" \
+      org.opencontainers.image.licenses="AGPL-3.0-only" \
       org.opencontainers.image.source="https://github.com/muhdusama/Software-Release-Radar"
 
 RUN apt-get update \
@@ -29,4 +31,4 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=8s --retries=3 --start-period=20s \
   CMD python -c "import json,urllib.request; d=json.load(urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=5)); assert d.get('status') == 'ok'" || exit 1
 
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "2", "--threads", "4", "--timeout", "180", "--access-logfile", "-", "--error-logfile", "-", "radar.web:create_app()"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "2", "--threads", "4", "--timeout", "180", "--access-logfile", "-", "--error-logfile", "-", "radar.application:create_app()"]
