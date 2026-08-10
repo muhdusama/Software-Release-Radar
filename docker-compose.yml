@@ -5,7 +5,6 @@ services:
       context: .
       args:
         APP_VERSION: "${RADAR_VERSION:-2.6.3}"
-    container_name: software-release-radar
     restart: unless-stopped
     env_file:
       - .env
@@ -13,7 +12,7 @@ services:
       RADAR_DB: /data/radar.db
       RADAR_SSH_DIR: /ssh
     ports:
-      - "${RADAR_PORT:-9120}:8080"
+      - "${RADAR_BIND_ADDRESS:-0.0.0.0}:${RADAR_PORT:-9120}:8080"
     volumes:
       - radar-data:/data
       - ./ssh:/ssh:ro
@@ -32,7 +31,6 @@ services:
       context: .
       args:
         APP_VERSION: "${RADAR_VERSION:-2.6.3}"
-    container_name: software-release-radar-scheduler
     restart: unless-stopped
     env_file:
       - .env
@@ -55,7 +53,6 @@ services:
       context: .
       args:
         APP_VERSION: "${RADAR_VERSION:-2.6.3}"
-    container_name: software-release-radar-portainer-worker
     restart: unless-stopped
     env_file:
       - .env
@@ -74,4 +71,3 @@ services:
 
 volumes:
   radar-data:
-    name: software-release-radar-data
