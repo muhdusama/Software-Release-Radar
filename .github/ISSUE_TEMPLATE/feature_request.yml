@@ -1,0 +1,74 @@
+name: Feature request
+description: Propose an improvement and gather community support
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping shape Software Release Radar.
+
+        Please describe the problem first. Once submitted, other users can support the proposal with a 👍 reaction on the issue itself. Avoid `+1` comments so discussion stays useful.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Describe the real situation or limitation you are running into.
+      placeholder: "When I manage..., I currently have to..., which makes it difficult to..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: workaround
+    attributes:
+      label: What do you do today instead?
+      description: Explain the current workaround, manual process or other tool you use.
+    validations:
+      required: true
+
+  - type: textarea
+    id: outcome
+    attributes:
+      label: What would a good outcome look like?
+      description: Focus on the result rather than prescribing a particular implementation.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which area does this affect most?
+      options:
+        - Release tracking and version comparison
+        - Review queue and update decisions
+        - Fleet and service inventory
+        - Docker / Portainer integration
+        - Notifications
+        - Installation / upgrades
+        - API / integrations
+        - Optional AI assistance
+        - User interface / dashboard
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment or deployment context
+      description: Include relevant self-hosted, Docker, Portainer or platform context. Do not include secrets, public IPs or private credentials.
+      placeholder: "Example: Docker Compose on Ubuntu, Portainer-managed containers"
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched existing issues for the same problem.
+          required: true
+        - label: I have described the problem rather than only a preferred implementation.
+          required: true
+        - label: I have not included credentials, tokens or other sensitive information.
+          required: true
