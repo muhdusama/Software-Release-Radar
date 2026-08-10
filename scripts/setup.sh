@@ -54,11 +54,13 @@ print(base64.urlsafe_b64encode(os.urandom(32)).decode("ascii"))
 ')"
 unset ADMIN_PASSWORD ADMIN_PASSWORD_CONFIRM
 
-mapfile -t GENERATED_LINES <<< "$GENERATED"
-[[ ${#GENERATED_LINES[@]} -eq 3 ]] || fail "Could not generate the required application secrets."
-ADMIN_PASSWORD_HASH="${GENERATED_LINES[0]}"
-SECRET_KEY="${GENERATED_LINES[1]}"
-ENCRYPTION_KEY="${GENERATED_LINES[2]}"
+# Keep this compatible with the Bash 3.2 version bundled with macOS.
+ADMIN_PASSWORD_HASH="$(printf '%s\n' "$GENERATED" | sed -n '1p')"
+SECRET_KEY="$(printf '%s\n' "$GENERATED" | sed -n '2p')"
+ENCRYPTION_KEY="$(printf '%s\n' "$GENERATED" | sed -n '3p')"
+[[ -n "$ADMIN_PASSWORD_HASH" && -n "$SECRET_KEY" && -n "$ENCRYPTION_KEY" ]] || fail "Could not generate the required application secrets."
+[[ "$(printf '%s\n' "$GENERATED" | wc -l | tr -d ' ')" == "3" ]] || fail "Unexpected output while generating application secrets."
+unset GENERATED
 
 cat > .env <<EOF
 RADAR_VERSION=2.6.3
@@ -81,6 +83,8 @@ EOF
 chmod 600 .env
 mkdir -p ssh
 
+unset ADMIN_PASSWORD_HASH SECRET_KEY ENCRYPTION_KEY
+
 printf 'Validating Docker Compose configuration...\n'
 docker compose config >/dev/null
 
@@ -89,7 +93,8 @@ docker compose up -d --build
 
 printf 'Waiting for the web application to become healthy...\n'
 healthy=false
-for _ in $(seq 1 60); do
+attempt=1
+while [[ "$attempt" -le 60 ]]; do
   status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' software-release-radar 2>/dev/null || true)"
   if [[ "$status" == "healthy" ]]; then
     healthy=true
@@ -100,6 +105,7 @@ for _ in $(seq 1 60); do
     fail "The web container stopped during startup."
   fi
   sleep 2
+  attempt=$((attempt + 1))
 done
 
 if [[ "$healthy" != "true" ]]; then
@@ -107,6 +113,11 @@ if [[ "$healthy" != "true" ]]; then
   docker compose logs --tail=80 radar >&2 || true
   fail "The web application did not become healthy within two minutes."
 fi
+
+scheduler_status="$(docker inspect --format '{{.State.Status}}' software-release-radar-scheduler 2>/dev/null || true)"
+worker_status="$(docker inspect --format '{{.State.Status}}' software-release-radar-portainer-worker 2>/dev/null || true)"
+[[ "$scheduler_status" == "running" ]] || fail "The automatic release scheduler is not running."
+[[ "$worker_status" == "running" ]] || fail "The Portainer background worker is not running."
 
 printf '\nSoftware Release Radar is ready.\n'
 printf 'Open: http://localhost:9120\n'
