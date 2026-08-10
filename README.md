@@ -16,6 +16,7 @@
   <a href="#-what-it-does">Features</a> ·
   <a href="#-vibe-coded-and-open-about-it">How it was built</a> ·
   <a href="#-docker-quick-start">Docker</a> ·
+  <a href="#-contributors">Contributors</a> ·
   <a href="#-help-shape-the-roadmap">Vote</a> ·
   <a href="ROADMAP.md">Roadmap</a> ·
   <a href="CHANGELOG.md">Changelog</a> ·
@@ -134,7 +135,7 @@ I am not a software developer. I started building this because I had a practical
 
 I have used **OpenAI Codex heavily** to help design, write, refactor, test and document the project. I set the direction, decide what the application should do, test it in a real environment, review the results and make the final call on changes.
 
-I am being open about this because I think contributors should know how the project came together. There may be places where an experienced developer would choose a cleaner pattern or spot something that I missed. If you find one, please open an issue or pull request.
+I am being open about this because contributors should know how the project came together. There may be places where an experienced developer would choose a cleaner pattern or spot something that I missed. If you find one, please open an issue or pull request.
 
 <table>
 <tr>
@@ -257,19 +258,9 @@ The default host port in `.env.example` is `9120`.
 http://localhost:9120
 ```
 
-### Why there is no committed `.env`
+A real `.env` file belongs to the person running the application. It can contain passwords, API tokens, private URLs and other local settings. The repository therefore contains a safe `.env.example` and ignores the real `.env` file.
 
-A real `.env` file belongs to the person running the application. It can contain passwords, API tokens, private URLs and other local settings.
-
-For that reason, the repository contains a safe **`.env.example`** and ignores the real `.env` file. The normal setup is:
-
-```bash
-cp .env.example .env
-```
-
-Then edit `.env` locally for your deployment.
-
-Read **[docs/DOCKER.md](docs/DOCKER.md)** for the full deployment status and validation checklist.
+Read **[docs/DOCKER.md](docs/DOCKER.md)** for the deployment notes and validation checklist.
 
 ---
 
@@ -291,6 +282,24 @@ flowchart LR
 
 ---
 
+# 👥 Contributors
+
+<p align="center">
+  <img alt="Human led" src="https://img.shields.io/badge/project-human%20led-2f81f7">
+  <img alt="OpenAI Codex contributor" src="https://img.shields.io/badge/OpenAI%20Codex-AI%20coding%20contributor-412991?logo=openai&logoColor=white">
+</p>
+
+| Contributor | Role |
+|---|---|
+| [@muhdusama](https://github.com/muhdusama) | Creator and maintainer. Product direction, feature decisions, real-world testing and release decisions. |
+| **OpenAI Codex** | AI coding contributor. Implementation, refactoring, tests, debugging, documentation and code review assistance. |
+
+Codex is an AI coding tool rather than a conventional GitHub contributor account. GitHub's automatic contributor graph is based on commit authorship, so Codex may not appear there as a separate account. Its contribution is still explicitly recognised by this project.
+
+See **[CONTRIBUTORS.md](CONTRIBUTORS.md)** for more detail.
+
+---
+
 # 🗳️ Help shape the roadmap
 
 <p align="center">
@@ -299,7 +308,7 @@ flowchart LR
 
 I want the roadmap to reflect real problems that people are trying to solve.
 
-Once the repository is public, feature requests will use a simple community voting process:
+Once the repository is public:
 
 1. **Propose a feature** using the structured feature request form.
 2. **Vote with a 👍 reaction** on requests that would help you.
@@ -311,8 +320,6 @@ Once the repository is public, feature requests will use a simple community voti
   &nbsp;&nbsp;•&nbsp;&nbsp;
   <a href="ROADMAP.md"><strong>🗺️ View the roadmap</strong></a>
 </p>
-
-GitHub Discussions polls are planned for the public repository. Issues and 👍 reactions will remain useful for detailed proposals and long-term demand signals.
 
 ---
 
@@ -342,8 +349,6 @@ See the full **[Roadmap](ROADMAP.md)** and **[Changelog](CHANGELOG.md)**.
 
 If Release Radar is useful to you, a GitHub star is a simple way to support the project. Stars also help other self-hosters discover useful projects through GitHub search and Explore.
 
-When the repository is public, I also plan to use GitHub topics, Discussions, releases and a proper social preview so the project is easier to find and understand.
-
 ---
 
 # 🔓 Open-source licence
@@ -361,20 +366,7 @@ AGPL-3.0 permits use, modification, distribution and commercial use while applyi
 
 # 🔐 Data and privacy
 
-Runtime state belongs in the deployment, not in Git.
-
-Never commit or publish:
-
-- `.env` files containing secrets;
-- SQLite or runtime databases;
-- API tokens or credentials;
-- SSH private keys;
-- backups or candidate deployment directories;
-- private infrastructure logs;
-- private DNS names or internal addresses; or
-- screenshots containing real private infrastructure data.
-
-The first public Git history will use a sanitised source snapshot instead of importing the historical private repository wholesale.
+Runtime state belongs in the deployment, not in Git. Do not commit `.env` files containing secrets, runtime databases, API tokens, credentials, SSH private keys, backups, private infrastructure details or screenshots containing real private infrastructure data.
 
 ---
 
@@ -383,7 +375,8 @@ The first public Git history will use a sanitised source snapshot instead of imp
 Software Release Radar is a side project I am building and maintaining while I look for my next role. If it saves you time or is useful in your environment, any support is appreciated and helps me keep improving it.
 
 <p align="center">
-  <a href="https://buymeacoffee.com/muhdusama"><img src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-Support%20the%20project-FFDD00?logo=buymeacoffee&logoColor=000000" alt="Support on Buy Me a Coffee"></a>
+  <a href="https://buymeacoffee.com/muhdusama"><img src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-Support-FFDD00?logo=buymeacoffee&logoColor=000000" alt="Support on Buy Me a Coffee"></a>
+  <a href="https://ko-fi.com/muhdusama"><img src="https://img.shields.io/badge/Ko--fi-Support-FF5E5B?logo=kofi&logoColor=white" alt="Support on Ko-fi"></a>
   <a href="https://www.paypal.com/paypalme/muhdusama"><img src="https://img.shields.io/badge/PayPal-Donate-003087?logo=paypal&logoColor=white" alt="Donate with PayPal"></a>
 </p>
 
@@ -399,13 +392,12 @@ Financial support is optional. The project remains available under its open-sour
 | 🗺️ | [ROADMAP.md](ROADMAP.md) | Current priorities and future direction |
 | 📊 | [FEATURE_VOTING.md](FEATURE_VOTING.md) | How community feature voting works |
 | 📝 | [CHANGELOG.md](CHANGELOG.md) | Release history and notable changes |
+| 👥 | [CONTRIBUTORS.md](CONTRIBUTORS.md) | Project contributor credits |
 | 🤝 | [CONTRIBUTING.md](CONTRIBUTING.md) | Contribution guidelines |
 | 🔐 | [SECURITY.md](SECURITY.md) | Responsible vulnerability reporting |
 | 💬 | [SUPPORT.md](SUPPORT.md) | Support channels and project support |
 | ⚖️ | [COMMERCIAL_USE.md](COMMERCIAL_USE.md) | Plain-language AGPL guidance |
 | 📄 | [LICENSE](LICENSE) | Full AGPL-3.0 licence text |
-
-Detailed installation, configuration and architecture guides will be staged with the sanitised source so the instructions can be tested against the real public build.
 
 ---
 
