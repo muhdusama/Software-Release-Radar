@@ -1,4 +1,4 @@
 Flask>=3.1.3,<4
 Werkzeug>=3.1.8,<4
 Gunicorn>=23,<24
-cryptography>=49,<50
+cryptography>=50.0.0,<51
