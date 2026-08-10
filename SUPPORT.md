@@ -9,7 +9,7 @@ If the project saves you time or is useful in your environment, any support is a
 - **Buy Me a Coffee:** https://buymeacoffee.com/muhdusama
 - **PayPal:** https://www.paypal.com/paypalme/muhdusama
 
-GitHub also exposes these options through the repository’s Sponsor button using `.github/FUNDING.yml`.
+The repository also includes `.github/FUNDING.yml` so these funding options can be exposed through GitHub’s Sponsor button when repository sponsorships are enabled.
 
 ## Use GitHub Issues for
 
