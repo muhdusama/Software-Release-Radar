@@ -1,0 +1,44 @@
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Runtime data
+/data/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Backups and deployment candidates
+/backups/
+/candidates/
+/legacy-state/
+*.bak
+*.backup
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+
+# Editors and operating systems
+.DS_Store
+.vscode/
+.idea/
+
+# Local logs
+*.log
+/logs/
+
+# Local keys and credentials
+*.pem
+*.key
+*.p12
+*.pfx
+/ssh/
