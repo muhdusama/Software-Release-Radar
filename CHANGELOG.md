@@ -18,18 +18,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 - Neutral reference visuals and project branding for the GitHub landing page.
 - Visual roadmap and community voting diagrams.
 - Clear project identity as a Python 3.13 application intended for Docker Compose deployment.
+- `docker-compose.yml` publication scaffold.
+- Safe `.env.example` for Docker-level defaults.
+- `.gitignore` rules to keep local environment files, runtime data, databases, backups and keys out of Git.
+- Docker deployment and clean-host validation guide under `docs/DOCKER.md`.
+- Public disclosure that the project is heavily Codex-assisted and vibe-coded by a maintainer who is not a software developer.
+- AI-assisted contribution guidance focused on review, testing, security and maintainability.
 
 ### Changed
 
 - Reworked licensing from the earlier noncommercial publication plan to AGPL-3.0 so the project can be released as genuine open-source software while retaining strong copyleft protections.
 - Redesigned the README to improve visual hierarchy, project discovery, feature explanation and community participation.
 - Redesigned the roadmap to make current work, future phases and voting candidates easier to scan.
+- Updated the roadmap to distinguish the staged Docker Compose scaffold from the still-pending clean-host deployment validation.
 - Public documentation is being separated from private deployment-specific operations and infrastructure details.
 - Public-facing copy now uses Australian English, avoids contractions and avoids em dashes.
 
 ### Security
 
 - Public release preparation includes a fresh-history publication model, secret and privacy scanning, and regeneration of screenshots using demo data only.
+- Real `.env` files remain local and are ignored by Git. Only the safe example file is committed.
 
 ---
 
