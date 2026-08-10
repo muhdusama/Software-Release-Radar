@@ -1,80 +1,100 @@
 <p align="center">
-  <img src="docs/images/software-release-radar-wordmark.svg" alt="Software Release Radar — Know what changed before you update" width="900">
+  <img src="docs/images/software-release-radar-wordmark.svg" alt="Software Release Radar. Know what changed before you update." width="900">
 </p>
 
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/badge/version-2.6.3-2f81f7">
-  <img alt="Self-hosted" src="https://img.shields.io/badge/self--hosted-Docker-2496ED?logo=docker&logoColor=white">
-  <img alt="Python" src="https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white">
-  <img alt="License" src="https://img.shields.io/badge/license-AGPL--3.0-663399">
-  <img alt="AI optional" src="https://img.shields.io/badge/AI-optional-64748b">
+  <img alt="Version 2.6.3" src="https://img.shields.io/badge/version-2.6.3-2f81f7">
+  <img alt="Python 3.13 application" src="https://img.shields.io/badge/app-Python%203.13-3776AB?logo=python&logoColor=white">
+  <img alt="Docker Compose deployment" src="https://img.shields.io/badge/deploy-Docker%20Compose-2496ED?logo=docker&logoColor=white">
+  <img alt="AGPL 3.0 licence" src="https://img.shields.io/badge/licence-AGPL--3.0-663399">
+  <img alt="AI is optional" src="https://img.shields.io/badge/AI-optional-64748b">
 </p>
 
 <p align="center">
-  <a href="#eli5">ELI5</a> ·
-  <a href="#preview">Preview</a> ·
-  <a href="#what-it-does">Features</a> ·
+  <a href="#-eli5">ELI5</a> ·
+  <a href="#-preview">Preview</a> ·
+  <a href="#-what-it-does">Features</a> ·
+  <a href="#-python-app-docker-deployment">Deployment</a> ·
+  <a href="#-help-shape-the-roadmap">Vote</a> ·
   <a href="ROADMAP.md">Roadmap</a> ·
   <a href="CHANGELOG.md">Changelog</a> ·
-  <a href="CONTRIBUTING.md">Contributing</a> ·
-  <a href="#support-the-project">Support</a>
+  <a href="#-support-the-project">Support</a>
 </p>
 
 > [!CAUTION]
-> **PRIVATE PUBLICATION STAGING REPOSITORY.** This repository is not ready to make public yet. The sanitised v2.6.3 application source still needs to be imported and pass the final privacy, secret, build and clean-install audits. The branding and screenshots below are public-safe reference visuals using neutral demo data.
+> **Private publication staging repository.** The public release is still being prepared. The sanitised v2.6.3 source needs to be imported and pass privacy, secret, build and clean-install checks before this repository is made public. The visuals in this repository use neutral demo data.
 
-Software Release Radar is a **self-hosted release monitoring and upgrade-review dashboard**. It watches the software you run, checks upstream releases, compares versions, adds deployment context and gives you a review queue so you can decide what to update—and why.
+# 📡 What is Software Release Radar?
 
-## At a glance
+Software Release Radar is a self-hosted dashboard for people who run a growing collection of software and want a better way to keep track of updates.
 
-| | |
-|---|---|
-| **Problem** | Keeping track of updates across a growing self-hosted fleet is tedious and error-prone. |
-| **Solution** | One place to see upstream releases, installed versions, health context and update decisions. |
-| **Deployment** | Self-hosted with Docker Compose. |
-| **Core monitoring** | Deterministic; no LLM required. |
-| **AI** | Optional, for interpreting release notes and answering release questions. |
-| **Licence** | GNU AGPL-3.0 strong copyleft open source. |
-| **Current baseline** | v2.6.3, being prepared for the first public source release. |
+It checks upstream releases, compares them with the versions you run, adds machine and service context, and gives you one place to decide what should be updated, delayed, ignored or investigated.
+
+<table>
+<tr>
+<td width="33%" valign="top">
+
+### 🐍 Python application
+
+The application itself is written in Python 3.13.
+
+</td>
+<td width="33%" valign="top">
+
+### 🐳 Docker deployment
+
+Docker Compose is the intended primary deployment method for the public release.
+
+</td>
+<td width="33%" valign="top">
+
+### 🧠 AI is optional
+
+Core monitoring works without an LLM. AI can help interpret release notes when wanted.
+
+</td>
+</tr>
+</table>
 
 ---
 
-## ELI5
+# 🧒 ELI5
 
-Imagine you run a bunch of apps at home or on your own servers.
+Imagine you run 20 or 30 apps at home, in a homelab, or on your own servers.
 
-Every app releases updates at different times. Normally you have to visit lots of websites, work out which version you already have, read release notes, remember which server runs what, and decide whether an update is safe.
+Each app gets updates at different times. Without a tool like this, you may need to visit several websites, remember what version you installed, read release notes, work out which server runs each app, and then decide whether the update is worth doing.
 
-**Software Release Radar does the boring tracking part for you.**
+**Software Release Radar handles the repetitive tracking so you can focus on the decision.**
 
 ```text
-Your software
-     │
-     ▼
+Software you run
+       │
+       ▼
 Check official upstream releases
-     │
-     ▼
-Compare latest version with what you run
-     │
-     ▼
+       │
+       ▼
+Compare latest version with your version
+       │
+       ▼
 Add machine, container and health context
-     │
-     ▼
-Show one review queue
-     │
-     ├── Update
-     ├── Wait
-     ├── Ignore
-     └── Investigate
+       │
+       ▼
+Put the result in one review queue
+       │
+       ├── Update
+       ├── Wait
+       ├── Ignore
+       └── Investigate
 ```
 
-It is **not designed to blindly update production systems**. It helps you make better update decisions while keeping you in control.
+> [!IMPORTANT]
+> Release Radar is not meant to blindly update production systems. The point is to give you better information before you make the change.
 
 ---
 
-## Preview
+# 🖼️ Preview
 
-> These are **reference visuals generated with neutral demo data**, not captures of the private production environment. Final screenshots will be regenerated from the sanitised public build before launch.
+> These are reference visuals built with neutral demo data. They are not captures of the private production environment. Final screenshots will be taken from the sanitised public build before launch.
 
 ### Dashboard
 
@@ -88,66 +108,103 @@ It is **not designed to blindly update production systems**. It helps you make b
 
 ---
 
-## Why Software Release Radar?
+# 🎯 Why I built it
 
-A version number by itself does not answer the questions that matter:
+Once a self-hosted environment grows beyond a handful of services, update tracking becomes surprisingly messy.
 
-- Is the installed version genuinely behind?
-- Is the upstream release stable, prerelease or only a tag?
-- Which machine, service or container is affected?
-- Is that service currently healthy?
-- What actually changed in the new release?
-- Is this an update, a checker failure, or simply missing upstream information?
-- Should the update happen now, later, or not at all?
-- What rollback or maintenance context should be retained?
+A version number alone does not tell you enough. I wanted one place that could answer questions such as:
 
-Software Release Radar brings those questions into one operational view.
+| Question | Why it matters |
+|---|---|
+| **Am I actually behind?** | A failed checker should not look like a confirmed update. |
+| **What changed?** | A patch release and a breaking release should not be treated the same way. |
+| **Where does this run?** | Machine, service and container context matters during maintenance. |
+| **Is the service healthy now?** | Updating an already unhealthy service can make troubleshooting harder. |
+| **Should I update today?** | Some releases should be applied quickly. Others are better left for later. |
+| **What did I decide last time?** | Release history and deployment notes are useful when something goes wrong. |
 
 ---
 
-## What it does
+# ✨ What it does
 
 | Area | Capability |
 |---|---|
-| **Release tracking** | GitHub releases, prereleases and latest tags |
-| **Version awareness** | Installed, detected and upstream version comparison |
-| **Fleet inventory** | Machine, service, container, port and health context |
-| **Portainer** | Inventory sync and resilient container rebinding |
-| **Review workflow** | Update, Wait, Ignore, Deployed and needs-attention decisions |
-| **Diagnostics** | Separates real updates from checker failures and unavailable comparisons |
-| **Notifications** | SMTP email, Pushover and Matrix-compatible delivery |
-| **Optional AI** | OpenAI-compatible release comparison and tracker chat |
-| **Multi-user** | Administrator and standard-user roles |
-| **Operations** | CLI status, due checks, probes and deterministic smoke tests |
-| **Deployment** | Docker Compose with persistent state |
+| 📡 **Release tracking** | GitHub releases, prereleases and latest tags |
+| 🔢 **Version awareness** | Installed, detected and upstream version comparison |
+| 🖥️ **Fleet inventory** | Machine, service, container, port and health context |
+| 🐳 **Portainer** | Inventory synchronisation and resilient container rebinding |
+| ✅ **Review workflow** | Update, Wait, Ignore, Deployed and Needs Attention decisions |
+| 🩺 **Diagnostics** | Separates real updates from checker failures and unavailable comparisons |
+| 🔔 **Notifications** | SMTP email, Pushover and Matrix-compatible delivery |
+| 🧠 **Optional AI** | OpenAI-compatible release comparison and tracker chat |
+| 👥 **Multi-user** | Administrator and standard-user roles |
+| 🛠️ **Operations** | CLI status, due checks, probes and deterministic smoke tests |
+| 📦 **Deployment** | Docker Compose with persistent state |
 
-### Release intelligence
+### 📡 Release intelligence
 
 - Track stable releases, prereleases or latest tags.
-- Use per-software refresh intervals.
+- Set a refresh interval per software package.
 - Compare upstream releases with installed or detected versions.
-- Keep checker failures and unavailable comparisons separate from confirmed updates.
+- Keep checker failures separate from confirmed updates.
 - Handle version schemes that need deterministic normalisation.
 
-### Fleet and deployment context
+### 🖥️ Fleet context
 
 - Associate software with machines and services.
-- Record host, port, health and Docker-container context.
+- Record host, port, health and Docker container context.
 - Group services by machine.
 - Surface online, offline, update and needs-attention states.
 - Search and filter larger inventories.
 
-### Upgrade decisions
+### ✅ Upgrade decisions
 
-Software Release Radar provides an **operational review queue**, not an unattended updater. Releases can carry decision state, priority, risk, maintenance timing, notes, rollback context and deployment history.
+Release Radar provides an operational review queue rather than an unattended updater. A release can carry priority, risk, maintenance timing, notes, rollback context and deployment history.
 
-### Optional Release Assistant
+### 🧠 Optional Release Assistant
 
-An OpenAI-compatible endpoint can be configured for release-note analysis and tracker chat. Core release checking, scheduling, probing, version comparison and ordinary notification workflows do **not** require an AI model.
+An OpenAI-compatible endpoint can be used for release-note analysis and tracker chat. Core release checking, scheduling, probing, version comparison and normal notifications do not require an AI model.
 
 ---
 
-## Architecture
+# 🐍 Python app, Docker deployment
+
+The two labels describe different parts of the project:
+
+```text
+Python 3.13
+   │
+   │ application code
+   ▼
+Software Release Radar
+   │
+   │ packaged and run with
+   ▼
+Docker + Docker Compose
+```
+
+The public release is being prepared with **Docker Compose as the main supported installation path**. The goal is a simple, repeatable setup with persistent data, an example environment file and clear upgrade instructions.
+
+### Public release deployment target
+
+```text
+git clone repository
+        │
+        ▼
+copy .env.example to .env
+        │
+        ▼
+docker compose up -d
+        │
+        ▼
+open Release Radar in your browser
+```
+
+The exact commands will be added after the sanitised source and Compose files pass a clean-machine installation test.
+
+---
+
+# 🏗️ Architecture
 
 ```mermaid
 flowchart LR
@@ -161,34 +218,70 @@ flowchart LR
     H[Optional agent integration] --> C
 ```
 
-The design principle is simple: **automation should be deterministic by default; AI should assist with interpretation, not be required for basic monitoring.**
+**Design rule:** deterministic automation first. AI is used for interpretation where it adds value, not as a requirement for basic monitoring.
 
 ---
 
-## Project direction
+# 🗳️ Help shape the roadmap
 
-The project is currently moving from a private production application to a public open-source project.
+<p align="center">
+  <img src="docs/images/feature-voting-loop.svg" alt="Feature proposal and roadmap voting process" width="1000">
+</p>
+
+I want the roadmap to reflect real problems that people are trying to solve.
+
+Once the repository is public, feature requests will use a simple community voting process:
+
+1. **Propose a feature** using the structured feature request form.
+2. **Vote with a 👍 reaction** on requests that would help you.
+3. Strong candidates can move into a **roadmap poll** for direct comparison.
+4. Results help guide priority alongside security, reliability and maintenance effort.
+
+<p align="center">
+  <a href="FEATURE_VOTING.md"><strong>📊 Read how feature voting works</strong></a>
+  &nbsp;&nbsp;•&nbsp;&nbsp;
+  <a href="ROADMAP.md"><strong>🗺️ View the roadmap</strong></a>
+</p>
+
+GitHub Discussions polls are planned for the public repository. Issues and 👍 reactions will remain useful for detailed proposals and long-term demand signals.
+
+---
+
+# 🗺️ Where the project is heading
+
+<p align="center">
+  <img src="docs/images/roadmap-journey.svg" alt="Software Release Radar roadmap journey" width="1000">
+</p>
+
+The immediate job is to turn the existing v2.6.3 private production application into a clean public project that another person can install without knowing anything about the original environment.
 
 **Current priorities:**
 
-1. sanitise and import the v2.6.3 source;
-2. prove a clean self-hosted install from scratch;
-3. add CI, dependency and security checks;
-4. finish public installation/configuration documentation;
-5. regenerate screenshots from the sanitised build; and
-6. complete the final publication audit before changing repository visibility.
+- 🧹 sanitise and import the v2.6.3 source;
+- 🐳 validate Docker Compose deployment from a clean machine;
+- 🔐 add privacy, secret and dependency checks;
+- 🧪 add CI and regression tests;
+- 📚 finish public installation and configuration documentation;
+- 📸 replace reference images with screenshots from the sanitised build; and
+- 🚀 complete the publication audit before changing repository visibility.
 
-See the full **[Roadmap](ROADMAP.md)** for what comes next and **[Changelog](CHANGELOG.md)** for release history.
+See the full **[Roadmap](ROADMAP.md)** and **[Changelog](CHANGELOG.md)**.
 
 ---
 
-## Open-source licence
+# ⭐ Help people find the project
+
+If Release Radar is useful to you, a GitHub star is a simple way to support the project. Stars also help other self-hosters discover useful projects through GitHub search and Explore.
+
+When the repository is public, I will also use GitHub topics, Discussions, releases and a proper social preview so the project is easier to find and understand.
+
+---
+
+# 🔓 Open-source licence
 
 Software Release Radar is licensed under the **GNU Affero General Public License v3.0 (`AGPL-3.0`)**.
 
-AGPL-3.0 permits use, modification, distribution and commercial use, while applying strong copyleft requirements. Covered modifications and derivative works must remain under AGPL-3.0, and users interacting with a modified version over a network must be offered access to its corresponding source code under the licence.
-
-You may not add restrictions that remove rights granted by AGPL-3.0.
+AGPL-3.0 permits use, modification, distribution and commercial use while applying strong copyleft requirements. Covered modifications and derivative works must remain under AGPL-3.0. If a modified version is provided to users over a network, those users must be offered access to the corresponding source code under the licence.
 
 - [Full licence](LICENSE)
 - [Commercial use and AGPL obligations](COMMERCIAL_USE.md)
@@ -197,14 +290,14 @@ You may not add restrictions that remove rights granted by AGPL-3.0.
 
 ---
 
-## Data and privacy
+# 🔐 Data and privacy
 
-Runtime state belongs in the deployment, **not in Git**.
+Runtime state belongs in the deployment, not in Git.
 
 Never commit or publish:
 
 - `.env` files containing secrets;
-- SQLite/runtime databases;
+- SQLite or runtime databases;
 - API tokens or credentials;
 - SSH private keys;
 - backups or candidate deployment directories;
@@ -212,38 +305,37 @@ Never commit or publish:
 - private DNS names or internal addresses; or
 - screenshots containing real private infrastructure data.
 
-The first public Git history will be based on a sanitised source snapshot rather than importing the historical private repository wholesale.
+The first public Git history will use a sanitised source snapshot instead of importing the historical private repository wholesale.
 
 ---
 
-## Support the project
+# ☕ Support the project
 
-Software Release Radar is a side project I’m building and maintaining while looking for my next role. If the project saves you time or is useful in your environment, any support is appreciated and helps me keep improving it.
+Software Release Radar is a side project I am building and maintaining while I look for my next role. If it saves you time or is useful in your environment, any support is appreciated and helps me keep improving it.
 
 <p align="center">
   <a href="https://buymeacoffee.com/muhdusama"><img src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-Support%20the%20project-FFDD00?logo=buymeacoffee&logoColor=000000" alt="Support on Buy Me a Coffee"></a>
   <a href="https://www.paypal.com/paypalme/muhdusama"><img src="https://img.shields.io/badge/PayPal-Donate-003087?logo=paypal&logoColor=white" alt="Donate with PayPal"></a>
 </p>
 
-Support is entirely optional. The project remains available under its open-source licence regardless of financial support.
-
-See [SUPPORT.md](SUPPORT.md) for project support channels.
+Financial support is optional. The project remains available under its open-source licence either way.
 
 ---
 
-## Repository guide
+# 📚 Project links
 
-| Document | Purpose |
-|---|---|
-| [CHANGELOG.md](CHANGELOG.md) | What changed between releases |
-| [ROADMAP.md](ROADMAP.md) | What is being worked on and considered next |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | How to contribute |
-| [SECURITY.md](SECURITY.md) | How to report vulnerabilities safely |
-| [SUPPORT.md](SUPPORT.md) | Usage support and project-support links |
-| [COMMERCIAL_USE.md](COMMERCIAL_USE.md) | Plain-language AGPL commercial-use guidance |
-| [LICENSE](LICENSE) | Governing AGPL-3.0 licence text |
+| | Document | What it is for |
+|---|---|---|
+| 🗺️ | [ROADMAP.md](ROADMAP.md) | Current priorities and future direction |
+| 📊 | [FEATURE_VOTING.md](FEATURE_VOTING.md) | How community feature voting works |
+| 📝 | [CHANGELOG.md](CHANGELOG.md) | Release history and notable changes |
+| 🤝 | [CONTRIBUTING.md](CONTRIBUTING.md) | Contribution guidelines |
+| 🔐 | [SECURITY.md](SECURITY.md) | Responsible vulnerability reporting |
+| 💬 | [SUPPORT.md](SUPPORT.md) | Support channels and project support |
+| ⚖️ | [COMMERCIAL_USE.md](COMMERCIAL_USE.md) | Plain-language AGPL guidance |
+| 📄 | [LICENSE](LICENSE) | Full AGPL-3.0 licence text |
 
-Detailed installation, configuration and architecture documentation will be staged alongside the sanitised application source so those instructions are validated against the actual public build rather than guessed in advance.
+Detailed installation, configuration and architecture guides will be staged with the sanitised source so the instructions can be tested against the real public build.
 
 ---
 
