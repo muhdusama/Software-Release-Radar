@@ -394,9 +394,13 @@ class FleetNotificationTests(unittest.TestCase):
         page = client.get("/notifications")
         self.assertEqual(page.status_code, 200)
         page_body = page.get_data(as_text=True)
+        self.assertIn("Global defaults", page_body)
         self.assertIn("Per-software controls", page_body)
         self.assertIn("Example service", page_body)
         self.assertIn("Mute", page_body)
+        self.assertIn('data-saved-mode="off"', page_body)
+        self.assertIn("software-release-radar.notifications.filter", page_body)
+        self.assertIn("postNotificationForm", page_body)
 
     def test_navigation_and_styles_expose_the_new_controls(self):
         root = Path(__file__).parents[1]
@@ -410,8 +414,12 @@ class FleetNotificationTests(unittest.TestCase):
         self.assertIn("url_for('notifications_preferences')", base)
         self.assertIn("Sync names from Portainer", fleet)
         self.assertIn("pencil-button", fleet)
+        self.assertIn("Global defaults", notifications)
         self.assertIn("Per-software controls", notifications)
         self.assertIn("system_notifications_enabled", notifications)
+        self.assertIn("data-notification-mode", notifications)
+        self.assertIn("sessionStorage", notifications)
+        self.assertIn("postNotificationForm", notifications)
         self.assertIn(".inline-name-editor", style)
         self.assertIn(".software-notification-row", style)
         self.assertIn("'5': '/notifications'", script)
