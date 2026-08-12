@@ -6,7 +6,7 @@ on:
       - feature/fleet-name-sync-notification-controls
     paths:
       - .github/workflows/apply-feature-update.yml
-      - .github/feature-update.tar.xz.b64
+      - .github/feature-update.ready
 
 permissions:
   contents: write
@@ -24,13 +24,22 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          bundle=.github/feature-update.tar.xz.b64
-          if [[ ! -f "$bundle" ]]; then
-            echo "Prepared bundle is not present yet."
+          if [[ ! -f .github/feature-update.ready ]]; then
+            echo "Prepared bundle is not ready yet."
             exit 0
           fi
-          base64 --decode "$bundle" | tar -xJf -
-          rm -f "$bundle"
+          shopt -s nullglob
+          parts=(.github/feature-update.part-*)
+          if (( ${#parts[@]} == 0 )); then
+            echo "No prepared bundle parts were found." >&2
+            exit 1
+          fi
+          cat "${parts[@]}" | tr -d '\n\r' | base64 --decode > /tmp/feature-update.tar.xz
+          echo "187e2a33f577d39cd02c81238860c0da8af65f83009a9393e202dea7f7a7f1c9  /tmp/feature-update.tar.xz" | sha256sum -c -
+          tar -xJf /tmp/feature-update.tar.xz
+          rm -f .github/feature-update.ready
+          rm -f .github/feature-update.part-*
+          rm -f .github/feature-update.tar.xz.b64
           rm -f .github/workflows/export-feature-source.yml
           rm -f .github/workflows/apply-feature-update.yml
           git config user.name "github-actions[bot]"
