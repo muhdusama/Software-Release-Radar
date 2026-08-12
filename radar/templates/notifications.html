@@ -5,7 +5,7 @@
   <div>
     <span class="eyebrow">NOTIFICATION CONTROL</span>
     <h1>Notifications</h1>
-    <p>Choose a personal default, select delivery channels, and override individual software without changing the email address used for password recovery.</p>
+    <p>Define global defaults, select delivery channels, and override individual software without changing the email address used for password recovery.</p>
   </div>
 </section>
 
@@ -14,52 +14,52 @@
 {% endif %}
 
 <section class="notification-overview metrics notification-metrics">
-  <article class="metric"><span>System</span><strong class="metric-state {{ 'state-on' if system_enabled else 'state-paused' }}">{{ 'On' if system_enabled else 'Paused' }}</strong><small>Administrator-wide release alerts</small></article>
-  <article class="metric"><span>Personal default</span><strong class="metric-state {{ 'state-on' if notification_user.notifications_enabled else 'state-off' }}">{{ 'On' if notification_user.notifications_enabled else 'Muted' }}</strong><small>Used by software set to inherit</small></article>
-  <article class="metric"><span>Always notify</span><strong>{{ preference_counts.on }}</strong><small>Per-software overrides</small></article>
-  <article class="metric"><span>Muted</span><strong>{{ preference_counts.off }}</strong><small>Per-software overrides</small></article>
-  <article class="metric"><span>Use default</span><strong>{{ preference_counts.inherit }}</strong><small>Following your personal default</small></article>
+  <article class="metric"><span>System</span><strong data-notification-system-state class="metric-state {{ 'state-on' if system_enabled else 'state-paused' }}">{{ 'On' if system_enabled else 'Paused' }}</strong><small>Administrator-wide release alerts</small></article>
+  <article class="metric"><span>Global default</span><strong data-notification-default-state class="metric-state {{ 'state-on' if notification_user.notifications_enabled else 'state-off' }}">{{ 'On' if notification_user.notifications_enabled else 'Muted' }}</strong><small>Applied to software using the default</small></article>
+  <article class="metric"><span>Always notify</span><strong data-notification-count="on">{{ preference_counts.on }}</strong><small>Per-software overrides</small></article>
+  <article class="metric"><span>Muted</span><strong data-notification-count="off">{{ preference_counts.off }}</strong><small>Per-software overrides</small></article>
+  <article class="metric"><span>Use default</span><strong data-notification-count="inherit">{{ preference_counts.inherit }}</strong><small>Following the global default</small></article>
 </section>
 
-<form method="post" class="panel notification-defaults-card">
+<form method="post" class="panel notification-defaults-card" id="notification-defaults-form" data-no-busy data-system-enabled="{{ '1' if system_enabled else '0' }}" data-default-enabled="{{ '1' if notification_user.notifications_enabled else '0' }}">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <input type="hidden" name="action" value="save_defaults">
   {% if current_user.role == 'admin' %}<input type="hidden" name="system_control_present" value="1">{% endif %}
   <div class="panel-header notification-card-header">
-    <div><h2>Global controls</h2><p>System-wide policy is evaluated first, followed by your personal default and each software override.</p></div>
+    <div><h2>Global defaults</h2><p>These defaults apply across all tracked software set to “Use global default”. Per-software “Always notify” and “Mute” choices take precedence.</p></div>
   </div>
   <div class="notification-toggle-grid">
     {% if current_user.role == 'admin' %}
     <label class="toggle-card notification-toggle-card system-toggle-card">
       <input type="checkbox" name="system_notifications_enabled" {{ 'checked' if system_enabled else '' }}>
-      <span><strong>System-wide release notifications</strong><small>Administrator override. Turning this off pauses all update alerts while password-reset email remains available.</small></span>
+      <span><strong>System-wide safety switch</strong><small>Administrator override. Turning this off pauses all update alerts while password-reset email remains available.</small></span>
     </label>
     {% endif %}
     <label class="toggle-card notification-toggle-card">
       <input type="checkbox" name="notifications_enabled" {{ 'checked' if notification_user.notifications_enabled else '' }}>
-      <span><strong>My default notification policy</strong><small>Applied to software set to “Use global default”. Per-software “Always notify” and “Mute” choices take precedence.</small></span>
+      <span><strong>Notify by default</strong><small>When enabled, software using the global default will notify through the selected channels. Turn this off to mute inherited software.</small></span>
     </label>
     <label class="toggle-card notification-toggle-card">
       <input type="checkbox" name="notify_email" {{ 'checked' if notification_user.notify_email else '' }}>
-      <span><strong>Email channel</strong><small>{{ notification_user.email or 'No email address is configured.' }} Password recovery is independent from this switch.</small></span>
+      <span><strong>Default email channel</strong><small>{{ notification_user.email or 'No email address is configured.' }} Password recovery is independent from this switch.</small></span>
     </label>
     <label class="toggle-card notification-toggle-card">
       <input type="checkbox" name="notify_pushover" {{ 'checked' if notification_user.notify_pushover else '' }}>
-      <span><strong>Pushover channel</strong><small>{{ 'A Pushover key is configured.' if has_pushover_key else 'No Pushover key is configured.' }} Manage your address and key under Profile.</small></span>
+      <span><strong>Default Pushover channel</strong><small>{{ 'A Pushover key is configured.' if has_pushover_key else 'No Pushover key is configured.' }} Manage your address and key under Profile.</small></span>
     </label>
   </div>
   <div class="form-actions notification-default-actions">
     <a class="button secondary" href="{{ url_for('profile') }}">Open profile</a>
-    <button class="button primary" type="submit">Save notification defaults</button>
+    <button class="button primary" type="submit">Save global defaults</button>
   </div>
 </form>
 
-<form method="post" class="panel software-notification-panel" id="software-notification-form">
+<form method="post" class="panel software-notification-panel" id="software-notification-form" data-no-busy>
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <div class="panel-header notification-card-header software-notification-header">
-    <div><h2>Per-software controls</h2><p>Use your default for most software, then keep only important alerts always on or mute noisy trackers.</p></div>
+    <div><h2>Per-software controls</h2><p>Changes to an individual preference are saved immediately. Bulk actions and Save all preferences also save without reloading the page.</p></div>
     <label class="notification-search" for="notification-filter">Search software
-      <input id="notification-filter" type="search" placeholder="Software, repository, machine or host">
+      <input id="notification-filter" type="search" placeholder="Software, repository, machine or host" autocomplete="off">
     </label>
   </div>
   <div class="bulk-toolbar notification-bulk-toolbar">
@@ -76,19 +76,19 @@
 
   <div class="software-notification-list" id="software-notification-list">
     {% for tracker in trackers %}
-    <article class="software-notification-row" data-notification-search="{{ (tracker.name ~ ' ' ~ tracker.repository ~ ' ' ~ (tracker.machine_name or '') ~ ' ' ~ (tracker.install_host or ''))|lower }}">
+    <article class="software-notification-row" data-tracker-id="{{ tracker.id }}" data-notification-search="{{ (tracker.name ~ ' ' ~ tracker.repository ~ ' ' ~ (tracker.machine_name or '') ~ ' ' ~ (tracker.install_host or ''))|lower }}">
       <div class="notification-row-select"><input class="notification-tracker-checkbox" type="checkbox" name="tracker_ids" value="{{ tracker.id }}" aria-label="Select {{ tracker.name }}"></div>
       <div class="notification-software-copy">
         <strong>{{ tracker.name }}</strong>
         <small>{{ tracker.machine_name or tracker.install_host or 'No machine assigned' }} · {{ tracker.repository }}</small>
       </div>
       <div class="notification-effective-state">
-        {% if tracker.effective_notification_state == 'paused' %}<span class="status-badge state-paused">System paused</span>
-        {% elif tracker.effective_notification_state == 'on' %}<span class="status-badge state-on">Will notify</span>
-        {% else %}<span class="status-badge state-off">Muted</span>{% endif %}
+        {% if tracker.effective_notification_state == 'paused' %}<span class="status-badge state-paused" data-notification-effective>System paused</span>
+        {% elif tracker.effective_notification_state == 'on' %}<span class="status-badge state-on" data-notification-effective>Will notify</span>
+        {% else %}<span class="status-badge state-off" data-notification-effective>Muted</span>{% endif %}
       </div>
       <label class="notification-mode-label" for="notification-mode-{{ tracker.id }}">Preference
-        <select id="notification-mode-{{ tracker.id }}" name="mode_{{ tracker.id }}">
+        <select id="notification-mode-{{ tracker.id }}" name="mode_{{ tracker.id }}" class="notification-mode-select" data-notification-mode data-saved-mode="{{ tracker.notification_mode }}">
           {% for value, label in notification_modes %}<option value="{{ value }}" {{ 'selected' if tracker.notification_mode == value else '' }}>{{ label }}</option>{% endfor %}
         </select>
       </label>
@@ -107,30 +107,214 @@
   const selectAll = document.getElementById('select-all-notification-trackers');
   const count = document.getElementById('notification-selected-count');
   const empty = document.getElementById('notification-empty');
-  if (!input || !selectAll || !count) return;
+  const softwareForm = document.getElementById('software-notification-form');
+  const defaultsForm = document.getElementById('notification-defaults-form');
+  if (!input || !selectAll || !count || !softwareForm || !defaultsForm) return;
 
+  const filterStorageKey = 'software-release-radar.notifications.filter';
+  const notify = (message, type = 'info') => {
+    if (window.SRR && typeof window.SRR.notify === 'function') {
+      window.SRR.notify(message, type);
+    } else if (type === 'error') {
+      console.error(message);
+    }
+  };
   const visibleRows = () => rows.filter(row => !row.hidden);
   const visibleBoxes = () => visibleRows().map(row => row.querySelector('.notification-tracker-checkbox'));
+  const selectedRows = () => rows.filter(row => row.querySelector('.notification-tracker-checkbox').checked);
+
   const updateSelection = () => {
-    const selected = rows.filter(row => row.querySelector('.notification-tracker-checkbox').checked).length;
+    const selected = selectedRows().length;
     count.textContent = `${selected} selected`;
     const boxes = visibleBoxes();
     selectAll.checked = boxes.length > 0 && boxes.every(box => box.checked);
     selectAll.indeterminate = boxes.some(box => box.checked) && !selectAll.checked;
   };
+
+  const storeFilter = () => {
+    try {
+      window.sessionStorage.setItem(filterStorageKey, input.value || '');
+    } catch (error) {
+      // Storage can be unavailable in hardened browser modes. Filtering still works.
+    }
+  };
+
   const filter = () => {
     const query = (input.value || '').trim().toLowerCase();
     rows.forEach(row => { row.hidden = Boolean(query) && !row.dataset.notificationSearch.includes(query); });
     empty.hidden = visibleRows().length !== 0 || rows.length === 0;
+    storeFilter();
     updateSelection();
   };
+
+  const updateNotificationState = () => {
+    const systemEnabled = defaultsForm.dataset.systemEnabled === '1';
+    const defaultEnabled = defaultsForm.dataset.defaultEnabled === '1';
+    const preferenceCounts = { inherit: 0, on: 0, off: 0 };
+
+    rows.forEach(row => {
+      const select = row.querySelector('[data-notification-mode]');
+      const badge = row.querySelector('[data-notification-effective]');
+      if (!select || !badge) return;
+      const mode = select.value;
+      if (Object.prototype.hasOwnProperty.call(preferenceCounts, mode)) preferenceCounts[mode] += 1;
+
+      let state = 'off';
+      let label = 'Muted';
+      if (!systemEnabled) {
+        state = 'paused';
+        label = 'System paused';
+      } else if (mode === 'on' || (mode === 'inherit' && defaultEnabled)) {
+        state = 'on';
+        label = 'Will notify';
+      }
+      badge.className = `status-badge state-${state}`;
+      badge.textContent = label;
+    });
+
+    Object.entries(preferenceCounts).forEach(([mode, value]) => {
+      const metric = document.querySelector(`[data-notification-count="${mode}"]`);
+      if (metric) metric.textContent = String(value);
+    });
+
+    const systemMetric = document.querySelector('[data-notification-system-state]');
+    if (systemMetric) {
+      systemMetric.textContent = systemEnabled ? 'On' : 'Paused';
+      systemMetric.className = `metric-state ${systemEnabled ? 'state-on' : 'state-paused'}`;
+    }
+    const defaultMetric = document.querySelector('[data-notification-default-state]');
+    if (defaultMetric) {
+      defaultMetric.textContent = defaultEnabled ? 'On' : 'Muted';
+      defaultMetric.className = `metric-state ${defaultEnabled ? 'state-on' : 'state-off'}`;
+    }
+  };
+
+  const postNotificationForm = async (formData) => {
+    const response = await fetch(window.location.href, {
+      method: 'POST',
+      body: formData,
+      credentials: 'same-origin',
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+    });
+    if (!response.ok) throw new Error(`Notification save failed with HTTP ${response.status}.`);
+    const finalUrl = new URL(response.url, window.location.href);
+    if (finalUrl.pathname !== window.location.pathname) {
+      window.location.assign(response.url);
+      throw new Error('The notification session changed before the preference was saved.');
+    }
+  };
+
+  const setFormBusy = (form, busy) => {
+    form.toggleAttribute('aria-busy', busy);
+    form.querySelectorAll('button[type="submit"]').forEach(button => { button.disabled = busy; });
+  };
+
+  try {
+    const storedFilter = window.sessionStorage.getItem(filterStorageKey);
+    if (storedFilter) input.value = storedFilter;
+  } catch (error) {
+    // Ignore unavailable session storage.
+  }
+
   input.addEventListener('input', filter);
+  input.addEventListener('keydown', event => {
+    if (event.key === 'Enter') event.preventDefault();
+  });
   selectAll.addEventListener('change', () => {
     visibleBoxes().forEach(box => { box.checked = selectAll.checked; });
     updateSelection();
   });
   rows.forEach(row => row.querySelector('.notification-tracker-checkbox').addEventListener('change', updateSelection));
+
+  rows.forEach(row => {
+    const select = row.querySelector('[data-notification-mode]');
+    if (!select) return;
+    select.addEventListener('change', async () => {
+      const savedMode = select.dataset.savedMode || 'inherit';
+      const formData = new FormData();
+      formData.set('csrf_token', softwareForm.querySelector('input[name="csrf_token"]').value);
+      formData.set('action', 'save_software');
+      formData.set(`mode_${row.dataset.trackerId}`, select.value);
+      select.disabled = true;
+      try {
+        await postNotificationForm(formData);
+        select.dataset.savedMode = select.value;
+        updateNotificationState();
+        notify('Notification preference saved.', 'success');
+      } catch (error) {
+        select.value = savedMode;
+        updateNotificationState();
+        notify(error.message || 'Could not save the notification preference.', 'error');
+      } finally {
+        select.disabled = false;
+      }
+    });
+  });
+
+  softwareForm.addEventListener('submit', async event => {
+    event.preventDefault();
+    const submitter = event.submitter;
+    const action = submitter && submitter.value ? submitter.value : 'save_software';
+    const selected = selectedRows();
+    if (action === 'bulk_software' && selected.length === 0) {
+      notify('Select at least one software tracker.', 'error');
+      return;
+    }
+
+    const formData = new FormData(softwareForm);
+    formData.set('action', action);
+    setFormBusy(softwareForm, true);
+    try {
+      await postNotificationForm(formData);
+      if (action === 'bulk_software') {
+        const mode = document.getElementById('notification-bulk-mode').value;
+        selected.forEach(row => {
+          const select = row.querySelector('[data-notification-mode]');
+          const checkbox = row.querySelector('.notification-tracker-checkbox');
+          if (select) {
+            select.value = mode;
+            select.dataset.savedMode = mode;
+          }
+          if (checkbox) checkbox.checked = false;
+        });
+        notify(`Updated ${selected.length} software notification preference${selected.length === 1 ? '' : 's'}.`, 'success');
+      } else {
+        rows.forEach(row => {
+          const select = row.querySelector('[data-notification-mode]');
+          if (select) select.dataset.savedMode = select.value;
+        });
+        notify('All software notification preferences saved.', 'success');
+      }
+      updateNotificationState();
+      updateSelection();
+    } catch (error) {
+      notify(error.message || 'Could not save software notification preferences.', 'error');
+    } finally {
+      setFormBusy(softwareForm, false);
+    }
+  });
+
+  defaultsForm.addEventListener('submit', async event => {
+    event.preventDefault();
+    const formData = new FormData(defaultsForm);
+    setFormBusy(defaultsForm, true);
+    try {
+      await postNotificationForm(formData);
+      const systemControl = defaultsForm.querySelector('input[name="system_notifications_enabled"]');
+      const defaultControl = defaultsForm.querySelector('input[name="notifications_enabled"]');
+      if (systemControl) defaultsForm.dataset.systemEnabled = systemControl.checked ? '1' : '0';
+      if (defaultControl) defaultsForm.dataset.defaultEnabled = defaultControl.checked ? '1' : '0';
+      updateNotificationState();
+      notify('Global notification defaults saved.', 'success');
+    } catch (error) {
+      notify(error.message || 'Could not save global notification defaults.', 'error');
+    } finally {
+      setFormBusy(defaultsForm, false);
+    }
+  });
+
   filter();
+  updateNotificationState();
 })();
 </script>
 {% endblock %}
