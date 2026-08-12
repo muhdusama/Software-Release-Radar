@@ -126,3 +126,86 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Validated
 
+- The original sanitised v2.6.3 source import passed its publication privacy guard and 56-test regression suite.
+- The hardened public candidate passes Python 3.13 compilation and the complete automated test suite in GitHub Actions.
+- The public candidate passes `pip-audit` with no ignored dependency advisory.
+- The public candidate passes the strict reviewed Bandit gate.
+- A clean GitHub Actions runner completes the real `scripts/setup.sh` first-run path, starts all three services, verifies `/healthz` and login, creates an online backup, restores that backup, restarts the Compose stack and confirms persistent state remains healthy.
+- A separate clean macOS Docker Desktop acceptance deployment completed successfully and was visually reviewed before version freeze.
+
+---
+
+## [2.6.3] - 2026-08-08
+
+### Changed
+
+- Hardened Portainer service rebinding behaviour for recreated containers and deployment inventory reconciliation.
+- Finalised the v2.6.x private production baseline used as the starting source for public-release preparation.
+
+### Fixed
+
+- Corrected final runtime and image version labelling so the deployed release consistently reports v2.6.3.
+- Final closeout required no database migration.
+
+### Validated
+
+- Focused Portainer rebinding tests passed.
+- The private v2.6.3 candidate passed the automated test suite used at that point in development.
+
+---
+
+## [2.6.2] - 2026-08-08
+
+### Fixed
+
+- Corrected scheduling behaviour for trackers that have never been checked before.
+- `is_due(None, 24)` is treated as due rather than being skipped incorrectly.
+
+### Validated
+
+- Added targeted coverage for expired trackers, never-checked trackers and recently checked trackers.
+
+---
+
+## [2.6.1] - 2026-08-07
+
+### Operational Accuracy and Diagnostics
+
+### Changed
+
+- Missing upstream versions are no longer treated as confirmed software updates.
+- Checker failures are no longer counted as confirmed updates.
+- Unavailable version comparisons are kept separate from genuine update results.
+
+### Added
+
+- A dedicated **Needs Attention** view for operational conditions that require review.
+- Separate visibility for checker failures, offline services, unavailable upstream versions and unavailable version comparisons.
+
+---
+
+## Earlier internal releases
+
+Software Release Radar was developed privately before the public GitHub publication. Known internal release milestones include:
+
+- v2.6.0
+- v2.3.9
+- v2.3.7
+- v2.3.4
+- v2.2.1
+- v2.2.0
+- v2.0.2
+
+Detailed historical notes for these internal builds will only be added where they can be reconstructed accurately from retained release records. The public repository will not invent missing historical release notes.
+
+---
+
+## Changelog policy
+
+For public releases:
+
+- user-visible changes belong here;
+- security-sensitive details may be delayed until remediation is available;
+- deployment-specific private infrastructure details are excluded;
+- unreleased work remains under **Unreleased** until a version is tagged; and
+- GitHub Releases should link back to the corresponding changelog section.
