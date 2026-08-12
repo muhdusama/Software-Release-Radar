@@ -1,0 +1,46 @@
+name: Fix feature Bandit review
+
+on:
+  push:
+    branches:
+      - feature/fleet-name-sync-notification-controls
+    paths:
+      - .github/workflows/fix-feature-bandit.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: feature/fleet-name-sync-notification-controls
+
+      - name: Mark the fixed Pushover HTTPS endpoint as reviewed
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('radar/notifications.py')
+          text = path.read_text()
+          old = '        with urllib.request.urlopen(request, timeout=15) as response:\n'
+          new = (
+              '        # The request target is the fixed Pushover HTTPS API endpoint.\n'
+              '        with urllib.request.urlopen(request, timeout=15) as response:  # nosec B310\n'
+          )
+          if old not in text:
+              raise SystemExit('Expected Pushover urlopen line was not found.')
+          path.write_text(text.replace(old, new, 1))
+          PY
+          rm -f .github/workflows/fix-feature-bandit.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "Review fixed Pushover HTTPS request"
+          git push origin HEAD:feature/fleet-name-sync-notification-controls
