@@ -1,0 +1,45 @@
+name: Apply prepared feature update
+
+on:
+  push:
+    branches:
+      - feature/fleet-name-sync-notification-controls
+    paths:
+      - .github/workflows/apply-feature-update.yml
+      - .github/feature-update.tar.xz.b64
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: feature/fleet-name-sync-notification-controls
+
+      - name: Apply prepared source snapshot
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bundle=.github/feature-update.tar.xz.b64
+          if [[ ! -f "$bundle" ]]; then
+            echo "Prepared bundle is not present yet."
+            exit 0
+          fi
+          base64 --decode "$bundle" | tar -xJf -
+          rm -f "$bundle"
+          rm -f .github/workflows/export-feature-source.yml
+          rm -f .github/workflows/apply-feature-update.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          if git diff --cached --quiet; then
+            echo "No prepared changes to commit."
+            exit 0
+          fi
+          git commit -m "Release v2.8.0 with Fleet naming and notification controls"
+          git push origin HEAD:feature/fleet-name-sync-notification-controls
