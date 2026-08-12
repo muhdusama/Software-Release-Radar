@@ -86,7 +86,7 @@ class SecurityRemediationTests(unittest.TestCase):
     def _csrf(self, page="/login", *, base_url: str | None = None) -> str:
         kwargs = {"base_url": base_url} if base_url else {}
         self.client.get(page, **kwargs)
-        with self.client.session_transaction() as session:
+        with self.client.session_transaction(**kwargs) as session:
             return str(session["csrf_token"])
 
     def _login(self) -> str:
