@@ -6,7 +6,7 @@ on:
       - feature/fleet-name-sync-notification-controls
     paths:
       - .github/workflows/apply-feature-update.yml
-      - .github/feature-update.patch.xz.b64
+      - .github/feature-update.patch.ready
 
 permissions:
   contents: write
@@ -24,16 +24,23 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          bundle=.github/feature-update.patch.xz.b64
-          if [[ ! -f "$bundle" ]]; then
-            echo "Prepared patch is not present yet."
+          if [[ ! -f .github/feature-update.patch.ready ]]; then
+            echo "Prepared patch is not ready yet."
             exit 0
           fi
-          tr -d '\n\r' < "$bundle" | base64 --decode > /tmp/feature-update.patch.xz
+          shopt -s nullglob
+          parts=(.github/feature-update.patch.part-*)
+          if (( ${#parts[@]} == 0 )); then
+            echo "Prepared patch parts are missing." >&2
+            exit 1
+          fi
+          cat "${parts[@]}" | tr -d '\n\r' | base64 --decode > /tmp/feature-update.patch.xz
           echo "62e82f593c6fcfe453fd9583070c2f1338a5bd68f7c24fc829c9ebaa3cfdde12  /tmp/feature-update.patch.xz" | sha256sum -c -
           xz -dc /tmp/feature-update.patch.xz > /tmp/feature-update.patch
           git apply --index --whitespace=error-all /tmp/feature-update.patch
-          rm -f "$bundle"
+          rm -f .github/feature-update.patch.ready
+          rm -f .github/feature-update.patch.part-*
+          rm -f .github/feature-update.patch.xz.b64
           rm -f .github/feature-update.tar.xz.b64
           rm -f .github/feature-update.ready
           rm -f .github/feature-update.part-*
