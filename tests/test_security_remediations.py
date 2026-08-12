@@ -83,8 +83,9 @@ class SecurityRemediationTests(unittest.TestCase):
         ):
             os.environ.pop(key, None)
 
-    def _csrf(self, page="/login") -> str:
-        self.client.get(page)
+    def _csrf(self, page="/login", *, base_url: str | None = None) -> str:
+        kwargs = {"base_url": base_url} if base_url else {}
+        self.client.get(page, **kwargs)
         with self.client.session_transaction() as session:
             return str(session["csrf_token"])
 
@@ -129,7 +130,8 @@ class SecurityRemediationTests(unittest.TestCase):
 
     def test_password_reset_uses_only_configured_trusted_origin(self):
         set_settings({"app_base_url": "https://radar.example.test"})
-        csrf = self._csrf("/forgot-password")
+        hostile_base = "http://attacker.example"
+        csrf = self._csrf("/forgot-password", base_url=hostile_base)
 
         with (
             patch("radar.security_controls._minimum_reset_delay"),
@@ -141,8 +143,8 @@ class SecurityRemediationTests(unittest.TestCase):
         ):
             response = self.client.post(
                 "/forgot-password",
+                base_url=hostile_base,
                 data={"csrf_token": csrf, "identity": "admin"},
-                headers={"Host": "attacker.example"},
             )
 
         self.assertEqual(response.status_code, 302)
@@ -158,7 +160,8 @@ class SecurityRemediationTests(unittest.TestCase):
 
     def test_password_reset_does_not_fall_back_to_request_host(self):
         set_settings({"app_base_url": ""})
-        csrf = self._csrf("/forgot-password")
+        hostile_base = "http://attacker.example"
+        csrf = self._csrf("/forgot-password", base_url=hostile_base)
 
         with (
             patch("radar.security_controls._minimum_reset_delay"),
@@ -166,8 +169,8 @@ class SecurityRemediationTests(unittest.TestCase):
         ):
             response = self.client.post(
                 "/forgot-password",
+                base_url=hostile_base,
                 data={"csrf_token": csrf, "identity": "admin"},
-                headers={"Host": "attacker.example"},
             )
 
         self.assertEqual(response.status_code, 302)
