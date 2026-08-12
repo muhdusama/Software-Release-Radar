@@ -192,7 +192,8 @@ def send_pushover(
         method="POST",
     )
     try:
-        with urllib.request.urlopen(request, timeout=15) as response:
+        # The request target is the fixed Pushover HTTPS API endpoint.
+        with urllib.request.urlopen(request, timeout=15) as response:  # nosec B310
             result = json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", "replace")[:500]
