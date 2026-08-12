@@ -40,6 +40,8 @@ services:
       RADAR_DB: /data/radar.db
       RADAR_SSH_DIR: /ssh
     command: ["python", "-m", "radar.scheduler"]
+    healthcheck:
+      disable: true
     depends_on:
       radar:
         condition: service_healthy
@@ -63,6 +65,8 @@ services:
       RADAR_DB: /data/radar.db
       RADAR_SSH_DIR: /ssh
     command: ["python", "-m", "radar.portainer_worker"]
+    healthcheck:
+      disable: true
     depends_on:
       radar:
         condition: service_healthy
