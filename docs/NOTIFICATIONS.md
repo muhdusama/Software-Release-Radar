@@ -48,6 +48,8 @@ Pushover requires both:
 - an administrator-configured application token; and
 - a user or group key saved under **Profile**.
 
+Pushover delivery is restricted to the fixed HTTPS Pushover API endpoint. The destination cannot be changed through application settings or notification content.
+
 ## Security and auditability
 
 Notification preference changes are CSRF-protected and written to the audit log. Delivery records contain status and error text, but not SMTP passwords, Pushover tokens, or user keys. Integration secrets remain encrypted in SQLite.
