@@ -19,6 +19,8 @@ Read [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) before participating in project sp
 
 ## Development workflow
 
+Maintainers and operators should also read [GitHub development and deployment workflow](docs/GITHUB-WORKFLOW.md).
+
 1. Fork the repository.
 2. Create a focused branch.
 3. Read the relevant source, tests and `AGENTS.md` before changing behaviour.

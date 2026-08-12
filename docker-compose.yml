@@ -5,6 +5,7 @@ services:
       context: .
       args:
         APP_VERSION: "${RADAR_VERSION:-2.7.0}"
+        VCS_REF: "${RADAR_BUILD_COMMIT:-}"
     restart: unless-stopped
     env_file:
       - .env
@@ -31,6 +32,7 @@ services:
       context: .
       args:
         APP_VERSION: "${RADAR_VERSION:-2.7.0}"
+        VCS_REF: "${RADAR_BUILD_COMMIT:-}"
     restart: unless-stopped
     env_file:
       - .env
@@ -53,6 +55,7 @@ services:
       context: .
       args:
         APP_VERSION: "${RADAR_VERSION:-2.7.0}"
+        VCS_REF: "${RADAR_BUILD_COMMIT:-}"
     restart: unless-stopped
     env_file:
       - .env
