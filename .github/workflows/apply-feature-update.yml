@@ -6,7 +6,7 @@ on:
       - feature/fleet-name-sync-notification-controls
     paths:
       - .github/workflows/apply-feature-update.yml
-      - .github/feature-update.ready
+      - .github/feature-update.patch.xz.b64
 
 permissions:
   contents: write
@@ -20,35 +20,28 @@ jobs:
         with:
           ref: feature/fleet-name-sync-notification-controls
 
-      - name: Apply prepared source snapshot
+      - name: Apply prepared source patch
         shell: bash
         run: |
           set -Eeuo pipefail
-          if [[ ! -f .github/feature-update.ready ]]; then
-            echo "Prepared bundle is not ready yet."
+          bundle=.github/feature-update.patch.xz.b64
+          if [[ ! -f "$bundle" ]]; then
+            echo "Prepared patch is not present yet."
             exit 0
           fi
-          shopt -s nullglob
-          parts=(.github/feature-update.part-*)
-          if (( ${#parts[@]} == 0 )); then
-            echo "No prepared bundle parts were found." >&2
-            exit 1
-          fi
-          cat "${parts[@]}" | tr -d '\n\r' | base64 --decode > /tmp/feature-update.tar.xz
-          echo "187e2a33f577d39cd02c81238860c0da8af65f83009a9393e202dea7f7a7f1c9  /tmp/feature-update.tar.xz" | sha256sum -c -
-          tar -xJf /tmp/feature-update.tar.xz
+          tr -d '\n\r' < "$bundle" | base64 --decode > /tmp/feature-update.patch.xz
+          echo "62e82f593c6fcfe453fd9583070c2f1338a5bd68f7c24fc829c9ebaa3cfdde12  /tmp/feature-update.patch.xz" | sha256sum -c -
+          xz -dc /tmp/feature-update.patch.xz > /tmp/feature-update.patch
+          git apply --index --whitespace=error-all /tmp/feature-update.patch
+          rm -f "$bundle"
+          rm -f .github/feature-update.tar.xz.b64
           rm -f .github/feature-update.ready
           rm -f .github/feature-update.part-*
-          rm -f .github/feature-update.tar.xz.b64
           rm -f .github/workflows/export-feature-source.yml
           rm -f .github/workflows/apply-feature-update.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           git diff --cached --check
-          if git diff --cached --quiet; then
-            echo "No prepared changes to commit."
-            exit 0
-          fi
           git commit -m "Release v2.8.0 with Fleet naming and notification controls"
           git push origin HEAD:feature/fleet-name-sync-notification-controls
