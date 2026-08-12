@@ -6,7 +6,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
-No unreleased changes are currently recorded. New work will be added here after the v2.7.0 release is frozen.
+### Added
+
+- Persistent per-user, per-address, daily and concurrency controls for authenticated Assistant requests.
+- Bounded Assistant prompt, response-token, provider-timeout and provider-response limits.
+- Recent-analysis reuse and bounded retained Assistant history.
+- Timeout-capable, size-bounded execution for user-defined HTTP version regular expressions.
+- Dedicated public documentation for password-reset, Assistant, integration-transport and workflow security controls.
+
+### Changed
+
+- Password-reset email now uses only the configured and validated application origin, never the request `Host` value.
+- Password-reset email delivery is queued outside the browser request and response timing is normalised to reduce identity-dependent differences.
+- Credential-bearing remote HTTP integrations require HTTPS by default.
+- Remote SMTP delivery requires STARTTLS or implicit TLS by default.
+- Explicit trusted-network cleartext exceptions require `ALLOW_INSECURE_INTEGRATIONS=true`.
+- All third-party GitHub Actions are pinned to immutable full commit SHAs.
+
+### Security
+
+- Remediated all six validated findings from the 2026-08-12 Codex Security audit.
+- Added regression coverage for trusted reset origins, Assistant abuse controls, credential transport, response limits, regular-expression timeouts and immutable workflow references.
+
+### Validated
+
+- Python compilation and the complete 82-test regression suite pass.
+- `pip-audit` and the reviewed Bandit security gate pass.
+- The real Docker setup, health, backup, restore and persistent-state acceptance workflow passes.
 
 ---
 
