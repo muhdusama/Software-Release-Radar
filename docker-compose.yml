@@ -1,10 +1,10 @@
 services:
   radar:
-    image: "software-release-radar:${RADAR_VERSION:-2.7.0}"
+    image: "software-release-radar:${RADAR_VERSION:-2.8.0}"
     build:
       context: .
       args:
-        APP_VERSION: "${RADAR_VERSION:-2.7.0}"
+        APP_VERSION: "${RADAR_VERSION:-2.8.0}"
         VCS_REF: "${RADAR_BUILD_COMMIT:-}"
     restart: unless-stopped
     env_file:
@@ -27,11 +27,11 @@ services:
       start_period: 20s
 
   scheduler:
-    image: "software-release-radar:${RADAR_VERSION:-2.7.0}"
+    image: "software-release-radar:${RADAR_VERSION:-2.8.0}"
     build:
       context: .
       args:
-        APP_VERSION: "${RADAR_VERSION:-2.7.0}"
+        APP_VERSION: "${RADAR_VERSION:-2.8.0}"
         VCS_REF: "${RADAR_BUILD_COMMIT:-}"
     restart: unless-stopped
     env_file:
@@ -52,11 +52,11 @@ services:
       - "host.docker.internal:host-gateway"
 
   portainer-worker:
-    image: "software-release-radar:${RADAR_VERSION:-2.7.0}"
+    image: "software-release-radar:${RADAR_VERSION:-2.8.0}"
     build:
       context: .
       args:
-        APP_VERSION: "${RADAR_VERSION:-2.7.0}"
+        APP_VERSION: "${RADAR_VERSION:-2.8.0}"
         VCS_REF: "${RADAR_BUILD_COMMIT:-}"
     restart: unless-stopped
     env_file:

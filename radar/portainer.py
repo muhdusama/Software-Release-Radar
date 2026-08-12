@@ -529,6 +529,14 @@ def sync_inventory(progress: Callable[..., None] | None = None) -> PortainerSync
         "portainer_last_sync_status": "ok" if not errors else "partial",
         "portainer_last_sync_error": "\n".join(errors)[:4000],
     })
+
+    # Portainer remains the source of truth for environment, Compose service,
+    # container and stack names unless an administrator has saved a local
+    # display-name override in the Fleet view. The import is deliberately
+    # local to avoid a module cycle during application start-up.
+    from .fleet_notifications import reconcile_portainer_names
+
+    reconcile_portainer_names()
     return PortainerSyncResult(
         environments_count, services_count, linked_count, offline_count, errors, synced_at
     )

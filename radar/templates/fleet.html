@@ -1,24 +1,131 @@
 {% extends "base.html" %}
 {% block title %}Fleet · Software Release Radar{% endblock %}
 {% block content %}
-<section class="page-heading fleet-heading">
-  <div><span class="eyebrow">DEPLOYMENT FLEET</span><h1>Machines and services</h1><p>Installed software grouped by machine, with reachability and release status.</p></div>
-  <div class="heading-search"><label for="fleet-filter">Search fleet</label><input id="fleet-filter" class="filter" type="search" placeholder="Machine, IP, service, repository or container"></div>
+<section class="page-heading fleet-heading fleet-heading-with-actions">
+  <div>
+    <span class="eyebrow">DEPLOYMENT FLEET</span>
+    <h1>Machines and services</h1>
+    <p>Installed software grouped by machine, with editable display names and Portainer source synchronisation.</p>
+  </div>
+  <div class="fleet-heading-tools">
+    {% if current_user.role == 'admin' %}
+    <form method="post" action="{{ url_for('fleet_sync_portainer_names') }}" data-busy-message="Synchronising Portainer names…">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="button secondary" type="submit" {{ 'disabled' if not portainer_enabled else '' }}>
+        <span aria-hidden="true">↻</span> Sync names from Portainer
+      </button>
+    </form>
+    {% endif %}
+    <div class="heading-search">
+      <label for="fleet-filter">Search fleet</label>
+      <input id="fleet-filter" class="filter" type="search" placeholder="Machine, IP, service, repository or container">
+    </div>
+  </div>
 </section>
+
+{% if current_user.role == 'admin' and not portainer_enabled %}
+<div class="flash info">Enable Portainer under Settings before using source-name synchronisation. Manual display-name editing remains available.</div>
+{% endif %}
+
 <div id="fleet-results-summary" class="list-summary" aria-live="polite"></div>
 <div class="fleet-grid" id="fleet-grid">
 {% for machine in machines %}
-<section class="panel fleet-card" data-machine-search="{{ (machine.name ~ ' ' ~ (machine.host or ''))|lower }}">
-  <div class="fleet-head"><div><h2>{{ machine.name }}</h2><p>{{ machine.host or 'No host assigned' }}</p></div><div class="fleet-stats"><span class="success-pill">{{ machine.online }} online</span>{% if machine.offline %}<span class="error-pill">{{ machine.offline }} offline</span>{% endif %}{% if machine.updates %}<span class="warning-pill">{{ machine.updates }} updates</span>{% endif %}{% if machine.needs_attention %}<span class="warning-pill">{{ machine.needs_attention }} need attention</span>{% endif %}</div></div>
+<section class="panel fleet-card" data-machine-search="{{ (machine.name ~ ' ' ~ machine.source_name ~ ' ' ~ (machine.host or ''))|lower }}">
+  <div class="fleet-head">
+    <div class="fleet-machine-copy">
+      <div class="editable-title-line">
+        <h2>{{ machine.name }}</h2>
+        {% if current_user.role == 'admin' and machine.endpoint_id %}
+        <details class="inline-name-editor machine-name-editor">
+          <summary class="pencil-button" aria-label="Edit machine display name" title="Edit machine display name">✎</summary>
+          <form method="post" action="{{ url_for('fleet_machine_name', endpoint_id=machine.endpoint_id) }}" class="inline-editor-card">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <label>Machine display name
+              <input name="display_name" value="{{ machine.name }}" maxlength="120" autocomplete="off">
+              <small>Portainer source: {{ machine.source_name }}</small>
+            </label>
+            <div class="inline-editor-actions">
+              <button class="button primary small" name="action" value="save" type="submit">Save</button>
+              {% if machine.has_name_override %}<button class="button ghost small" name="action" value="source" type="submit">Follow Portainer</button>{% endif %}
+            </div>
+          </form>
+        </details>
+        {% endif %}
+      </div>
+      <p>{{ machine.host or 'No host assigned' }}</p>
+      {% if machine.has_name_override %}<small class="source-name-note">Local display-name override · Portainer: {{ machine.source_name }}</small>{% endif %}
+    </div>
+    <div class="fleet-stats">
+      <span class="success-pill">{{ machine.online }} online</span>
+      {% if machine.offline %}<span class="error-pill">{{ machine.offline }} offline</span>{% endif %}
+      {% if machine.updates %}<span class="warning-pill">{{ machine.updates }} updates</span>{% endif %}
+      {% if machine.needs_attention %}<span class="warning-pill">{{ machine.needs_attention }} need attention</span>{% endif %}
+    </div>
+  </div>
+
   <div class="fleet-services">
   {% for tracker in machine.trackers %}
-    <article class="fleet-service" data-service-search="{{ (tracker.name ~ ' ' ~ (tracker.install_host or '') ~ ' ' ~ (tracker.docker_container or '') ~ ' ' ~ tracker.repository ~ ' ' ~ (tracker.effective_installed_version or ''))|lower }}"><div><strong>{{ tracker.name }}</strong><small>{{ tracker.install_host or 'No IP' }}{% if tracker.install_port %}:{{ tracker.install_port }}{% endif %} · {{ tracker.docker_container or tracker.repository }}</small></div><div><span>{{ tracker.effective_installed_version or 'Installed unknown' }}</span><span class="upgrade-chip {{ tracker.upgrade.level }}">{{ tracker.upgrade.label }}</span>{% if tracker.needs_attention %}<span class="warning-pill">Needs attention</span>{% endif %}</div><div class="fleet-actions"><a class="button ghost small" href="{{ url_for('assistant', tracker_id=tracker.id) }}">Analyse</a>{% if current_user.role == 'admin' %}<form method="post" action="{{ url_for('probe_one', tracker_id=tracker.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button ghost small">Probe</button></form>{% endif %}</div></article>
+    <article class="fleet-service" data-service-search="{{ (tracker.display_name ~ ' ' ~ tracker.source_display_name ~ ' ' ~ (tracker.install_host or '') ~ ' ' ~ (tracker.docker_container or '') ~ ' ' ~ tracker.repository ~ ' ' ~ (tracker.effective_stack_name or '') ~ ' ' ~ (tracker.source_stack_name or '') ~ ' ' ~ (tracker.effective_installed_version or ''))|lower }}">
+      <div class="fleet-service-main">
+        <div class="editable-title-line service-title-line">
+          <strong>{{ tracker.display_name }}</strong>
+          {% if current_user.role == 'admin' %}
+          <details class="inline-name-editor service-name-editor">
+            <summary class="pencil-button" aria-label="Edit software, machine or folder display names" title="Edit display names">✎</summary>
+            <form method="post" action="{{ url_for('fleet_tracker_names', tracker_id=tracker.id) }}" class="inline-editor-card service-editor-card">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <label>Software display name
+                <input name="display_name" value="{{ tracker.display_name }}" maxlength="120" autocomplete="off">
+                {% if tracker.linked_service_id %}<small>Portainer source: {{ tracker.source_display_name }}</small>{% else %}<small>Displayed throughout Release Radar.</small>{% endif %}
+              </label>
+              {% if tracker.linked_service_id %}
+              <label>Stack or folder display name
+                <input name="stack_name" value="{{ tracker.effective_stack_name or '' }}" maxlength="120" autocomplete="off" placeholder="Optional folder or stack label">
+                <small>Portainer source: {{ tracker.source_stack_name or 'No stack name' }}</small>
+              </label>
+              {% else %}
+              <label>Machine or host display name
+                <input name="machine_name" value="{{ tracker.machine_name or '' }}" maxlength="120" autocomplete="off" placeholder="Optional machine name">
+                <small>The network host remains {{ tracker.install_host or 'unconfigured' }}.</small>
+              </label>
+              {% endif %}
+              <div class="inline-editor-actions">
+                <button class="button primary small" name="action" value="save" type="submit">Save names</button>
+                {% if tracker.linked_service_id and (tracker.has_display_name_override or tracker.has_stack_name_override) %}<button class="button ghost small" name="action" value="source_all" type="submit">Follow Portainer</button>{% endif %}
+              </div>
+            </form>
+          </details>
+          {% endif %}
+        </div>
+        <small>{{ tracker.install_host or 'No IP' }}{% if tracker.install_port %}:{{ tracker.install_port }}{% endif %} · {{ tracker.docker_container or tracker.repository }}</small>
+        {% if tracker.effective_stack_name %}<small class="fleet-folder-line"><span aria-hidden="true">▱</span> {{ tracker.effective_stack_name }}{% if tracker.has_stack_name_override %} <span class="muted-chip">local alias</span>{% endif %}</small>{% endif %}
+        {% if tracker.has_display_name_override %}<small class="source-name-note">Portainer: {{ tracker.source_display_name }}</small>{% endif %}
+      </div>
+      <div class="fleet-release-state">
+        <span>{{ tracker.effective_installed_version or 'Installed unknown' }}</span>
+        <span class="upgrade-chip {{ tracker.upgrade.level }}">{{ tracker.upgrade.label }}</span>
+        {% if tracker.needs_attention %}<span class="warning-pill">Needs attention</span>{% endif %}
+      </div>
+      <div class="fleet-actions">
+        <a class="button ghost small" href="{{ url_for('assistant', tracker_id=tracker.id) }}">Analyse</a>
+        {% if current_user.role == 'admin' %}
+        <a class="button ghost small" href="{{ url_for('edit_tracker', tracker_id=tracker.id) }}">Details</a>
+        <form method="post" action="{{ url_for('probe_one', tracker_id=tracker.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="button ghost small" type="submit">Probe</button>
+        </form>
+        {% endif %}
+      </div>
+    </article>
   {% endfor %}
   </div>
 </section>
-{% else %}<div class="empty-state"><h3>No fleet data</h3><p>Add machine details to tracked software to populate this view.</p></div>{% endfor %}
+{% else %}
+<div class="empty-state"><h3>No fleet data</h3><p>Add machine details to tracked software to populate this view.</p></div>
+{% endfor %}
 </div>
-<div id="fleet-empty" class="empty-state" hidden><h3>No matching machines or services</h3><p>Try a different machine name, IP address, service, container, or repository.</p></div>
+
+<div id="fleet-empty" class="empty-state" hidden><h3>No matching machines or services</h3><p>Try a different machine name, IP address, service, container, folder, or repository.</p></div>
 <script>
 (() => {
   const input = document.getElementById('fleet-filter');

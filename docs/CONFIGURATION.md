@@ -19,7 +19,7 @@ The recommended `bash scripts/setup.sh` flow creates `.env` for you.
 
 | Variable | Required | Default | Purpose |
 |---|---:|---|---|
-| `RADAR_VERSION` | yes | `2.7.0` | Image and build version label |
+| `RADAR_VERSION` | yes | `2.8.0` | Image and build version label |
 | `RADAR_BIND_ADDRESS` | yes | `0.0.0.0` | Address used to publish the web port on the Docker host |
 | `RADAR_PORT` | yes | `9120` | Host port for the web interface |
 | `RADAR_SCHEDULER_INTERVAL_SECONDS` | yes | `60` | How often the scheduler looks for trackers that are due |
@@ -162,9 +162,13 @@ The application uses strict host-key checking and a fixed Docker inspection comm
 
 ## User notifications
 
-Administrators manage users from the Users page. Individual users control their email and Pushover preferences from Profile.
+Administrators manage users from the Users page. Every signed-in user has a dedicated **Notifications** page.
 
-A notification is recorded per user and channel so the same release event is not repeatedly delivered after a successful send or deliberate skip.
+The administrator-wide switch can pause release alerts without disabling SMTP password recovery. Each user then chooses a personal default and Email or Pushover channels. Every software tracker can inherit the personal default, always notify, or remain muted.
+
+A notification is recorded per user and channel so the same release event is not repeatedly delivered after a successful send or deliberate policy skip. Muted events do not become a backlog when alerts are later enabled.
+
+See [Notification controls](NOTIFICATIONS.md) for precedence, examples and operational behaviour.
 
 ## Automatic monitoring
 

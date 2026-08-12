@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block title %}Notifications · Software Release Radar{% endblock %}
+{% block content %}
+<section class="page-heading notifications-heading">
+  <div>
+    <span class="eyebrow">NOTIFICATION CONTROL</span>
+    <h1>Notifications</h1>
+    <p>Choose a personal default, select delivery channels, and override individual software without changing the email address used for password recovery.</p>
+  </div>
+</section>
+
+{% if not system_enabled %}
+<div class="flash warning"><strong>Release notifications are paused for everyone.</strong> No update email or Pushover alert will be delivered until an administrator enables the system-wide override.</div>
+{% endif %}
+
+<section class="notification-overview metrics notification-metrics">
+  <article class="metric"><span>System</span><strong class="metric-state {{ 'state-on' if system_enabled else 'state-paused' }}">{{ 'On' if system_enabled else 'Paused' }}</strong><small>Administrator-wide release alerts</small></article>
+  <article class="metric"><span>Personal default</span><strong class="metric-state {{ 'state-on' if notification_user.notifications_enabled else 'state-off' }}">{{ 'On' if notification_user.notifications_enabled else 'Muted' }}</strong><small>Used by software set to inherit</small></article>
+  <article class="metric"><span>Always notify</span><strong>{{ preference_counts.on }}</strong><small>Per-software overrides</small></article>
+  <article class="metric"><span>Muted</span><strong>{{ preference_counts.off }}</strong><small>Per-software overrides</small></article>
+  <article class="metric"><span>Use default</span><strong>{{ preference_counts.inherit }}</strong><small>Following your personal default</small></article>
+</section>
+
+<form method="post" class="panel notification-defaults-card">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="action" value="save_defaults">
+  {% if current_user.role == 'admin' %}<input type="hidden" name="system_control_present" value="1">{% endif %}
+  <div class="panel-header notification-card-header">
+    <div><h2>Global controls</h2><p>System-wide policy is evaluated first, followed by your personal default and each software override.</p></div>
+  </div>
+  <div class="notification-toggle-grid">
+    {% if current_user.role == 'admin' %}
+    <label class="toggle-card notification-toggle-card system-toggle-card">
+      <input type="checkbox" name="system_notifications_enabled" {{ 'checked' if system_enabled else '' }}>
+      <span><strong>System-wide release notifications</strong><small>Administrator override. Turning this off pauses all update alerts while password-reset email remains available.</small></span>
+    </label>
+    {% endif %}
+    <label class="toggle-card notification-toggle-card">
+      <input type="checkbox" name="notifications_enabled" {{ 'checked' if notification_user.notifications_enabled else '' }}>
+      <span><strong>My default notification policy</strong><small>Applied to software set to “Use global default”. Per-software “Always notify” and “Mute” choices take precedence.</small></span>
+    </label>
+    <label class="toggle-card notification-toggle-card">
+      <input type="checkbox" name="notify_email" {{ 'checked' if notification_user.notify_email else '' }}>
+      <span><strong>Email channel</strong><small>{{ notification_user.email or 'No email address is configured.' }} Password recovery is independent from this switch.</small></span>
+    </label>
+    <label class="toggle-card notification-toggle-card">
+      <input type="checkbox" name="notify_pushover" {{ 'checked' if notification_user.notify_pushover else '' }}>
+      <span><strong>Pushover channel</strong><small>{{ 'A Pushover key is configured.' if has_pushover_key else 'No Pushover key is configured.' }} Manage your address and key under Profile.</small></span>
+    </label>
+  </div>
+  <div class="form-actions notification-default-actions">
+    <a class="button secondary" href="{{ url_for('profile') }}">Open profile</a>
+    <button class="button primary" type="submit">Save notification defaults</button>
+  </div>
+</form>
+
+<form method="post" class="panel software-notification-panel" id="software-notification-form">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="panel-header notification-card-header software-notification-header">
+    <div><h2>Per-software controls</h2><p>Use your default for most software, then keep only important alerts always on or mute noisy trackers.</p></div>
+    <label class="notification-search" for="notification-filter">Search software
+      <input id="notification-filter" type="search" placeholder="Software, repository, machine or host">
+    </label>
+  </div>
+  <div class="bulk-toolbar notification-bulk-toolbar">
+    <label class="select-all-control"><input type="checkbox" id="select-all-notification-trackers"> Select all visible</label>
+    <span class="selected-count" id="notification-selected-count">0 selected</span>
+    <label>Set selected
+      <select name="bulk_mode" id="notification-bulk-mode">
+        {% for value, label in notification_modes %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+      </select>
+    </label>
+    <button class="button secondary" name="action" value="bulk_software" type="submit">Apply to selected</button>
+    <button class="button primary" name="action" value="save_software" type="submit">Save all preferences</button>
+  </div>
+
+  <div class="software-notification-list" id="software-notification-list">
+    {% for tracker in trackers %}
+    <article class="software-notification-row" data-notification-search="{{ (tracker.name ~ ' ' ~ tracker.repository ~ ' ' ~ (tracker.machine_name or '') ~ ' ' ~ (tracker.install_host or ''))|lower }}">
+      <div class="notification-row-select"><input class="notification-tracker-checkbox" type="checkbox" name="tracker_ids" value="{{ tracker.id }}" aria-label="Select {{ tracker.name }}"></div>
+      <div class="notification-software-copy">
+        <strong>{{ tracker.name }}</strong>
+        <small>{{ tracker.machine_name or tracker.install_host or 'No machine assigned' }} · {{ tracker.repository }}</small>
+      </div>
+      <div class="notification-effective-state">
+        {% if tracker.effective_notification_state == 'paused' %}<span class="status-badge state-paused">System paused</span>
+        {% elif tracker.effective_notification_state == 'on' %}<span class="status-badge state-on">Will notify</span>
+        {% else %}<span class="status-badge state-off">Muted</span>{% endif %}
+      </div>
+      <label class="notification-mode-label" for="notification-mode-{{ tracker.id }}">Preference
+        <select id="notification-mode-{{ tracker.id }}" name="mode_{{ tracker.id }}">
+          {% for value, label in notification_modes %}<option value="{{ value }}" {{ 'selected' if tracker.notification_mode == value else '' }}>{{ label }}</option>{% endfor %}
+        </select>
+      </label>
+    </article>
+    {% else %}
+    <div class="empty-state"><h3>No tracked software</h3><p>Add a release tracker before configuring per-software notifications.</p></div>
+    {% endfor %}
+  </div>
+  <div id="notification-empty" class="empty-state" hidden><h3>No matching software</h3><p>Try a different software, repository, machine, or host name.</p></div>
+</form>
+
+<script>
+(() => {
+  const input = document.getElementById('notification-filter');
+  const rows = [...document.querySelectorAll('.software-notification-row')];
+  const selectAll = document.getElementById('select-all-notification-trackers');
+  const count = document.getElementById('notification-selected-count');
+  const empty = document.getElementById('notification-empty');
+  if (!input || !selectAll || !count) return;
+
+  const visibleRows = () => rows.filter(row => !row.hidden);
+  const visibleBoxes = () => visibleRows().map(row => row.querySelector('.notification-tracker-checkbox'));
+  const updateSelection = () => {
+    const selected = rows.filter(row => row.querySelector('.notification-tracker-checkbox').checked).length;
+    count.textContent = `${selected} selected`;
+    const boxes = visibleBoxes();
+    selectAll.checked = boxes.length > 0 && boxes.every(box => box.checked);
+    selectAll.indeterminate = boxes.some(box => box.checked) && !selectAll.checked;
+  };
+  const filter = () => {
+    const query = (input.value || '').trim().toLowerCase();
+    rows.forEach(row => { row.hidden = Boolean(query) && !row.dataset.notificationSearch.includes(query); });
+    empty.hidden = visibleRows().length !== 0 || rows.length === 0;
+    updateSelection();
+  };
+  input.addEventListener('input', filter);
+  selectAll.addEventListener('change', () => {
+    visibleBoxes().forEach(box => { box.checked = selectAll.checked; });
+    updateSelection();
+  });
+  rows.forEach(row => row.querySelector('.notification-tracker-checkbox').addEventListener('change', updateSelection));
+  filter();
+})();
+</script>
+{% endblock %}

@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img alt="Version 2.7.0" src="https://img.shields.io/badge/version-2.7.0-2f81f7">
+  <img alt="Version 2.8.0" src="https://img.shields.io/badge/version-2.8.0-2f81f7">
   <img alt="Python 3.13 application" src="https://img.shields.io/badge/app-Python%203.13-3776AB?logo=python&logoColor=white">
   <img alt="Docker Compose deployment" src="https://img.shields.io/badge/deploy-Docker%20Compose-2496ED?logo=docker&logoColor=white">
   <img alt="AGPL 3.0 licence" src="https://img.shields.io/badge/licence-AGPL--3.0-663399">
@@ -153,11 +153,11 @@ The following visuals use neutral demo data and contain no private production in
 | 📡 **Release tracking** | GitHub releases, prereleases and latest tags |
 | ⏱️ **Automatic monitoring** | Scheduler checks only trackers whose individual refresh interval is due |
 | 🔢 **Version awareness** | Installed, detected and upstream version comparison |
-| 🖥️ **Fleet inventory** | Machine, service, container, port and health context |
-| 🐳 **Portainer** | Inventory synchronisation and resilient container rebinding |
+| 🖥️ **Fleet inventory** | Machine, service, container, folder, port and health context with editable display names |
+| 🐳 **Portainer** | Inventory and source-name synchronisation with local aliases and resilient container rebinding |
 | ✅ **Review workflow** | Update, Wait, Ignore, Deployed and Needs Attention decisions |
 | 🩺 **Diagnostics** | Separates real updates from checker failures and unavailable comparisons |
-| 🔔 **Notifications** | SMTP email and Pushover delivery |
+| 🔔 **Notifications** | System-wide, personal, channel and per-software controls for SMTP email and Pushover |
 | 🧠 **Optional AI** | OpenAI-compatible release comparison and tracker chat |
 | 👥 **Multi-user** | Administrator and standard-user roles |
 | 💾 **Data safety** | SQLite WAL mode, online backup helper and guarded restore helper |
@@ -178,6 +178,8 @@ The following visuals use neutral demo data and contain no private production in
 - Group services by machine.
 - Surface online, offline, update and needs-attention states.
 - Search and filter larger inventories.
+- Edit machine, software and stack or folder display names directly from Fleet.
+- Follow renamed Portainer environments and services automatically while preserving deliberate local aliases.
 
 ### ✅ Upgrade decisions
 
@@ -186,6 +188,10 @@ Release Radar provides an operational review queue rather than an unattended upd
 ### 🧠 Optional Release Assistant
 
 An OpenAI-compatible endpoint can be used for release-note analysis and tracker chat. Core release checking, scheduling, probing, version comparison and standard notifications do not require an AI model.
+
+### 🔔 Notification control
+
+The Notifications page separates password-recovery email from release alerts. An administrator can pause release notifications system-wide, each user can choose a personal default and delivery channels, and individual software trackers can inherit that default, always notify, or remain muted. Muted releases are recorded as skipped so turning alerts back on does not send an unexpected backlog.
 
 ---
 
@@ -242,7 +248,7 @@ See **[docs/DOCKER.md](docs/DOCKER.md)** for the full operational procedure.
 
 # 🔐 Security model
 
-The v2.7.0 baseline includes:
+The v2.8.0 release includes:
 
 - CSRF protection on state-changing browser routes;
 - HTTP-only, same-site session cookies;
@@ -270,7 +276,7 @@ For production hardening guidance, see **[docs/SECURITY-HARDENING.md](docs/SECUR
 
 The release candidate is tested as a complete lifecycle, not only as a Docker image build.
 
-| Gate | v2.7.0 status |
+| Gate | v2.8.0 status |
 |---|---|
 | Python compilation and complete automated test suite | ✅ Passed |
 | Dependency vulnerability audit | ✅ Passed |
@@ -403,6 +409,7 @@ Financial support is optional. The project remains available under its open-sour
 |---|---|---|
 | 🐳 | [Docker deployment](docs/DOCKER.md) | Install, back up, restore, upgrade and troubleshoot |
 | ⚙️ | [Configuration](docs/CONFIGURATION.md) | Environment variables and optional integrations |
+| 🔔 | [Notification controls](docs/NOTIFICATIONS.md) | Global, personal, channel and per-software alert policy |
 | 🏗️ | [Architecture](docs/ARCHITECTURE.md) | Runtime services, data flow and design boundaries |
 | 🔐 | [Security hardening](docs/SECURITY-HARDENING.md) | Production deployment checklist |
 | 🗺️ | [Roadmap](ROADMAP.md) | Launch gates and future direction |

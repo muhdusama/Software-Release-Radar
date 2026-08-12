@@ -70,10 +70,10 @@ Check the health endpoint:
 curl -fsS http://localhost:9120/healthz
 ```
 
-Expected shape for v2.7.0:
+Expected shape for v2.8.0:
 
 ```json
-{"name":"Software Release Radar","status":"ok","version":"2.7.0"}
+{"name":"Software Release Radar","status":"ok","version":"2.8.0"}
 ```
 
 View recent logs:

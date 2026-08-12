@@ -1,4 +1,4 @@
-{% set app_version = '2.7.0' %}
+{% set app_version = '2.8.0' %}
 <!doctype html>
 <html lang="en-AU">
 <head>
@@ -30,15 +30,16 @@
       <a class="{{ 'active' if request.endpoint == 'history' else '' }}" href="{{ url_for('history') }}"><span class="nav-icon" aria-hidden="true">↗</span><span>History</span><kbd>2</kbd></a>
       <a class="{{ 'active' if request.endpoint in ['upgrades', 'upgrade_decision'] else '' }}" href="{{ url_for('upgrades') }}"><span class="nav-icon" aria-hidden="true">✓</span><span>Upgrades</span><kbd>3</kbd></a>
       <a class="{{ 'active' if request.endpoint == 'fleet' else '' }}" href="{{ url_for('fleet') }}"><span class="nav-icon" aria-hidden="true">▦</span><span>Fleet</span><kbd>4</kbd></a>
-      {% if current_user['role'] == 'admin' %}<a class="{{ 'active' if request.endpoint == 'portainer_inventory' else '' }}" href="{{ url_for('portainer_inventory') }}"><span class="nav-icon" aria-hidden="true">⬡</span><span>Portainer</span><kbd>5</kbd></a>{% endif %}
+      <a class="{{ 'active' if request.endpoint == 'notifications_preferences' else '' }}" href="{{ url_for('notifications_preferences') }}"><span class="nav-icon" aria-hidden="true">◉</span><span>Notifications</span><kbd>5</kbd></a>
+      {% if current_user['role'] == 'admin' %}<a class="{{ 'active' if request.endpoint == 'portainer_inventory' else '' }}" href="{{ url_for('portainer_inventory') }}"><span class="nav-icon" aria-hidden="true">⬡</span><span>Portainer</span><kbd>6</kbd></a>{% endif %}
 
       <span class="nav-section-label">Analyse</span>
-      <a class="{{ 'active' if request.endpoint in ['assistant', 'assistant_run'] else '' }}" href="{{ url_for('assistant') }}"><span class="nav-icon" aria-hidden="true">✦</span><span>Assistant</span><kbd>6</kbd></a>
+      <a class="{{ 'active' if request.endpoint in ['assistant', 'assistant_run'] else '' }}" href="{{ url_for('assistant') }}"><span class="nav-icon" aria-hidden="true">✦</span><span>Assistant</span><kbd>7</kbd></a>
 
       {% if current_user['role'] == 'admin' %}
       <span class="nav-section-label">Administer</span>
-      <a class="{{ 'active' if request.endpoint == 'settings' else '' }}" href="{{ url_for('settings') }}"><span class="nav-icon" aria-hidden="true">⚙</span><span>Settings</span><kbd>7</kbd></a>
-      <a class="{{ 'active' if request.endpoint in ['users', 'user_form'] else '' }}" href="{{ url_for('users') }}"><span class="nav-icon" aria-hidden="true">◎</span><span>Users</span><kbd>8</kbd></a>
+      <a class="{{ 'active' if request.endpoint == 'settings' else '' }}" href="{{ url_for('settings') }}"><span class="nav-icon" aria-hidden="true">⚙</span><span>Settings</span><kbd>8</kbd></a>
+      <a class="{{ 'active' if request.endpoint in ['users', 'user_form'] else '' }}" href="{{ url_for('users') }}"><span class="nav-icon" aria-hidden="true">◎</span><span>Users</span><kbd>9</kbd></a>
       {% endif %}
     </nav>
 
@@ -110,10 +111,11 @@
       <a class="command-item" href="{{ url_for('dashboard') }}" data-command-item data-command-search-text="dashboard home software trackers releases"><span class="command-item-icon">⌂</span><span><strong>Dashboard</strong><small>Trackers, status and update activity</small></span><kbd>1</kbd></a>
       <a class="command-item" href="{{ url_for('history') }}" data-command-item data-command-search-text="history changes updates timeline"><span class="command-item-icon">↗</span><span><strong>Release history</strong><small>Detected upstream release transitions</small></span><kbd>2</kbd></a>
       <a class="command-item" href="{{ url_for('upgrades') }}" data-command-item data-command-search-text="upgrades decision queue maintenance checklist rollback deployed"><span class="command-item-icon">✓</span><span><strong>Upgrade decisions</strong><small>Review, plan and record release actions</small></span><kbd>3</kbd></a>
-      <a class="command-item" href="{{ url_for('fleet') }}" data-command-item data-command-search-text="fleet machines hosts services"><span class="command-item-icon">▦</span><span><strong>Fleet</strong><small>Machines and deployed services</small></span><kbd>4</kbd></a>
-      {% if current_user['role'] == 'admin' %}<a class="command-item" href="{{ url_for('portainer_inventory') }}" data-command-item data-command-search-text="portainer docker containers stacks inventory"><span class="command-item-icon">⬡</span><span><strong>Portainer inventory</strong><small>Docker environments, stacks and containers</small></span><kbd>5</kbd></a>{% endif %}
-      <a class="command-item" href="{{ url_for('assistant') }}" data-command-item data-command-search-text="assistant ai analysis chat upgrade risk"><span class="command-item-icon">✦</span><span><strong>Release Assistant</strong><small>Deployment-aware upgrade analysis</small></span><kbd>6</kbd></a>
-      {% if current_user['role'] == 'admin' %}<a class="command-item" href="{{ url_for('settings') }}" data-command-item data-command-search-text="settings notifications smtp pushover openai"><span class="command-item-icon">⚙</span><span><strong>Settings</strong><small>Connections, notifications and Assistant</small></span><kbd>7</kbd></a>{% endif %}
+      <a class="command-item" href="{{ url_for('fleet') }}" data-command-item data-command-search-text="fleet machines hosts services names folders"><span class="command-item-icon">▦</span><span><strong>Fleet</strong><small>Machines, services and display names</small></span><kbd>4</kbd></a>
+      <a class="command-item" href="{{ url_for('notifications_preferences') }}" data-command-item data-command-search-text="notifications alerts email pushover mute software preferences"><span class="command-item-icon">◉</span><span><strong>Notifications</strong><small>Global, channel and per-software controls</small></span><kbd>5</kbd></a>
+      {% if current_user['role'] == 'admin' %}<a class="command-item" href="{{ url_for('portainer_inventory') }}" data-command-item data-command-search-text="portainer docker containers stacks inventory"><span class="command-item-icon">⬡</span><span><strong>Portainer inventory</strong><small>Docker environments, stacks and containers</small></span><kbd>6</kbd></a>{% endif %}
+      <a class="command-item" href="{{ url_for('assistant') }}" data-command-item data-command-search-text="assistant ai analysis chat upgrade risk"><span class="command-item-icon">✦</span><span><strong>Release Assistant</strong><small>Deployment-aware upgrade analysis</small></span><kbd>7</kbd></a>
+      {% if current_user['role'] == 'admin' %}<a class="command-item" href="{{ url_for('settings') }}" data-command-item data-command-search-text="settings smtp pushover openai portainer"><span class="command-item-icon">⚙</span><span><strong>Settings</strong><small>Connections and application defaults</small></span><kbd>8</kbd></a>{% endif %}
     </div>
     <div class="command-empty" data-command-empty hidden>No matching page or action.</div>
     <footer class="command-footer"><span><kbd>↑</kbd><kbd>↓</kbd> move</span><span><kbd>Enter</kbd> open</span><span><kbd>⌘ K</kbd> toggle</span></footer>

@@ -14,7 +14,7 @@ body:
     attributes:
       label: Release Radar version
       description: Shown in the footer or returned by /healthz.
-      placeholder: "2.7.0"
+      placeholder: "2.8.0"
     validations:
       required: true
 

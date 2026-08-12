@@ -164,6 +164,8 @@ This avoids holding a browser request open during longer inventory jobs.
 
 Tracker-to-container rebinding is deliberately conservative. An explicit mapping remains authoritative, and automatic rebinding requires enough matching context to avoid another container taking over an existing tracker.
 
+Portainer remains the source of truth for environment, Compose service, container and stack names. After a successful inventory synchronisation, linked Fleet records reconcile those source names. Administrators can store independent display-name overrides for a machine, software tracker, or stack or folder. Source updates continue in the background while the local alias remains visible until **Follow Portainer** is selected.
+
 ## Notifications
 
 Current public notification channels are:
@@ -171,9 +173,16 @@ Current public notification channels are:
 - SMTP email; and
 - Pushover.
 
-Notification delivery is tracked per event, user and channel. Successful or deliberately skipped deliveries are not sent repeatedly.
+Notification policy is evaluated in this order:
 
-Integration credentials are encrypted before they are stored in SQLite.
+1. administrator system-wide override;
+2. per-software `on`, `off`, or `inherit` preference;
+3. the user's personal default when the software inherits; and
+4. the user's Email and Pushover channel switches.
+
+Notification delivery is tracked per event, user and channel. Successful or deliberately skipped deliveries are not sent repeatedly. Persisting policy skips prevents an unexpected backlog when a muted channel or software tracker is enabled later.
+
+Integration credentials are encrypted before they are stored in SQLite. See [Notification controls](NOTIFICATIONS.md) for the operator-facing policy model.
 
 ## Authentication
 

@@ -262,7 +262,7 @@
     if (typing || event.metaKey || event.ctrlKey || event.altKey) return;
     if (event.key === '/') { event.preventDefault(); if (window.location.pathname === '/') window.SRR?.focusDashboardSearch?.(); else window.location.href = '/?focus=search'; }
     if (event.key.toLowerCase() === 'd' && window.location.pathname === '/') window.SRR?.toggleDashboardDensity?.();
-    const routeShortcuts = { '1': '/', '2': '/history', '3': '/upgrades', '4': '/fleet', '5': '/portainer', '6': '/assistant', '7': '/settings', '8': '/users' };
+    const routeShortcuts = { '1': '/', '2': '/history', '3': '/upgrades', '4': '/fleet', '5': '/notifications', '6': '/portainer', '7': '/assistant', '8': '/settings', '9': '/users' };
     if (routeShortcuts[event.key]) window.location.href = routeShortcuts[event.key];
   });
 

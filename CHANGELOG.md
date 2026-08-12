@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+No unreleased changes are currently recorded.
+
+---
+
+## [2.8.0] - 2026-08-12
+
 ### Added
 
 - Persistent per-user, per-address, daily and concurrency controls for authenticated Assistant requests.
@@ -13,6 +19,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 - Recent-analysis reuse and bounded retained Assistant history.
 - Timeout-capable, size-bounded execution for user-defined HTTP version regular expressions.
 - Dedicated public documentation for password-reset, Assistant, integration-transport and workflow security controls.
+- Inline Fleet editors for machine, software and stack or folder display names.
+- A dedicated Notifications page with administrator-wide, personal, channel and per-software controls.
+- Portainer source-name reconciliation with explicit local display-name overrides.
 
 ### Changed
 
@@ -22,6 +31,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 - Remote SMTP delivery requires STARTTLS or implicit TLS by default.
 - Explicit trusted-network cleartext exceptions require `ALLOW_INSECURE_INTEGRATIONS=true`.
 - All third-party GitHub Actions are pinned to immutable full commit SHAs.
+- Portainer synchronisation now refreshes linked tracker names after environment, Compose service, container or stack renames while preserving local aliases.
+- Muted notification deliveries are recorded as skipped so re-enabling alerts does not create an old-release backlog.
 
 ### Security
 
@@ -30,7 +41,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Validated
 
-- Python compilation and the complete 82-test regression suite pass.
+- Python compilation and the complete automated regression suite pass.
 - `pip-audit` and the reviewed Bandit security gate pass.
 - The real Docker setup, health, backup, restore and persistent-state acceptance workflow passes.
 

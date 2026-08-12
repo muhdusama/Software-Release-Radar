@@ -1633,4 +1633,9 @@ def create_app() -> Flask:
             event_count=len(events),
         )
 
+    # Fleet naming and notification preferences extend the core web factory so
+    # development and test callers receive the same route set as production.
+    from .fleet_notifications import install_fleet_notification_controls
+
+    install_fleet_notification_controls(app)
     return app
