@@ -222,7 +222,7 @@ def _probe_ssh_docker(tracker) -> tuple[str, int, str]:
 def _probe_portainer(tracker, *, refresh_inventory: bool = True) -> tuple[str | None, int, str]:
     service_id = tracker["portainer_service_id"]
     if service_id in (None, ""):
-        raise ValueError("Portainer service mapping is not configured.")
+        raise ValueError("Inventory service mapping is not configured.")
     started = time.monotonic()
     result = sync_inventory() if refresh_inventory else None
     with connect() as conn:
@@ -236,13 +236,13 @@ def _probe_portainer(tracker, *, refresh_inventory: bool = True) -> tuple[str | 
             (int(service_id),),
         ).fetchone()
     if service is None or not int(service["present"]):
-        raise RuntimeError("The mapped Portainer container is no longer present.")
+        raise RuntimeError("The mapped inventory container is no longer present.")
     state = str(service["state"] or "unknown").lower()
     if state != "running":
-        raise RuntimeError(f"Portainer reports container state: {state}")
+        raise RuntimeError(f"Inventory provider reports container state: {state}")
     latency = max(1, round((time.monotonic() - started) * 1000))
     version = str(service["detected_version"] or "").strip() or None
-    source = f"Portainer environment {service['environment_name']} / {service['container_name']}"
+    source = f"{str(service['provider'] or 'portainer').title()} environment {service['environment_name']} / {service['container_name']}"
     if result is not None and result.errors:
         source += "; inventory sync completed with partial errors"
     return version, latency, source

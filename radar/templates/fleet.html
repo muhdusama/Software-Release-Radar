@@ -5,14 +5,14 @@
   <div>
     <span class="eyebrow">DEPLOYMENT FLEET</span>
     <h1>Machines and services</h1>
-    <p>Installed software grouped by machine, with editable display names and Portainer source synchronisation.</p>
+    <p>Installed software grouped by machine, with editable display names and inventory-provider source synchronisation.</p>
   </div>
   <div class="fleet-heading-tools">
     {% if current_user.role == 'admin' %}
-    <form method="post" action="{{ url_for('fleet_sync_portainer_names') }}" data-busy-message="Synchronising Portainer names…">
+    <form method="post" action="{{ url_for('fleet_sync_portainer_names') }}" data-busy-message="Synchronising provider names…">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button class="button secondary" type="submit" {{ 'disabled' if not portainer_enabled else '' }}>
-        <span aria-hidden="true">↻</span> Sync names from Portainer
+        <span aria-hidden="true">↻</span> Sync names from provider
       </button>
     </form>
     {% endif %}
@@ -24,7 +24,7 @@
 </section>
 
 {% if current_user.role == 'admin' and not portainer_enabled %}
-<div class="flash info">Enable Portainer under Settings before using source-name synchronisation. Manual display-name editing remains available.</div>
+<div class="flash info">Enable an inventory provider under Settings before using source-name synchronisation. Manual display-name editing remains available.</div>
 {% endif %}
 
 <div id="fleet-results-summary" class="list-summary" aria-live="polite"></div>
@@ -42,18 +42,18 @@
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <label>Machine display name
               <input name="display_name" value="{{ machine.name }}" maxlength="120" autocomplete="off">
-              <small>Portainer source: {{ machine.source_name }}</small>
+              <small>{{ provider_label }} source: {{ machine.source_name }}</small>
             </label>
             <div class="inline-editor-actions">
               <button class="button primary small" name="action" value="save" type="submit">Save</button>
-              {% if machine.has_name_override %}<button class="button ghost small" name="action" value="source" type="submit">Follow Portainer</button>{% endif %}
+              {% if machine.has_name_override %}<button class="button ghost small" name="action" value="source" type="submit">Follow provider</button>{% endif %}
             </div>
           </form>
         </details>
         {% endif %}
       </div>
       <p>{{ machine.host or 'No host assigned' }}</p>
-      {% if machine.has_name_override %}<small class="source-name-note">Local display-name override · Portainer: {{ machine.source_name }}</small>{% endif %}
+      {% if machine.has_name_override %}<small class="source-name-note">Local display-name override · {{ provider_label }}: {{ machine.source_name }}</small>{% endif %}
     </div>
     <div class="fleet-stats">
       <span class="success-pill">{{ machine.online }} online</span>
@@ -76,12 +76,12 @@
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <label>Software display name
                 <input name="display_name" value="{{ tracker.display_name }}" maxlength="120" autocomplete="off">
-                {% if tracker.linked_service_id %}<small>Portainer source: {{ tracker.source_display_name }}</small>{% else %}<small>Displayed throughout Release Radar.</small>{% endif %}
+                {% if tracker.linked_service_id %}<small>{{ provider_label }} source: {{ tracker.source_display_name }}</small>{% else %}<small>Displayed throughout Release Radar.</small>{% endif %}
               </label>
               {% if tracker.linked_service_id %}
               <label>Stack or folder display name
                 <input name="stack_name" value="{{ tracker.effective_stack_name or '' }}" maxlength="120" autocomplete="off" placeholder="Optional folder or stack label">
-                <small>Portainer source: {{ tracker.source_stack_name or 'No stack name' }}</small>
+                <small>{{ provider_label }} source: {{ tracker.source_stack_name or 'No stack name' }}</small>
               </label>
               {% else %}
               <label>Machine or host display name
@@ -91,7 +91,7 @@
               {% endif %}
               <div class="inline-editor-actions">
                 <button class="button primary small" name="action" value="save" type="submit">Save names</button>
-                {% if tracker.linked_service_id and (tracker.has_display_name_override or tracker.has_stack_name_override) %}<button class="button ghost small" name="action" value="source_all" type="submit">Follow Portainer</button>{% endif %}
+                {% if tracker.linked_service_id and (tracker.has_display_name_override or tracker.has_stack_name_override) %}<button class="button ghost small" name="action" value="source_all" type="submit">Follow provider</button>{% endif %}
               </div>
             </form>
           </details>
@@ -99,7 +99,7 @@
         </div>
         <small>{{ tracker.install_host or 'No IP' }}{% if tracker.install_port %}:{{ tracker.install_port }}{% endif %} · {{ tracker.docker_container or tracker.repository }}</small>
         {% if tracker.effective_stack_name %}<small class="fleet-folder-line"><span aria-hidden="true">▱</span> {{ tracker.effective_stack_name }}{% if tracker.has_stack_name_override %} <span class="muted-chip">local alias</span>{% endif %}</small>{% endif %}
-        {% if tracker.has_display_name_override %}<small class="source-name-note">Portainer: {{ tracker.source_display_name }}</small>{% endif %}
+        {% if tracker.has_display_name_override %}<small class="source-name-note">{{ provider_label }}: {{ tracker.source_display_name }}</small>{% endif %}
       </div>
       <div class="fleet-release-state">
         <span>{{ tracker.effective_installed_version or 'Installed unknown' }}</span>

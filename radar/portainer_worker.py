@@ -37,7 +37,7 @@ def _run_sync(worker_id: str) -> bool:
         finish_job(
             job_id,
             success=False,
-            message="Portainer synchronisation failed",
+            message="Inventory synchronisation failed",
             error=f"{exc}\n{traceback.format_exc()[-3000:]}",
         )
     return True
@@ -85,7 +85,7 @@ def _run_import(worker_id: str) -> bool:
         finish_import_job(
             job_id,
             success=False,
-            message="Portainer bulk import failed",
+            message="Inventory bulk import failed",
             error=f"{exc}\n{traceback.format_exc()[-3000:]}",
         )
     return True

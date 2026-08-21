@@ -46,6 +46,7 @@ This applies to:
 
 - OpenAI-compatible `Authorization` headers;
 - Portainer `X-API-Key` headers; and
+- Dockhand bearer authorisation headers; and
 - SMTP delivery without STARTTLS or implicit TLS.
 
 Loopback HTTP endpoints remain available for same-host integrations. An unauthenticated loopback SMTP relay may also use the `none` mode.

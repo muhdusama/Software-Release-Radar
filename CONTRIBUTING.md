@@ -66,7 +66,7 @@ A runtime change should leave:
 
 - `software-release-radar` healthy;
 - `software-release-radar-scheduler` running; and
-- `software-release-radar-portainer-worker` running.
+- `software-release-radar-inventory-worker` running.
 
 The GitHub CI workflow also performs a fresh Docker build and clean Compose smoke test.
 

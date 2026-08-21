@@ -11,8 +11,10 @@ from pathlib import Path
 ALLOWED_FINDINGS: dict[tuple[str, str, int], str] = {
     ("radar/github.py", "B310", 60): "Destination is the fixed https://api.github.com API.",
     ("radar/notifications.py", "B310", 111): "Destination is the fixed https://api.pushover.net API.",
-    ("radar/portainer.py", "B323", 48): "TLS verification bypass is an explicit opt-in for self-signed Portainer and defaults to verification enabled.",
-    ("radar/portainer.py", "B310", 72): "Portainer base URLs are application settings constrained to HTTP(S); local-network access is an intended integration feature.",
+    ("radar/portainer.py", "B323", 54): "TLS verification bypass is an explicit opt-in for self-signed Portainer and defaults to verification enabled.",
+    ("radar/portainer.py", "B310", 81): "Portainer base URLs are validated as complete HTTP(S) URLs; local-network access is an intended integration feature.",
+    ("radar/inventory_providers.py", "B323", 95): "TLS verification bypass is an explicit opt-in for self-signed Dockhand and defaults to verification enabled.",
+    ("radar/inventory_providers.py", "B310", 97): "Dockhand base URLs are validated as complete HTTP(S) URLs; local-network access is an intended integration feature.",
     ("radar/presentation.py", "B704", 80): "All source text is html.escape() encoded before the renderer adds its own fixed markup subset.",
     ("radar/probes.py", "B310", 86): "Probe URLs are constructed only from the validated http/https scheme, validated host, validated port and a path.",
 }

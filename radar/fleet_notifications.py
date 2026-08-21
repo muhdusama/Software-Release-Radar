@@ -79,7 +79,7 @@ def _source_service_name(row) -> str:
 
 
 def reconcile_portainer_names() -> int:
-    """Apply current Portainer source names unless a local override is active."""
+    """Apply current provider source names unless a local override is active."""
     ensure_fleet_notification_schema()
     changed = 0
     now = utcnow()
@@ -95,7 +95,7 @@ def reconcile_portainer_names() -> int:
               JOIN portainer_services ps ON ps.id = t.portainer_service_id
               LEFT JOIN portainer_environments pe
                 ON pe.endpoint_id = ps.endpoint_id
-             WHERE t.inventory_source = 'portainer'
+             WHERE t.inventory_source IN ('portainer','dockhand')
             """
         ).fetchall()
         for row in rows:
@@ -331,6 +331,9 @@ def install_fleet_notification_controls(app: Flask) -> None:
             portainer_enabled=(
                 str(get_setting("portainer_enabled", "0")) == "1"
             ),
+            provider_label=str(
+                get_setting("inventory_provider", "portainer") or "portainer"
+            ).title(),
         )
 
     app.view_functions["fleet"] = fleet_view
@@ -397,7 +400,7 @@ def install_fleet_notification_controls(app: Flask) -> None:
             )
             flash(
                 (
-                    "Machine name now follows Portainer."
+                    "Machine name now follows the inventory provider."
                     if override is None
                     else f"Machine display name changed to {override}."
                 ),
@@ -506,9 +509,9 @@ def install_fleet_notification_controls(app: Flask) -> None:
             )
             flash(
                 (
-                    "Software name now follows Portainer."
+                    "Software name now follows the inventory provider."
                     if display_override is None
-                    and row["inventory_source"] == "portainer"
+                    and row["inventory_source"] in {"portainer", "dockhand"}
                     else f"Display names updated for {effective_name}."
                 ),
                 "success",
@@ -525,10 +528,10 @@ def install_fleet_notification_controls(app: Flask) -> None:
         _require_csrf()
         job_id, created = enqueue_sync(int(g.user["id"]))
         message = (
-            "Portainer name synchronisation queued. "
+            "Inventory name synchronisation queued. "
             "Source-managed Fleet names will refresh when the job completes."
             if created
-            else "A Portainer synchronisation is already queued or running."
+            else "An inventory synchronisation is already queued or running."
         )
         flash(message, "success" if created else "info")
         audit(
@@ -761,7 +764,7 @@ def install_fleet_notification_controls(app: Flask) -> None:
                     """,
                     (tracker_id,),
                 ).fetchone()
-                if row and row["inventory_source"] == "portainer":
+                if row and row["inventory_source"] in {"portainer", "dockhand"}:
                     source_name = _source_service_name(
                         {
                             "portainer_service_name": row[

@@ -17,7 +17,7 @@ from types import SimpleNamespace
 from radar.ai_client import chat as ai_chat
 from radar.auth import hash_password, token_digest, verify_password
 from radar.checker import check_tracker
-from radar.db import connect, init_db, set_settings, transaction, utcnow
+from radar.db import connect, get_setting, init_db, set_settings, transaction, utcnow
 from radar.github import ReleaseInfo
 from radar.manage import main as manage_main
 from radar.notifications import dispatch_release_notifications
@@ -512,6 +512,45 @@ class RadarTests(unittest.TestCase):
         self.assertIsNone(row["last_seen_at"])
         self.assertEqual(settings["value"], "ok")
 
+    def test_portainer_mixed_valid_and_malformed_response_preserves_inventory(self):
+        init_db()
+        set_settings({"portainer_enabled": "1", "inventory_provider": "portainer"})
+        endpoint = {
+            "Id": 41, "Name": "Mixed response host", "Type": 2,
+            "Platform": "Docker", "URL": "tcp://192.0.2.41:9001",
+        }
+        valid = {
+            "Id": "valid-container", "Names": ["/valid"],
+            "Image": "example/valid:1.0.0", "ImageID": "sha256:valid",
+            "State": "running", "Status": "Up", "Labels": {}, "Ports": [],
+        }
+        containers = [valid]
+
+        def fake_request(path, **_kwargs):
+            if path == "/api/endpoints":
+                return [endpoint]
+            if "/docker/containers/json" in path:
+                return containers
+            if "/docker/images/" in path:
+                return {"Config": {"Labels": {}}}
+            raise AssertionError(path)
+
+        with patch("radar.portainer._request", side_effect=fake_request):
+            self.assertTrue(sync_inventory().ok)
+            containers[:] = [valid, {"Names": ["/missing-id"]}]
+            result = sync_inventory()
+
+        self.assertFalse(result.ok)
+        with connect() as conn:
+            service = conn.execute(
+                "SELECT present FROM portainer_services WHERE container_id='valid-container'"
+            ).fetchone()
+            environment = conn.execute(
+                "SELECT status FROM portainer_environments WHERE endpoint_id=41"
+            ).fetchone()
+        self.assertEqual(service["present"], 1)
+        self.assertEqual(environment["status"], "error")
+
     def test_portainer_unexpected_environment_failure_remains_visible(self):
         init_db()
         set_settings({
@@ -558,6 +597,31 @@ class RadarTests(unittest.TestCase):
         self.assertIn('class="metrics metrics-six portainer-metrics"', portainer)
         self.assertNotIn('class="metric-card"', portainer)
         self.assertIn('class="panel-header repository-header portainer-repository-header"', portainer)
+
+    def test_settings_reject_dockhand_url_that_is_not_origin_only(self):
+        init_db()
+        set_settings({"dockhand_base_url": "https://dockhand.example"})
+        app = create_app()
+        app.testing = True
+        with connect() as conn:
+            user = conn.execute("SELECT * FROM users WHERE username='admin'").fetchone()
+        client = app.test_client()
+        with client.session_transaction() as session:
+            session["user_id"] = int(user["id"])
+            session["password_stamp"] = token_digest(str(user["password_hash"]))
+            session["csrf_token"] = "settings-csrf"
+        response = client.post("/settings", data={
+            "csrf_token": "settings-csrf", "section": "portainer",
+            "inventory_provider": "dockhand", "portainer_enabled": "on",
+            "portainer_base_url": "https://portainer.example",
+            "portainer_timeout": "20", "portainer_sync_hours": "1",
+            "portainer_verify_tls": "on",
+            "dockhand_base_url": "https://dockhand.example/api?token=secret",
+            "dockhand_timeout": "20", "dockhand_sync_hours": "1",
+            "dockhand_verify_tls": "on",
+        })
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(get_setting("dockhand_base_url"), "https://dockhand.example")
 
 
     def test_portainer_sync_job_deduplicates(self):

@@ -167,7 +167,7 @@ Depending on configuration, Release Radar can make outbound connections to:
 - GitHub;
 - SMTP servers;
 - Pushover;
-- Portainer;
+- Portainer or Dockhand;
 - tracked HTTP/TCP services;
 - SSH hosts; and
 - an optional OpenAI-compatible API.
@@ -218,8 +218,16 @@ Before exposing a deployment beyond a trusted network:
 - [ ] Administrator password is unique and strong.
 - [ ] `.env` permissions and backups are appropriate.
 - [ ] Application base URL is correct.
-- [ ] Portainer and GitHub credentials use least privilege.
+- [ ] Inventory-provider and GitHub credentials use least privilege.
 - [ ] SSH probe keys are dedicated and `known_hosts` is maintained.
 - [ ] Database and `.env` backups exist.
 - [ ] A restore has been tested.
 - [ ] Current CI is green for the release being deployed.
+
+## Dockhand inventory security
+
+Treat a Dockhand bearer token as a management-plane credential. Use a dedicated token associated with an account that can only view the required environments and containers. Keep TLS verification enabled and prefer a trusted private certificate authority over disabling verification.
+
+A reverse proxy that serves Dockhand over HTTPS protects connections made through that HTTPS URL. It does not encrypt a direct `http://` connection from Release Radar to the Dockhand backend. Keep `ALLOW_INSECURE_INTEGRATIONS=false` when Release Radar uses the proxy URL. Set it to `true` only when deliberately accepting a trusted-network HTTP connection to the backend.
+
+Release Radar encrypts the token in SQLite. Request errors are sanitised and do not include response bodies that could echo credentials. Application pages and JSON status routes expose only connection and job state.

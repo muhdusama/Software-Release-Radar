@@ -303,7 +303,7 @@ class FleetNotificationTests(unittest.TestCase):
         fleet = client.get("/fleet")
         self.assertEqual(fleet.status_code, 200)
         body = fleet.get_data(as_text=True)
-        self.assertIn("Sync names from Portainer", body)
+        self.assertIn("Sync names from provider", body)
         self.assertIn("Edit display names", body)
 
         renamed_machine = client.post(
@@ -412,7 +412,7 @@ class FleetNotificationTests(unittest.TestCase):
         style = (root / "radar/static/ui-polish.css").read_text()
         script = (root / "radar/static/app.js").read_text()
         self.assertIn("url_for('notifications_preferences')", base)
-        self.assertIn("Sync names from Portainer", fleet)
+        self.assertIn("Sync names from provider", fleet)
         self.assertIn("pencil-button", fleet)
         self.assertIn("Global defaults", notifications)
         self.assertIn("Per-software controls", notifications)

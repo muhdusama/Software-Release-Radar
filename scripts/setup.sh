@@ -140,11 +140,11 @@ fi
 scheduler_id="$(docker compose ps -q scheduler)"
 worker_id="$(docker compose ps -q portainer-worker)"
 [[ -n "$scheduler_id" ]] || fail "The automatic release scheduler container was not created."
-[[ -n "$worker_id" ]] || fail "The Portainer background worker container was not created."
+[[ -n "$worker_id" ]] || fail "The inventory background worker container was not created."
 scheduler_status="$(docker inspect --format '{{.State.Status}}' "$scheduler_id")"
 worker_status="$(docker inspect --format '{{.State.Status}}' "$worker_id")"
 [[ "$scheduler_status" == "running" ]] || fail "The automatic release scheduler is not running."
-[[ "$worker_status" == "running" ]] || fail "The Portainer background worker is not running."
+[[ "$worker_status" == "running" ]] || fail "The inventory background worker is not running."
 
 DISPLAY_HOST="$SETUP_BIND_ADDRESS"
 if [[ "$DISPLAY_HOST" == "0.0.0.0" || "$DISPLAY_HOST" == "::" ]]; then
