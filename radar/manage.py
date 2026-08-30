@@ -444,8 +444,11 @@ def portainer_inventory_command(_: argparse.Namespace) -> int:
 def portainer_sync_command(args: argparse.Namespace) -> int:
     init_db()
     if args.due:
-        last = parse_utc(get_setting("portainer_last_sync_at", ""))
-        hours = int(get_setting("portainer_sync_hours", "1") or 1)
+        provider = str(get_setting("inventory_provider", "portainer") or "portainer")
+        if provider not in {"portainer", "dockhand"}:
+            raise ValueError("Configured inventory provider is not supported.")
+        last = parse_utc(get_setting(f"{provider}_last_sync_at", ""))
+        hours = int(get_setting(f"{provider}_sync_hours", "1") or 1)
         if last is not None:
             from datetime import datetime, timezone
             if (datetime.now(timezone.utc) - last).total_seconds() < hours * 3600:
@@ -740,17 +743,17 @@ def build_parser() -> argparse.ArgumentParser:
     ask_parser.add_argument("--question", required=True)
     ask_parser.set_defaults(func=ask)
 
-    portainer_status_parser = sub.add_parser("portainer-status", help="Test the configured Portainer connection")
+    portainer_status_parser = sub.add_parser("portainer-status", help="Test the configured inventory-provider connection")
     portainer_status_parser.set_defaults(func=portainer_status)
 
-    portainer_inventory_parser = sub.add_parser("portainer-inventory", help="List discovered Portainer environments and containers")
+    portainer_inventory_parser = sub.add_parser("portainer-inventory", help="List discovered inventory environments and containers")
     portainer_inventory_parser.set_defaults(func=portainer_inventory_command)
 
-    portainer_sync_parser = sub.add_parser("portainer-sync", help="Synchronise Docker inventory from Portainer")
+    portainer_sync_parser = sub.add_parser("portainer-sync", help="Synchronise Docker inventory from the selected provider")
     portainer_sync_parser.add_argument("--due", action="store_true", help="Synchronise only when the configured interval is due")
     portainer_sync_parser.set_defaults(func=portainer_sync_command)
 
-    portainer_import_parser = sub.add_parser("portainer-import", help="Import or update a tracker from a Portainer container")
+    portainer_import_parser = sub.add_parser("portainer-import", help="Import or update a tracker from an inventory container")
     portainer_import_parser.add_argument("--service-id", type=int, required=True)
     portainer_import_parser.add_argument("--repository", required=True)
     portainer_import_parser.add_argument("--name")

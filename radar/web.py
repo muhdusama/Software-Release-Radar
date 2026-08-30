@@ -23,6 +23,7 @@ from .db import (
     set_settings, transaction, utcnow,
 )
 from .github import GitHubError, get_recent_releases, normalise_repository
+from .inventory_providers import validate_origin_url
 from .notifications import NotificationError, dispatch_release_notifications, send_email, send_pushover
 from .probes import probe_all, probe_tracker
 from .presentation import render_assistant_text
@@ -51,7 +52,7 @@ PROBE_MODES = (
     ("http_json", "HTTP JSON path"),
     ("http_regex", "HTTP response regular expression"),
     ("ssh_docker", "SSH Docker image / OCI version label"),
-    ("portainer", "Portainer inventory and container state"),
+    ("portainer", "Inventory provider and container state"),
 )
 
 
@@ -939,7 +940,7 @@ def create_app() -> Flask:
         if tracker is None:
             abort(404)
         if str(tracker["probe_mode"] or "manual") != "portainer" and not str(tracker["install_host"] or "").strip():
-            flash("Configure a machine IP/hostname and port, or link this tracker to a Portainer container before probing.", "warning")
+            flash("Configure a machine IP/hostname and port, or link this tracker to an inventory container before probing.", "warning")
             return redirect(url_for("edit_tracker", tracker_id=tracker_id))
         result = probe_tracker(tracker_id)
         if result.status == "ok":
@@ -1213,19 +1214,33 @@ def create_app() -> Flask:
                         values["pushover_app_token_enc"] = ""
                     set_settings(values)
                 elif section == "portainer":
-                    base_url = _safe_optional_url(request.form.get("portainer_base_url", ""), "Portainer base URL") or ""
+                    provider = request.form.get("inventory_provider", "portainer").strip()
+                    if provider not in {"portainer", "dockhand"}:
+                        raise ValueError("Choose Portainer or Dockhand as the inventory provider.")
                     values = {
+                        "inventory_provider": provider,
                         "portainer_enabled": "1" if request.form.get("portainer_enabled") else "0",
-                        "portainer_base_url": base_url.rstrip("/"),
-                        "portainer_verify_tls": "1" if request.form.get("portainer_verify_tls") else "0",
-                        "portainer_timeout": str(max(5, min(120, int(request.form.get("portainer_timeout", "20"))))),
-                        "portainer_sync_hours": str(validate_refresh_hours(request.form.get("portainer_sync_hours", "1"))),
                     }
-                    api_token = request.form.get("portainer_api_token", "").strip()
-                    if api_token:
-                        values["portainer_api_token_enc"] = encrypt_secret(api_token)
-                    elif request.form.get("clear_portainer_api_token"):
-                        values["portainer_api_token_enc"] = ""
+                    for item in ("portainer", "dockhand"):
+                        label = item.title()
+                        raw_base_url = request.form.get(f"{item}_base_url", "")
+                        if item == "dockhand" and raw_base_url.strip():
+                            base_url = validate_origin_url(raw_base_url, "Dockhand base URL")
+                        else:
+                            base_url = _safe_optional_url(
+                                raw_base_url, f"{label} base URL",
+                            ) or ""
+                        values.update({
+                            f"{item}_base_url": base_url.rstrip("/"),
+                            f"{item}_verify_tls": "1" if request.form.get(f"{item}_verify_tls") else "0",
+                            f"{item}_timeout": str(max(5, min(120, int(request.form.get(f"{item}_timeout", "20"))))),
+                            f"{item}_sync_hours": str(validate_refresh_hours(request.form.get(f"{item}_sync_hours", "1"))),
+                        })
+                        api_token = request.form.get(f"{item}_api_token", "").strip()
+                        if api_token:
+                            values[f"{item}_api_token_enc"] = encrypt_secret(api_token)
+                        elif request.form.get(f"clear_{item}_api_token"):
+                            values[f"{item}_api_token_enc"] = ""
                     set_settings(values)
                 elif section == "openai":
                     base_url = _safe_optional_url(request.form.get("openai_base_url", ""), "OpenAI-compatible base URL") or ""
@@ -1256,7 +1271,9 @@ def create_app() -> Flask:
             "smtp_enabled", "smtp_host", "smtp_port", "smtp_security", "smtp_username", "smtp_password_enc", "smtp_from_email", "smtp_from_name", "smtp_timeout",
             "pushover_enabled", "pushover_app_token_enc", "pushover_priority", "pushover_sound",
             "openai_enabled", "openai_base_url", "openai_api_key_enc", "openai_model", "openai_timeout", "openai_max_tokens", "openai_auto_analyse",
+            "inventory_provider",
             "portainer_enabled", "portainer_base_url", "portainer_api_token_enc", "portainer_verify_tls", "portainer_timeout", "portainer_sync_hours", "portainer_last_sync_at", "portainer_last_sync_status", "portainer_last_sync_error",
+            "dockhand_base_url", "dockhand_api_token_enc", "dockhand_verify_tls", "dockhand_timeout", "dockhand_sync_hours", "dockhand_last_sync_at", "dockhand_last_sync_status", "dockhand_last_sync_error",
         ]
         values = get_settings(keys)
         return render_template(
@@ -1265,6 +1282,7 @@ def create_app() -> Flask:
             has_pushover_token=bool(values["pushover_app_token_enc"]),
             has_openai_key=bool(values["openai_api_key_enc"]),
             has_portainer_token=bool(values["portainer_api_token_enc"]),
+            has_dockhand_token=bool(values["dockhand_api_token_enc"]),
         )
 
     @app.post("/settings/test-email")
@@ -1313,8 +1331,10 @@ def create_app() -> Flask:
         require_csrf()
         try:
             result = portainer_test_connection()
+            provider_label = str(result.get("provider") or "portainer").title()
+            online = result.get("online_environments", result.get("docker_environments", 0))
             flash(
-                f"Portainer connection succeeded: {result['docker_environments']} Docker environment(s), {result['latency_ms']} ms.",
+                f"{provider_label} connection succeeded: {online} of {result['environments']} environment(s) online, {result['latency_ms']} ms.",
                 "success",
             )
         except PortainerError as exc:
@@ -1325,15 +1345,21 @@ def create_app() -> Flask:
     @admin_required
     def portainer_inventory():
         inventory = inventory_summary()
+        provider = str(get_setting("inventory_provider", "portainer") or "portainer")
         settings_values = get_settings([
-            "portainer_enabled", "portainer_last_sync_at", "portainer_last_sync_status",
-            "portainer_last_sync_error", "default_refresh_hours",
+            "portainer_enabled", "inventory_provider", "default_refresh_hours",
+            f"{provider}_last_sync_at", f"{provider}_last_sync_status",
+            f"{provider}_last_sync_error",
         ])
-        previous_error = (settings_values.get("portainer_last_sync_error") or "").strip()
+        settings_values["provider_label"] = provider.title()
+        settings_values["last_sync_at"] = settings_values.get(f"{provider}_last_sync_at", "")
+        settings_values["last_sync_status"] = settings_values.get(f"{provider}_last_sync_status", "never")
+        settings_values["last_sync_error"] = settings_values.get(f"{provider}_last_sync_error", "")
+        previous_error = (settings_values.get("last_sync_error") or "").strip()
         if previous_error:
             lines = [line.strip() for line in previous_error.splitlines() if line.strip()]
             if lines and all(is_expected_offline_error(PortainerError(line)) for line in lines):
-                settings_values["portainer_last_sync_error"] = ""
+                settings_values["last_sync_error"] = ""
         return render_template(
             "portainer.html", inventory=inventory, settings=settings_values, sync_job=latest_job(), import_job=latest_import_job(),
         )
@@ -1343,7 +1369,7 @@ def create_app() -> Flask:
     def portainer_sync_route():
         require_csrf()
         job_id, created = enqueue_sync(int(g.user["id"]))
-        message = "Portainer synchronisation queued." if created else "A Portainer synchronisation is already queued or running."
+        message = "Inventory synchronisation queued." if created else "An inventory synchronisation is already queued or running."
         flash(message, "success" if created else "info")
         audit(int(g.user["id"]), "portainer_sync_queued", "portainer_sync_job", job_id, message)
         return redirect(url_for("portainer_inventory"), code=303)
@@ -1360,7 +1386,7 @@ def create_app() -> Flask:
         action = request.form.get("action", "import")
         selected = request.form.getlist("selected")
         if not selected:
-            flash("Select at least one Portainer container.", "warning")
+            flash("Select at least one inventory container.", "warning")
             return redirect(url_for("portainer_inventory"))
         completed = 0
         failures: list[str] = []
@@ -1371,7 +1397,7 @@ def create_app() -> Flask:
                     completed += 1
                 except (ValueError, PortainerError) as exc:
                     failures.append(str(exc))
-            flash(f"Updated {completed} Portainer container(s).", "success" if not failures else "warning")
+            flash(f"Updated {completed} inventory container(s).", "success" if not failures else "warning")
             return redirect(url_for("portainer_inventory"))
         try:
             refresh_hours = validate_refresh_hours(request.form.get("refresh_hours", "6"))
@@ -1384,7 +1410,7 @@ def create_app() -> Flask:
             try:
                 service_id = int(raw_id)
             except (TypeError, ValueError):
-                failures.append(f"Invalid Portainer service identifier: {raw_id}")
+                failures.append(f"Invalid inventory service identifier: {raw_id}")
                 continue
             repository = (request.form.get(f"repository_{service_id}") or "").strip()
             name = (request.form.get(f"name_{service_id}") or "").strip()
@@ -1398,7 +1424,7 @@ def create_app() -> Flask:
             })
 
         if not items:
-            flash("No valid Portainer containers were queued. " + (" ".join(failures[:5]) if failures else ""), "error")
+            flash("No valid inventory containers were queued. " + (" ".join(failures[:5]) if failures else ""), "error")
             return redirect(url_for("portainer_inventory"))
 
         payload = {
@@ -1409,13 +1435,13 @@ def create_app() -> Flask:
         }
         job_id, created = enqueue_import(payload, int(g.user["id"]))
         if created:
-            message = f"Queued {len(items)} Portainer container(s) for background import."
+            message = f"Queued {len(items)} inventory container(s) for background import."
             if failures:
                 message += f" {len(failures)} item(s) were skipped before queueing."
             flash(message, "success" if not failures else "warning")
             audit(int(g.user["id"]), "portainer_import_queued", "portainer_import_job", job_id, message)
         else:
-            flash("A Portainer import is already queued or running.", "info")
+            flash("An inventory import is already queued or running.", "info")
         return redirect(url_for("portainer_inventory"), code=303)
 
     @app.get("/portainer/import-status")

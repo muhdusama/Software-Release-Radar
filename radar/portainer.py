@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ipaddress
+import hashlib
 import json
 import re
 import ssl
@@ -12,6 +13,10 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Callable
 
+from .inventory_providers import (
+    DockhandProvider, EnvironmentUnavailable, InventoryEnvironment,
+    InventoryProvider, InventoryProviderError,
+)
 from .db import connect, get_settings, set_settings, transaction, utcnow
 from .secrets_store import decrypt_secret
 from .version import APP_VERSION
@@ -39,6 +44,7 @@ def _settings() -> dict[str, str]:
     return get_settings([
         "portainer_enabled", "portainer_base_url", "portainer_api_token_enc",
         "portainer_verify_tls", "portainer_timeout", "portainer_sync_hours",
+        "inventory_provider",
     ])
 
 
@@ -54,6 +60,9 @@ def _request(path: str, *, timeout: int | None = None) -> Any:
     token = decrypt_secret(settings.get("portainer_api_token_enc", ""))
     if not base_url:
         raise PortainerError("Portainer base URL is not configured.")
+    parsed_base = urllib.parse.urlparse(base_url)
+    if parsed_base.scheme not in {"http", "https"} or not parsed_base.netloc:
+        raise PortainerError("Portainer base URL must be a complete HTTP or HTTPS URL.")
     if not token:
         raise PortainerError("Portainer API access token is not configured.")
     if not path.startswith("/"):
@@ -87,6 +96,12 @@ def _request(path: str, *, timeout: int | None = None) -> Any:
 
 
 def test_connection() -> dict[str, Any]:
+    provider = selected_provider()
+    if provider.name == "dockhand":
+        try:
+            return provider.test_connection()
+        except InventoryProviderError as exc:
+            raise PortainerError(str(exc)) from exc
     started = time.monotonic()
     endpoints = _request("/api/endpoints")
     if not isinstance(endpoints, list):
@@ -107,6 +122,111 @@ def _is_docker_endpoint(endpoint: dict[str, Any]) -> bool:
     # Also accept endpoints whose platform explicitly says Docker, then verify by API call.
     platform = str(endpoint.get("Platform") or endpoint.get("platform") or "").lower()
     return endpoint_type in {1, 2, 4, 7} or "docker" in platform
+
+
+class PortainerProvider(InventoryProvider):
+    name = "portainer"
+
+    def list_environments(self) -> list[InventoryEnvironment]:
+        payload = _request("/api/endpoints")
+        if not isinstance(payload, list):
+            raise PortainerError("Portainer endpoint listing returned an unexpected response.")
+        environments = []
+        for item in payload:
+            if not isinstance(item, dict) or not _is_docker_endpoint(item):
+                continue
+            environments.append(InventoryEnvironment(
+                source_id=str(_endpoint_id(item)),
+                name=_endpoint_name(item),
+                url=_endpoint_url(item),
+                host=_endpoint_host(item),
+                kind=str(item.get("Type") or item.get("type") or "docker"),
+                raw=item,
+            ))
+        return environments
+
+    def list_containers(self, environment: InventoryEnvironment) -> list[dict[str, Any]]:
+        payload = _request(
+            f"/api/endpoints/{urllib.parse.quote(environment.source_id, safe='')}/docker/containers/json?all=1"
+        )
+        if not isinstance(payload, list):
+            raise PortainerError(f"{environment.name}: container listing returned an unexpected response")
+        return payload
+
+    def image_labels(self, environment: InventoryEnvironment, image_id: str) -> dict[str, Any]:
+        return _image_labels(int(environment.source_id), image_id)
+
+    def test_connection(self) -> dict[str, Any]:
+        started = time.monotonic()
+        environments = self.list_environments()
+        return {
+            "ok": True, "provider": self.name,
+            "latency_ms": max(1, round((time.monotonic() - started) * 1000)),
+            "environments": len(environments),
+            "online_environments": len(environments),
+            "docker_environments": len(environments),
+            "names": [environment.name for environment in environments],
+        }
+
+
+def selected_provider() -> InventoryProvider:
+    provider = str(get_settings(["inventory_provider"]).get("inventory_provider") or "portainer")
+    if provider == "dockhand":
+        return DockhandProvider()
+    if provider != "portainer":
+        raise PortainerError("Configured inventory provider is not supported.")
+    return PortainerProvider()
+
+
+def _stored_endpoint_id(provider: str, source_id: str) -> int:
+    if provider == "portainer":
+        return int(source_id)
+    try:
+        numeric = int(source_id)
+        if numeric >= 0:
+            return -(numeric + 1)
+    except ValueError:
+        pass
+    digest = hashlib.sha256(f"{provider}:{source_id}".encode("utf-8")).digest()
+    return -(int.from_bytes(digest[:7], "big") + 1)
+
+
+def _validate_container_listing(environment: InventoryEnvironment,
+                                containers: Any) -> list[dict[str, Any]]:
+    if not isinstance(containers, list):
+        raise PortainerError(
+            f"{environment.name}: container listing returned an unexpected response"
+        )
+    for item in containers:
+        if not isinstance(item, dict):
+            raise PortainerError(
+                f"{environment.name}: container listing contained a malformed item"
+            )
+        if not str(item.get("Id") or item.get("id") or "").strip():
+            raise PortainerError(
+                f"{environment.name}: container listing contained an item without an ID"
+            )
+    return containers
+
+
+def _assert_environment_identity(conn, endpoint_id: int, provider: str,
+                                 source_id: str) -> None:
+    existing = conn.execute(
+        "SELECT provider, source_endpoint_id FROM portainer_environments WHERE endpoint_id=?",
+        (endpoint_id,),
+    ).fetchone()
+    if existing is None:
+        return
+    existing_provider = str(existing["provider"] or "portainer")
+    existing_source = str(
+        existing["source_endpoint_id"]
+        if existing["source_endpoint_id"] not in (None, "")
+        else endpoint_id
+    )
+    if (existing_provider, existing_source) != (provider, source_id):
+        raise PortainerError(
+            "Inventory environment identity collision detected; existing inventory was preserved."
+        )
 
 
 def _endpoint_id(endpoint: dict[str, Any]) -> int:
@@ -340,57 +460,65 @@ def _canonicalise_service_tracker_link(conn, service, repository: str | None, *,
 
 def sync_inventory(progress: Callable[..., None] | None = None) -> PortainerSyncResult:
     settings = _settings()
+    provider = selected_provider()
     if settings.get("portainer_enabled", "0") != "1":
-        raise PortainerError("Portainer integration is disabled.")
+        raise PortainerError("Inventory integration is disabled.")
     synced_at = utcnow()
     errors: list[str] = []
     environments_count = 0
     services_count = 0
     linked_count = 0
     offline_count = 0
-    endpoints = _request("/api/endpoints")
-    if not isinstance(endpoints, list):
-        raise PortainerError("Portainer endpoint listing returned an unexpected response.")
+    try:
+        environments = provider.list_environments()
+    except InventoryProviderError as exc:
+        raise PortainerError(str(exc)) from exc
 
     seen_environment_ids: set[int] = set()
     image_label_cache: dict[tuple[int, str], dict[str, Any]] = {}
-    docker_endpoints = [item for item in endpoints if isinstance(item, dict) and _is_docker_endpoint(item)]
     if progress:
-        progress(total_environments=len(docker_endpoints), processed_environments=0, services_found=0, offline_environments=0, unexpected_errors=0, message="Synchronising Portainer environments")
+        progress(total_environments=len(environments), processed_environments=0, services_found=0, offline_environments=0, unexpected_errors=0, message=f"Synchronising {provider.name.title()} environments")
 
-    for endpoint in endpoints:
-        if not isinstance(endpoint, dict) or not _is_docker_endpoint(endpoint):
-            continue
-        endpoint_id = _endpoint_id(endpoint)
-        endpoint_name = _endpoint_name(endpoint)
-        endpoint_url = _endpoint_url(endpoint)
-        endpoint_host = _endpoint_host(endpoint)
+    for environment in environments:
+        endpoint_id = _stored_endpoint_id(provider.name, environment.source_id)
+        endpoint_name = environment.name
+        endpoint_url = environment.url
+        endpoint_host = environment.host
         if progress:
             progress(current_environment=endpoint_name, message=f"Synchronising {endpoint_name}")
         seen_environment_ids.add(endpoint_id)
         environments_count += 1
         with transaction() as conn:
+            _assert_environment_identity(
+                conn, endpoint_id, provider.name, environment.source_id,
+            )
             conn.execute(
                 """
                 INSERT INTO portainer_environments
-                    (endpoint_id, name, endpoint_url, host, status, endpoint_type, last_seen_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    (endpoint_id, provider, source_endpoint_id, name, endpoint_url,
+                     host, status, endpoint_type, last_seen_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(endpoint_id) DO UPDATE SET
+                    provider=excluded.provider, source_endpoint_id=excluded.source_endpoint_id,
                     name=excluded.name, endpoint_url=excluded.endpoint_url, host=excluded.host,
                     status=excluded.status, endpoint_type=excluded.endpoint_type,
                     updated_at=excluded.updated_at
                 """,
                 (
-                    endpoint_id, endpoint_name, endpoint_url, endpoint_host,
-                    "checking",
-                    str(endpoint.get("Type") or endpoint.get("type") or ""),
+                    endpoint_id, provider.name, environment.source_id, endpoint_name,
+                    endpoint_url, endpoint_host, "checking", environment.kind,
                     None, synced_at,
                 ),
             )
         try:
-            containers = _request(f"/api/endpoints/{endpoint_id}/docker/containers/json?all=1")
-        except PortainerError as exc:
-            expected_offline = is_expected_offline_error(exc)
+            containers = _validate_container_listing(
+                environment, provider.list_containers(environment),
+            )
+        except (PortainerError, InventoryProviderError) as exc:
+            expected_offline = (
+                isinstance(exc, EnvironmentUnavailable)
+                or (isinstance(exc, PortainerError) and is_expected_offline_error(exc))
+            )
             status = "offline" if expected_offline else "error"
             with transaction() as conn:
                 conn.execute(
@@ -409,9 +537,6 @@ def sync_inventory(progress: Callable[..., None] | None = None) -> PortainerSync
                 "UPDATE portainer_environments SET status='online', last_seen_at=?, updated_at=? WHERE endpoint_id=?",
                 (synced_at, synced_at, endpoint_id),
             )
-        if not isinstance(containers, list):
-            errors.append(f"{endpoint_name}: container listing returned an unexpected response")
-            continue
         # Only mark an environment's previous containers absent after its current
         # listing succeeds. A temporarily unreachable endpoint must not erase its
         # last known inventory.
@@ -421,11 +546,7 @@ def sync_inventory(progress: Callable[..., None] | None = None) -> PortainerSync
                 (synced_at, endpoint_id),
             )
         for item in containers:
-            if not isinstance(item, dict):
-                continue
             container_id = str(item.get("Id") or item.get("id") or "").strip()
-            if not container_id:
-                continue
             services_count += 1
             name = _normalise_container_name(item)
             image = str(item.get("Image") or item.get("image") or "")
@@ -435,7 +556,7 @@ def sync_inventory(progress: Callable[..., None] | None = None) -> PortainerSync
                 labels = {}
             cache_key = (endpoint_id, image_id)
             if cache_key not in image_label_cache:
-                image_label_cache[cache_key] = _image_labels(endpoint_id, image_id)
+                image_label_cache[cache_key] = provider.image_labels(environment, image_id)
             merged_labels = {**image_label_cache[cache_key], **labels}
             ports, first_port = _published_ports(item)
             stack_name = str(merged_labels.get("com.docker.compose.project") or "").strip() or None
@@ -443,6 +564,7 @@ def sync_inventory(progress: Callable[..., None] | None = None) -> PortainerSync
             repository = _repository_from(merged_labels)
             version = _version_from(image, merged_labels)
             state = str(item.get("State") or item.get("state") or "unknown")
+            container_status = str(item.get("Status") or item.get("status") or "")
             health = _health(item)
             source_url = str(merged_labels.get("org.opencontainers.image.source") or "").strip() or None
             digest = image.split("@", 1)[1] if "@sha256:" in image else None
@@ -451,27 +573,31 @@ def sync_inventory(progress: Callable[..., None] | None = None) -> PortainerSync
                 conn.execute(
                     """
                     INSERT INTO portainer_services
-                        (endpoint_id, container_id, container_name, stack_name, service_name,
-                         image, image_id, image_digest, detected_version, detected_repository,
-                         source_url, published_ports_json, primary_port, state, health_status,
-                         present, ignored, first_seen_at, last_seen_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, ?, ?, ?)
+                        (endpoint_id, provider, container_id, container_name, stack_name, service_name,
+                         labels_json, image, image_id, image_digest, detected_version,
+                         detected_repository, source_url, published_ports_json, primary_port,
+                         state, container_status, health_status, present, ignored,
+                         first_seen_at, last_seen_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, ?, ?, ?)
                     ON CONFLICT(endpoint_id, container_id) DO UPDATE SET
-                        container_name=excluded.container_name, stack_name=excluded.stack_name,
-                        service_name=excluded.service_name, image=excluded.image,
+                        provider=excluded.provider, container_name=excluded.container_name,
+                        stack_name=excluded.stack_name, service_name=excluded.service_name,
+                        labels_json=excluded.labels_json, image=excluded.image,
                         image_id=excluded.image_id, image_digest=excluded.image_digest,
                         detected_version=excluded.detected_version,
                         detected_repository=excluded.detected_repository,
                         source_url=excluded.source_url, published_ports_json=excluded.published_ports_json,
                         primary_port=excluded.primary_port, state=excluded.state,
+                        container_status=excluded.container_status,
                         health_status=excluded.health_status, present=1,
                         last_seen_at=excluded.last_seen_at, updated_at=excluded.updated_at
                     """,
                     (
-                        endpoint_id, container_id, name, stack_name, service_name, image,
-                        image_id, digest, version, repository, source_url,
+                        endpoint_id, provider.name, container_id, name, stack_name,
+                        service_name, json.dumps(merged_labels, separators=(",", ":")),
+                        image, image_id, digest, version, repository, source_url,
                         json.dumps(ports, separators=(",", ":")), first_port,
-                        state, health, now, now, now,
+                        state, container_status, health, now, now, now,
                     ),
                 )
                 service = conn.execute(
@@ -494,7 +620,7 @@ def sync_inventory(progress: Callable[..., None] | None = None) -> PortainerSync
                             detected_installed_version=COALESCE(?, detected_installed_version),
                             machine_name=?, install_host=COALESCE(?, install_host),
                             install_port=COALESCE(?, install_port), docker_container=?,
-                            probe_mode='portainer', inventory_source='portainer',
+                            probe_mode='portainer', inventory_source=?,
                             portainer_service_id=?, last_probe_at=?,
                             last_probe_status=?, last_probe_error=NULL,
                             last_seen_online_at=CASE WHEN ?='running' THEN ? ELSE last_seen_online_at END,
@@ -503,7 +629,7 @@ def sync_inventory(progress: Callable[..., None] | None = None) -> PortainerSync
                         """,
                         (
                             version, endpoint_name, endpoint_host, first_port, name,
-                            int(service["id"]), now,
+                            provider.name, int(service["id"]), now,
                             "ok" if state == "running" else "error", state, now, now, tracker_id,
                         ),
                     )
@@ -517,18 +643,22 @@ def sync_inventory(progress: Callable[..., None] | None = None) -> PortainerSync
             placeholders = ",".join("?" for _ in seen_environment_ids)
             conn.execute(
                 f"UPDATE portainer_environments SET status='missing', updated_at=? "
-                f"WHERE endpoint_id NOT IN ({placeholders})",
-                [synced_at, *sorted(seen_environment_ids)],
+                f"WHERE provider=? AND endpoint_id NOT IN ({placeholders})",
+                [synced_at, provider.name, *sorted(seen_environment_ids)],
             )
         else:
-            conn.execute("UPDATE portainer_environments SET status='missing', updated_at=?", (synced_at,))
+            conn.execute(
+                "UPDATE portainer_environments SET status='missing', updated_at=? WHERE provider=?",
+                (synced_at, provider.name),
+            )
     if progress:
         progress(processed_environments=environments_count, services_found=services_count, offline_environments=offline_count, unexpected_errors=len(errors), current_environment=None, message="Finalising inventory")
-    set_settings({
-        "portainer_last_sync_at": synced_at,
-        "portainer_last_sync_status": "ok" if not errors else "partial",
-        "portainer_last_sync_error": "\n".join(errors)[:4000],
-    })
+    status_values = {
+        f"{provider.name}_last_sync_at": synced_at,
+        f"{provider.name}_last_sync_status": "ok" if not errors else "partial",
+        f"{provider.name}_last_sync_error": "\n".join(errors)[:4000],
+    }
+    set_settings(status_values)
 
     # Portainer remains the source of truth for environment, Compose service,
     # container and stack names unless an administrator has saved a local
@@ -559,7 +689,7 @@ def import_service(service_id: int, repository: str, *, name: str | None = None,
             (service_id,),
         ).fetchone()
     if service is None:
-        raise PortainerError("Portainer service does not exist. Run a synchronisation first.")
+        raise PortainerError("Inventory service does not exist. Run a synchronisation first.")
     tracker_name = (name or service["service_name"] or service["container_name"] or repository.split("/", 1)[1]).strip()
     now = utcnow()
     with transaction() as conn:
@@ -573,7 +703,7 @@ def import_service(service_id: int, repository: str, *, name: str | None = None,
                     detected_installed_version=COALESCE(?, detected_installed_version),
                     machine_name=?, install_host=COALESCE(?, install_host),
                     install_port=COALESCE(?, install_port), docker_container=?,
-                    probe_mode='portainer', inventory_source='portainer',
+                    probe_mode='portainer', inventory_source=?,
                     portainer_service_id=?, include_prereleases=?, updated_at=?
                 WHERE id=?
                 """,
@@ -581,7 +711,8 @@ def import_service(service_id: int, repository: str, *, name: str | None = None,
                     tracker_name, tags, refresh_hours, service["detected_version"],
                     service["detected_version"], service["environment_name"],
                     service["environment_host"], service["primary_port"],
-                    service["container_name"], service_id, int(include_prereleases), now, tracker_id,
+                    service["container_name"], service["provider"], service_id,
+                    int(include_prereleases), now, tracker_id,
                 ),
             )
             action = "updated"
@@ -595,14 +726,14 @@ def import_service(service_id: int, repository: str, *, name: str | None = None,
                      probe_mode, docker_container, portainer_service_id,
                      inventory_source, created_at, updated_at)
                 VALUES (?, ?, 'release', ?, 1, ?, ?, ?, ?, ?, ?, ?, 'http',
-                        'portainer', ?, ?, 'portainer', ?, ?)
+                        'portainer', ?, ?, ?, ?, ?)
                 """,
                 (
                     tracker_name, repository, int(include_prereleases), tags,
                     refresh_hours, service["detected_version"], service["detected_version"],
                     service["environment_name"], service["environment_host"],
                     service["primary_port"], service["container_name"], service_id,
-                    now, now,
+                    service["provider"], now, now,
                 ),
             )
             tracker_id = int(cursor.lastrowid)
@@ -685,13 +816,15 @@ def ignore_service(service_id: int, ignored: bool = True) -> None:
             (int(ignored), utcnow(), service_id),
         )
         if result.rowcount != 1:
-            raise PortainerError("Portainer service does not exist.")
+            raise PortainerError("Inventory service does not exist.")
 
 
 def inventory_summary() -> dict[str, Any]:
+    provider = selected_provider().name
     with connect() as conn:
         environments = conn.execute(
-            "SELECT * FROM portainer_environments ORDER BY name COLLATE NOCASE"
+            "SELECT * FROM portainer_environments WHERE provider=? ORDER BY name COLLATE NOCASE",
+            (provider,),
         ).fetchall()
         services = conn.execute(
             """
@@ -700,12 +833,16 @@ def inventory_summary() -> dict[str, Any]:
               FROM portainer_services ps
               JOIN portainer_environments pe ON pe.endpoint_id=ps.endpoint_id
               LEFT JOIN trackers t ON t.id=ps.tracker_id
+             WHERE ps.provider=?
              ORDER BY pe.name COLLATE NOCASE, COALESCE(ps.stack_name,''), ps.container_name COLLATE NOCASE
-            """
+            """,
+            (provider,),
         ).fetchall()
     environment_items = [dict(row) for row in environments]
     service_items = [dict(row) for row in services]
     return {
+        "provider": provider,
+        "provider_label": provider.title(),
         "environments": environment_items,
         "services": service_items,
         "environment_counts": {

@@ -1,18 +1,18 @@
 {% extends "base.html" %}
-{% block title %}Portainer · Software Release Radar{% endblock %}
+{% block title %}Inventory · Software Release Radar{% endblock %}
 {% block content %}
 <section class="page-heading portainer-heading">
-  <div><span class="eyebrow">DOCKER INVENTORY</span><h1>Portainer</h1><p>Synchronise every Docker environment, review discovered containers, and import selected software into release tracking.</p></div>
+  <div><span class="eyebrow">DOCKER INVENTORY</span><h1>{{ inventory.provider_label }} inventory</h1><p>Synchronise every Docker environment, review discovered containers, and import selected software into release tracking.</p></div>
   <form method="post" action="{{ url_for('portainer_sync_route') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button primary" type="submit">Synchronise now</button></form>
 </section>
 
 <section class="metrics metrics-six portainer-metrics">
   <article class="metric portainer-metric"><span>Environments</span><strong>{{ inventory.environments|length }}</strong><small>{{ inventory.environment_counts.online }} online · {{ inventory.environment_counts.offline }} offline{% if inventory.environment_counts.error %} · {{ inventory.environment_counts.error }} error{% endif %}</small></article>
   <article class="metric portainer-metric"><span>Containers</span><strong>{{ inventory.services|length }}</strong><small>Current and previously seen</small></article>
-  <article class="metric portainer-metric"><span>Running</span><strong>{{ inventory.services|selectattr('state','equalto','running')|list|length }}</strong><small>Portainer container state</small></article>
+  <article class="metric portainer-metric"><span>Running</span><strong>{{ inventory.services|selectattr('state','equalto','running')|list|length }}</strong><small>{{ inventory.provider_label }} container state</small></article>
   <article class="metric portainer-metric"><span>Linked trackers</span><strong>{{ inventory.services|selectattr('tracker_id')|list|length }}</strong><small>Linked to release trackers</small></article>
   <article class="metric portainer-metric"><span>Repositories detected</span><strong>{{ inventory.services|selectattr('detected_repository')|list|length }}</strong><small>OCI or custom labels</small></article>
-  <article class="metric portainer-metric"><span>Last sync</span><strong class="metric-time">{{ settings['portainer_last_sync_at']|relative_time if settings['portainer_last_sync_at'] else 'Never' }}</strong><small>{{ settings['portainer_last_sync_status'] or 'never' }}</small></article>
+  <article class="metric portainer-metric"><span>Last sync</span><strong class="metric-time">{{ settings['last_sync_at']|relative_time if settings['last_sync_at'] else 'Never' }}</strong><small>{{ settings['last_sync_status'] or 'never' }}</small></article>
 </section>
 
 {% if sync_job %}
@@ -31,9 +31,9 @@
   <small id="import-current">{{ import_job.current_item or '' }}</small><pre id="import-error" class="sync-error" {% if not import_job.error %}hidden{% endif %}>{{ import_job.error or '' }}</pre>
 </section>
 {% endif %}
-{% if settings['portainer_enabled'] != '1' %}<div class="flash warning">Portainer integration is disabled. Configure and enable it under Settings before synchronising.</div>{% endif %}
-{% if settings['portainer_last_sync_error'] %}<div class="flash warning">{{ settings['portainer_last_sync_error'] }}</div>{% endif %}
-{% if inventory.environment_counts.offline %}<div class="flash info">{{ inventory.environment_counts.offline }} Portainer environment(s) are currently offline. Their last known containers remain in the inventory and will refresh automatically when the hosts return.</div>{% endif %}
+{% if settings['portainer_enabled'] != '1' %}<div class="flash warning">Inventory integration is disabled. Configure and enable it under Settings before synchronising.</div>{% endif %}
+{% if settings['last_sync_error'] %}<div class="flash warning">{{ settings['last_sync_error'] }}</div>{% endif %}
+{% if inventory.environment_counts.offline %}<div class="flash info">{{ inventory.environment_counts.offline }} {{ inventory.provider_label }} environment(s) are currently offline. Their last known containers remain in the inventory and will refresh automatically when the hosts return.</div>{% endif %}
 
 <form method="post" action="{{ url_for('portainer_import_route') }}" class="panel portainer-panel">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -45,7 +45,7 @@
     <label class="select-all-control"><input type="checkbox" id="selectAllPortainer"> Select all visible</label>
     <span class="selected-count" id="portainerSelectedCount">0 selected</span>
     <label>Refresh<select name="refresh_hours">{% for hours in allowed_refresh_hours %}<option value="{{ hours }}" {{ 'selected' if settings['default_refresh_hours']|int == hours else '' }}>{{ hours }}h</option>{% endfor %}</select></label>
-    <label>Tags<input name="tags" value="portainer,docker"></label>
+    <label>Tags<input name="tags" value="{{ inventory.provider }},docker"></label>
     <button class="button primary" name="action" value="import" type="submit">Import selected</button>
     <button class="button secondary" name="action" value="ignore" type="submit">Ignore selected</button>
     <button class="button ghost" name="action" value="unignore" type="submit">Unignore selected</button>
@@ -69,7 +69,7 @@
         <div><span>Tracker</span><strong>{{ service.tracker_name or 'Not linked' }}</strong>{% if service.tracker_repository %}<small>{{ service.tracker_repository }}</small>{% endif %}</div>
       </div>
     </article>
-    {% else %}<div class="empty-state"><h3>No Portainer inventory yet</h3><p>Save Portainer settings, test the connection, then synchronise.</p></div>{% endfor %}
+    {% else %}<div class="empty-state"><h3>No inventory yet</h3><p>Save inventory provider settings, test the connection, then synchronise.</p></div>{% endfor %}
   </div>
   {% if inventory.services %}<div class="pagination-bar portainer-pagination">
     <div class="pagination-info" id="portainer-page-info" aria-live="polite"></div>

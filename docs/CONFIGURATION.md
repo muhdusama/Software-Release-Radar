@@ -86,24 +86,45 @@ The application token and user keys are stored encrypted.
 
 Use **Test Pushover** before relying on push notifications.
 
-## Portainer
+## Docker inventory providers
 
-Open **Settings → Portainer**.
+Open **Settings → Docker inventory provider**.
 
-Portainer integration can discover Docker environments, stacks and containers through one API connection.
+Select either **Portainer** or **Dockhand**. Release Radar saves each provider configuration separately, so switching providers does not discard the other provider's URL or encrypted credential. Existing installations default to Portainer and require no manual migration.
 
-Recommended configuration:
+Switching changes which provider is synchronised and displayed, but it does not silently move existing tracker-to-container mappings. Those mappings remain attached to their original provider record until an administrator imports the corresponding service from the newly selected provider. Importing that service explicitly transfers the tracker mapping and clears the previous service link. Switching back exposes the retained inventory again.
 
-- use a dedicated least-privileged API token;
-- use HTTPS where possible;
+For either provider:
+
+- use an HTTPS base URL wherever possible;
 - keep TLS certificate verification enabled;
-- use a directly reachable internal endpoint rather than routing management API traffic through an unnecessary public path; and
-- test the connection before importing inventory.
+- use a dedicated account or token with only the inventory permissions required;
+- test the saved connection before synchronising; and
+- review the inventory page before importing trackers.
 
-Configurable values include Portainer base URL, API token, inventory interval, API timeout and TLS certificate verification.
+### Portainer
 
-The Portainer background worker remains idle when no jobs are queued.
+Create a dedicated Portainer API access token with permission to list the required Docker endpoints, containers and image metadata. Release Radar sends it in the X-API-Key header.
 
+### Dockhand
+
+1. Sign in to Dockhand with an account that can view the required environments and containers.
+2. Open your user **Profile** by clicking your avatar in the sidebar, then scroll to **API tokens**.
+3. Create a dedicated token for Release Radar and copy the dh_ value when it is shown.
+4. In Release Radar, select **Dockhand**, enter the Dockhand origin, such as `https://dockhand.example.com` or `https://dockhand.example.com:8443`, and paste the token. Do not include credentials, a path, query string or fragment in the URL.
+5. Save, choose **Test inventory connection**, then open **Inventory** and synchronise.
+
+Release Radar sends the token only as Authorization: Bearer. It stores the token encrypted and never returns it to the browser after saving.
+
+When a reverse proxy terminates HTTPS in front of an HTTP-only Dockhand service, prefer configuring Release Radar with the reverse proxy HTTPS URL. Keep `ALLOW_INSECURE_INTEGRATIONS=false` in that arrangement because the bearer token remains encrypted between Release Radar and the proxy.
+
+If Release Radar instead connects directly to Dockhand over an internal HTTP URL, such as `http://dockhand:3000`, set `ALLOW_INSECURE_INTEGRATIONS=true` in the Release Radar deployment. This is an explicit trusted-network exception because the bearer token crosses that network in cleartext. A reverse proxy used by browser clients does not protect a separate direct HTTP connection from Release Radar to Dockhand.
+
+Dockhand's container route currently returns an empty JSON list both for a genuinely empty environment and when its Docker connection fails. Release Radar therefore calls POST /api/environments/{id}/test before GET /api/containers?env={id}&all=true. Only a successful test permits reconciliation. An unavailable or malformed environment retains its last-known inventory and is shown as offline or error.
+
+Dockhand supplies container IDs, names, image references, state, status, health, labels, ports, networks and Compose labels through its container list. Image IDs are retained when supplied by the installed Dockhand version. Current Dockhand list responses may omit image IDs, in which case Release Radar leaves that optional field empty rather than guessing.
+
+The background inventory worker remains idle when no jobs are queued.
 ## OpenAI-compatible assistant
 
 Open **Settings → AI assistant**.
@@ -152,7 +173,7 @@ Probe modes are deterministic and do not use an LLM.
 | HTTP JSON | Read a version from a configured JSON path |
 | HTTP regular expression | Extract a version from the response with a configured expression |
 | SSH Docker | Inspect a named remote Docker container through constrained SSH |
-| Portainer | Use imported Portainer inventory and container state |
+| Inventory provider | Use imported Portainer or Dockhand inventory and container state |
 
 ### SSH Docker probe
 

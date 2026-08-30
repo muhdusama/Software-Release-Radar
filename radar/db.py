@@ -231,6 +231,8 @@ def init_db() -> None:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 endpoint_id INTEGER NOT NULL UNIQUE,
                 name TEXT NOT NULL,
+                provider TEXT NOT NULL DEFAULT 'portainer',
+                source_endpoint_id TEXT,
                 endpoint_url TEXT,
                 host TEXT,
                 status TEXT,
@@ -283,8 +285,10 @@ def init_db() -> None:
                 endpoint_id INTEGER NOT NULL,
                 container_id TEXT NOT NULL,
                 container_name TEXT NOT NULL,
+                provider TEXT NOT NULL DEFAULT 'portainer',
                 stack_name TEXT,
                 service_name TEXT,
+                labels_json TEXT NOT NULL DEFAULT '{}',
                 image TEXT,
                 image_id TEXT,
                 image_digest TEXT,
@@ -295,6 +299,7 @@ def init_db() -> None:
                 published_ports_json TEXT NOT NULL DEFAULT '[]',
                 primary_port INTEGER,
                 state TEXT,
+                container_status TEXT,
                 health_status TEXT,
                 present INTEGER NOT NULL DEFAULT 1,
                 ignored INTEGER NOT NULL DEFAULT 0,
@@ -396,6 +401,22 @@ def init_db() -> None:
         ]:
             _add_column(conn, "events", definition)
 
+        for definition in [
+            "provider TEXT NOT NULL DEFAULT 'portainer'",
+            "source_endpoint_id TEXT",
+        ]:
+            _add_column(conn, "portainer_environments", definition)
+        for definition in [
+            "provider TEXT NOT NULL DEFAULT 'portainer'",
+            "labels_json TEXT NOT NULL DEFAULT '{}'",
+            "container_status TEXT",
+        ]:
+            _add_column(conn, "portainer_services", definition)
+        conn.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_inventory_environment_source "
+            "ON portainer_environments(provider, source_endpoint_id) "
+            "WHERE source_endpoint_id IS NOT NULL"
+        )
         now = utcnow()
         defaults = {
             "default_refresh_hours": str(DEFAULT_REFRESH_HOURS),
@@ -422,6 +443,15 @@ def init_db() -> None:
             "openai_auto_analyse": "0",
             "portainer_enabled": "0",
             "portainer_base_url": "",
+            "inventory_provider": "portainer",
+            "dockhand_base_url": "",
+            "dockhand_api_token_enc": "",
+            "dockhand_verify_tls": "1",
+            "dockhand_timeout": "20",
+            "dockhand_sync_hours": "1",
+            "dockhand_last_sync_at": "",
+            "dockhand_last_sync_status": "never",
+            "dockhand_last_sync_error": "",
             "portainer_api_token_enc": "",
             "portainer_verify_tls": "1",
             "portainer_timeout": "20",

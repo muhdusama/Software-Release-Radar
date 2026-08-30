@@ -7,7 +7,7 @@
     <button type="button" data-settings-target="general"><span>General</span><small>URLs and defaults</small></button>
     <button type="button" data-settings-target="smtp"><span>SMTP email</span><small>Mail and password reset</small></button>
     <button type="button" data-settings-target="pushover"><span>Pushover</span><small>Push notifications</small></button>
-    <button type="button" data-settings-target="portainer"><span>Portainer</span><small>Docker inventory</small></button>
+    <button type="button" data-settings-target="portainer"><span>Inventory</span><small>Portainer or Dockhand</small></button>
     <button type="button" data-settings-target="openai"><span>AI assistant</span><small>LiteLLM analysis and chat</small></button>
   </aside>
 
@@ -61,22 +61,28 @@
     <section class="settings-section" data-settings-section="portainer" hidden>
       <form method="post" class="panel settings-card wide-card">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="section" value="portainer">
-        <div class="section-heading"><h2>Portainer inventory</h2><p>Discover Docker environments, Compose stacks and containers through one Portainer API connection.</p></div>
-        <label class="inline-check"><input type="checkbox" name="portainer_enabled" {{ 'checked' if settings['portainer_enabled'] == '1' else '' }}> Enable Portainer synchronisation</label>
-        <div class="form-grid two-col">
-          <label>Portainer base URL<input type="url" name="portainer_base_url" value="{{ settings['portainer_base_url'] }}" placeholder="https://portainer.example.com"><small>Use the direct LAN endpoint where possible.</small></label>
-          <label>API access token <small>{{ 'configured; leave blank to keep' if has_portainer_token else 'create a dedicated read-only token in Portainer' }}</small><input type="password" name="portainer_api_token" autocomplete="off"></label>
-          <label>Inventory interval<select name="portainer_sync_hours">{% for hours in allowed_refresh_hours %}<option value="{{ hours }}" {{ 'selected' if settings['portainer_sync_hours']|int == hours else '' }}>Every {{ hours }} hour{{ '' if hours == 1 else 's' }}</option>{% endfor %}</select></label>
-          <label>API timeout seconds<input type="number" min="5" max="120" name="portainer_timeout" value="{{ settings['portainer_timeout'] or '20' }}"></label>
-        </div>
-        <label class="inline-check"><input type="checkbox" name="portainer_verify_tls" {{ 'checked' if settings['portainer_verify_tls'] == '1' else '' }}> Verify Portainer TLS certificate <small>Disable only for a self-signed direct-LAN certificate.</small></label>
-        {% if has_portainer_token %}<label class="inline-check"><input type="checkbox" name="clear_portainer_api_token"> Remove saved Portainer token</label>{% endif %}
-        <div class="info-box">Last synchronisation: {{ settings['portainer_last_sync_at'] or 'Never' }} · Status: {{ settings['portainer_last_sync_status'] or 'never' }}{% if settings['portainer_last_sync_error'] %}<br>{{ settings['portainer_last_sync_error'] }}{% endif %}</div>
-        <div class="form-actions left-actions"><button class="button primary" type="submit">Save Portainer settings</button><a class="button secondary" href="{{ url_for('portainer_inventory') }}">Open inventory</a></div>
+        <div class="section-heading"><h2>Docker inventory provider</h2><p>Discover environments, Compose projects and containers through Portainer or Dockhand.</p></div>
+        <label class="inline-check"><input type="checkbox" name="portainer_enabled" {{ 'checked' if settings['portainer_enabled'] == '1' else '' }}> Enable inventory synchronisation</label>
+        <label>Inventory provider<select name="inventory_provider"><option value="portainer" {{ 'selected' if settings['inventory_provider'] == 'portainer' else '' }}>Portainer</option><option value="dockhand" {{ 'selected' if settings['inventory_provider'] == 'dockhand' else '' }}>Dockhand</option></select><small>Only the selected provider is synchronised. Settings and existing tracker mappings for the other provider are retained until you explicitly import a replacement service.</small></label>
+        {% for provider, label, token_configured in [('portainer', 'Portainer', has_portainer_token), ('dockhand', 'Dockhand', has_dockhand_token)] %}
+        <fieldset class="settings-card">
+          <legend>{{ label }}</legend>
+          <div class="form-grid two-col">
+            <label>{{ label }} base URL<input type="url" name="{{ provider }}_base_url" value="{{ settings[provider ~ '_base_url'] }}" placeholder="https://{{ provider }}.example.com"></label>
+            <label>API token <small>{{ 'configured; leave blank to keep' if token_configured else ('create a bearer API token under your Dockhand profile' if provider == 'dockhand' else 'create a dedicated read-only token') }}</small><input type="password" name="{{ provider }}_api_token" autocomplete="off"></label>
+            <label>Inventory interval<select name="{{ provider }}_sync_hours">{% for hours in allowed_refresh_hours %}<option value="{{ hours }}" {{ 'selected' if settings[provider ~ '_sync_hours']|int == hours else '' }}>Every {{ hours }} hour{{ '' if hours == 1 else 's' }}</option>{% endfor %}</select></label>
+            <label>API timeout seconds<input type="number" min="5" max="120" name="{{ provider }}_timeout" value="{{ settings[provider ~ '_timeout'] or '20' }}"></label>
+          </div>
+          <label class="inline-check"><input type="checkbox" name="{{ provider }}_verify_tls" {{ 'checked' if settings[provider ~ '_verify_tls'] == '1' else '' }}> Verify {{ label }} TLS certificate <small>Disable only for a trusted self-signed LAN certificate.</small></label>
+          {% if token_configured %}<label class="inline-check"><input type="checkbox" name="clear_{{ provider }}_api_token"> Remove saved {{ label }} token</label>{% endif %}
+        </fieldset>
+        {% endfor %}
+        {% set active = settings['inventory_provider'] or 'portainer' %}
+        <div class="info-box">Active provider: {{ active|title }} · Last synchronisation: {{ settings[active ~ '_last_sync_at'] or 'Never' }} · Status: {{ settings[active ~ '_last_sync_status'] or 'never' }}{% if settings[active ~ '_last_sync_error'] %}<br>{{ settings[active ~ '_last_sync_error'] }}{% endif %}</div>
+        <div class="form-actions left-actions"><button class="button primary" type="submit">Save inventory settings</button><a class="button secondary" href="{{ url_for('portainer_inventory') }}">Open inventory</a></div>
       </form>
-      <section class="panel settings-card test-card wide-card"><div class="section-heading"><h2>Test Portainer</h2><p>Save the settings first. The test lists environments available to the token and makes no changes.</p></div><form method="post" action="{{ url_for('test_portainer_route') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button secondary" type="submit">Test Portainer connection</button></form></section>
+      <section class="panel settings-card test-card wide-card"><div class="section-heading"><h2>Test selected provider</h2><p>Save settings first. The test lists accessible environments and checks their connection state.</p></div><form method="post" action="{{ url_for('test_portainer_route') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button secondary" type="submit">Test inventory connection</button></form></section>
     </section>
-
     <section class="settings-section" data-settings-section="openai" hidden>
       <form method="post" class="panel settings-card wide-card">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="section" value="openai">

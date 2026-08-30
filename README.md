@@ -154,7 +154,7 @@ The following visuals use neutral demo data and contain no private production in
 | ⏱️ **Automatic monitoring** | Scheduler checks only trackers whose individual refresh interval is due |
 | 🔢 **Version awareness** | Installed, detected and upstream version comparison |
 | 🖥️ **Fleet inventory** | Machine, service, container, folder, port and health context with editable display names |
-| 🐳 **Portainer** | Inventory and source-name synchronisation with local aliases and resilient container rebinding |
+| 🐳 **Portainer or Dockhand** | Inventory and source-name synchronisation with local aliases and resilient container rebinding |
 | ✅ **Review workflow** | Update, Wait, Ignore, Deployed and Needs Attention decisions |
 | 🩺 **Diagnostics** | Separates real updates from checker failures and unavailable comparisons |
 | 🔔 **Notifications** | System-wide, personal, channel and per-software controls for SMTP email and Pushover |
@@ -179,8 +179,13 @@ The following visuals use neutral demo data and contain no private production in
 - Surface online, offline, update and needs-attention states.
 - Search and filter larger inventories.
 - Edit machine, software and stack or folder display names directly from Fleet.
-- Follow renamed Portainer environments and services automatically while preserving deliberate local aliases.
+- Follow renamed inventory-provider environments and services automatically while preserving deliberate local aliases.
 
+### Docker inventory providers
+
+Release Radar can discover Docker environments and containers from Portainer or Dockhand. Select a provider under Settings, save its encrypted API credential, test the connection, then synchronise from Inventory. Existing Portainer installations remain selected after upgrade.
+
+Dockhand synchronisation verifies each environment before accepting an empty container list. Offline environments keep their last-known inventory. See docs/CONFIGURATION.md for token setup and the current Dockhand API limitation.
 ### ✅ Upgrade decisions
 
 Release Radar provides an operational review queue rather than an unattended updater. A release can carry priority, risk, maintenance timing, notes, rollback context and deployment history.
@@ -207,14 +212,14 @@ Web application ───────────────┐
    │                           │
    ├── SQLite state            │
    ├── GitHub release API      │ shared application data
-   ├── optional Portainer      │
+   ├── optional inventory provider      │
    └── optional AI             │
                                │
 Scheduler ─────────────────────┤
    │                           │
    └── checks due trackers     │
                                │
-Portainer worker ──────────────┘
+Inventory worker ──────────────┘
        └── background inventory jobs
 ```
 
@@ -257,7 +262,7 @@ The v2.8.0 release includes:
 - Fernet encryption for stored integration secrets;
 - shared login and password-reset throttling;
 - security response headers;
-- TLS verification enabled by default for Portainer;
+- TLS verification enabled by default for inventory providers;
 - proxy forwarding headers disabled unless explicitly enabled;
 - OpenAI-compatible endpoints restricted to complete HTTP or HTTPS URLs without embedded credentials;
 - a non-root application container user;
@@ -284,7 +289,7 @@ The release candidate is tested as a complete lifecycle, not only as a Docker im
 | Real public first-run setup on a clean Linux runner | ✅ Passed |
 | Web health and login-page acceptance | ✅ Passed |
 | Automatic scheduler remains running | ✅ Passed |
-| Portainer worker remains running | ✅ Passed |
+| Inventory worker remains running | ✅ Passed |
 | Online SQLite backup and integrity check | ✅ Passed |
 | Guarded restore and return to healthy state | ✅ Passed |
 | Persistent state after Compose restart | ✅ Passed |

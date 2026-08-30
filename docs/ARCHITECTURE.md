@@ -10,7 +10,7 @@ Its core release-monitoring path is deterministic. AI integration is optional an
 flowchart LR
     B[Browser] --> W[Web application]
     S[Scheduler] --> C[Release checker]
-    PW[Portainer worker] --> Q[Background job queues]
+    PW[Inventory worker] --> Q[Background job queues]
 
     W --> DB[(SQLite)]
     C --> DB
@@ -18,7 +18,7 @@ flowchart LR
 
     C --> GH[GitHub API]
     C --> N[SMTP / Pushover]
-    W --> P[Portainer API]
+    W --> P[Portainer or Dockhand API]
     PW --> P
     W -. optional .-> AI[OpenAI-compatible API]
 ```
@@ -39,7 +39,7 @@ Responsibilities include:
 - manual release checks and probes;
 - upgrade decisions;
 - application settings;
-- Portainer job submission; and
+- inventory job submission; and
 - optional assistant interactions.
 
 ### `software-release-radar-scheduler`
@@ -54,9 +54,9 @@ The scheduler does not require an LLM.
 
 ### `software-release-radar-portainer-worker`
 
-Runs `python -m radar.portainer_worker`.
+Runs `python -m radar.inventory_worker`.
 
-It handles queued Portainer synchronisation and bulk-import work outside the web request lifecycle. When there is no work, it sleeps.
+It handles queued inventory synchronisation and bulk-import work outside the web request lifecycle. When there is no work, it sleeps.
 
 ## Shared state
 
@@ -144,27 +144,27 @@ Supported modes include:
 - HTTP JSON path;
 - HTTP regular expression;
 - constrained SSH Docker inspection; and
-- Portainer inventory.
+- inventory-provider state.
 
 A failed local service probe does not cause the upstream release check itself to be discarded.
 
-## Portainer architecture
+## Inventory integration architecture
 
-Portainer integration has two paths.
+Inventory provider integration has two paths.
 
 ### Synchronous operations
 
-The web application can test the configured Portainer connection and read inventory state.
+The web application can test the configured provider connection and read inventory state.
 
 ### Background jobs
 
-Larger synchronisation and import work is persisted to SQLite job tables. The Portainer worker claims queued work, updates progress and records completion or failure.
+Larger synchronisation and import work is persisted to SQLite job tables. The Inventory worker claims queued work, updates progress and records completion or failure.
 
 This avoids holding a browser request open during longer inventory jobs.
 
 Tracker-to-container rebinding is deliberately conservative. An explicit mapping remains authoritative, and automatic rebinding requires enough matching context to avoid another container taking over an existing tracker.
 
-Portainer remains the source of truth for environment, Compose service, container and stack names. After a successful inventory synchronisation, linked Fleet records reconcile those source names. Administrators can store independent display-name overrides for a machine, software tracker, or stack or folder. Source updates continue in the background while the local alias remains visible until **Follow Portainer** is selected.
+The selected inventory provider remains the source of truth for environment, Compose service, container and stack names. After a successful inventory synchronisation, linked Fleet records reconcile those source names. Administrators can store independent display-name overrides for a machine, software tracker, or stack or folder. Source updates continue in the background while the local alias remains visible until **Follow provider** is selected.
 
 ## Notifications
 
@@ -225,7 +225,7 @@ Stored encrypted in SQLite:
 - SMTP password
 - Pushover application token
 - user Pushover keys
-- Portainer API token
+- Portainer or Dockhand API token
 - OpenAI-compatible API key
 
 The Fernet key itself stays outside SQLite in `.env`.
@@ -253,9 +253,19 @@ The restore path validates the requested backup, creates a pre-restore safety ba
 Treat the following as untrusted input:
 
 - GitHub release names and release notes;
-- Portainer API responses and container metadata;
+- inventory provider API responses and container metadata;
 - remote HTTP probe responses;
 - optional AI output; and
 - user-entered tracker fields.
 
 The application validates or escapes these inputs according to where they are used. New integrations should preserve this boundary rather than treating upstream metadata as trusted simply because it came from an API.
+
+## Inventory provider architecture
+
+radar.inventory_providers defines the provider boundary. Portainer and Dockhand adapters turn provider-specific environment and container responses into the existing inventory reconciliation model. The reconciliation path owns persistence, tracker linking, container-recreation rebinding, display-name reconciliation and version/repository detection.
+
+The legacy portainer_environments, portainer_services and job table names remain in SQLite for backwards-compatible upgrades. Additive provider and source_endpoint_id columns namespace the records. Existing rows receive provider=portainer. Dockhand environment IDs use stable negative internal endpoint keys. The provider and source identity is stored authoritatively and synchronisation stops without overwriting data if a derived-key collision is detected.
+
+Provider switching is explicit rather than destructive. Inventory and schedules are namespaced by provider, and existing tracker mappings remain attached to their original provider record. Importing a matching service from the newly selected provider is the administrator-authorised handover point and clears the old service link.
+
+Dockhand availability is checked before container reconciliation because Dockhand currently maps a Docker connection failure to an empty list. Failed probes never enter the absent-marking transaction, so last-known services remain present. A successful probe followed by an empty list is treated as a genuinely empty environment.
