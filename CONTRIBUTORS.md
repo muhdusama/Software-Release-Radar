@@ -5,6 +5,7 @@ Software Release Radar is built with human direction and extensive AI-assisted d
 | Contributor | Role |
 |---|---|
 | [@muhdusama](https://github.com/muhdusama) | Creator and maintainer. Product direction, feature decisions, real-world testing, release decisions and project stewardship. |
+| [@KoshiirRa](https://github.com/KoshiirRa) | Human contributor. Added Dockhand inventory-provider compatibility, including provider integration, documentation, regression coverage and follow-up fixes from maintainer review. |
 | **OpenAI Codex** | AI coding contributor. Used extensively for implementation, refactoring, tests, debugging, documentation and code review assistance. |
 
 ## About the Codex credit
