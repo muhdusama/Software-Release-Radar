@@ -8,13 +8,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Added
 
+- Dockhand support as an alternative Docker inventory provider alongside Portainer, including encrypted API-token storage, provider-specific synchronisation, environment availability checks and inventory normalisation.
 - A clearly labelled Global defaults section for inherited software notification behaviour and delivery channels.
+
+### Changed
+
+- Docker inventory integration now uses a provider abstraction while preserving the existing Portainer-compatible database and Compose service names for backwards-compatible upgrades.
+- Provider switching keeps existing tracker mappings attached to their original provider until an administrator explicitly imports and rebinds the corresponding service from the active provider.
 
 ### Fixed
 
+- Inventory probes now fail closed when a tracker mapping belongs to a different provider than the currently active inventory provider, preventing stale cross-provider version or state reporting.
+- Offline or malformed Dockhand environment responses preserve last-known-good inventory instead of incorrectly marking existing containers absent.
+- Dockhand due-sync scheduling now uses Dockhand-specific timing settings, and Dockhand origin validation rejects embedded credentials, paths, queries and fragments.
 - Per-software notification preference changes now save immediately without reloading the Notifications page.
 - Bulk software preferences and global notification defaults now save without clearing the current software filter.
 - The Notifications software search is retained for the browser session, including after a manual refresh.
+
+### Validated
+
+- PR #15 passed the complete Python 3.13 regression suite, dependency and Bandit security audit, and public Docker setup, backup, restore and persistent-state acceptance workflow before merge.
 
 ---
 
