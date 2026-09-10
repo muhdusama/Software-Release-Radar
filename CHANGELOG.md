@@ -15,6 +15,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 - Docker inventory integration now uses a provider abstraction while preserving the existing Portainer-compatible database and Compose service names for backwards-compatible upgrades.
 - Provider switching keeps existing tracker mappings attached to their original provider until an administrator explicitly imports and rebinds the corresponding service from the active provider.
+- Gunicorn's minimum supported version is now 26.2.0.
+- `cryptography`'s minimum supported version is now 50.0.1.
+- `regex`'s minimum supported version is now 2026.9.3.
+- `docker/setup-qemu-action` is updated from v4.2.0 to v4.3.0 using its immutable commit SHA.
 
 ### Fixed
 
@@ -25,9 +29,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 - Bulk software preferences and global notification defaults now save without clearing the current software filter.
 - The Notifications software search is retained for the browser session, including after a manual refresh.
 
+### Security
+
+- Gunicorn 26.2.0 includes upstream HTTP/2 request-policy hardening.
+- Dependency minimums were refreshed after upstream security and reliability maintenance in `cryptography` and `regex`.
+
 ### Validated
 
 - PR #15 passed the complete Python 3.13 regression suite, dependency and Bandit security audit, and public Docker setup, backup, restore and persistent-state acceptance workflow before merge.
+- PRs #22 through #25 each passed the required Python 3.13 tests, dependency and Bandit security audit, and public Docker setup and recovery acceptance workflow on their final merge heads.
 
 ---
 
