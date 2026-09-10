@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="980" viewBox="0 0 1200 980" role="img" aria-labelledby="title desc">
   <title id="title">Software Release Radar roadmap journey</title>
-  <desc id="desc">A large five-stage roadmap showing public release readiness, community foundation, release intelligence, integrations and exploratory assistance.</desc>
+  <desc id="desc">A five-stage roadmap showing ongoing maintenance, community foundation, release intelligence, integrations and exploratory assistance.</desc>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#0b1220"/>
@@ -25,9 +25,9 @@
       <circle cx="48" cy="65" r="34" fill="#173f4a" stroke="#63e6ff" stroke-width="5"/>
       <text x="48" y="65" text-anchor="middle" dominant-baseline="middle" fill="#63e6ff" font-size="20" font-weight="800">NOW</text>
       <rect x="105" y="0" width="990" height="130" rx="24" fill="#131e33" stroke="#2f6170" stroke-width="2"/>
-      <text x="142" y="34" dominant-baseline="middle" fill="#63e6ff" font-size="19" font-weight="750">PUBLIC RELEASE READINESS</text>
-      <text x="142" y="72" dominant-baseline="middle" fill="#f8fafc" font-size="31" font-weight="750">Freeze, audit and ship v2.7.0</text>
-      <text x="142" y="108" dominant-baseline="middle" fill="#a8b4c7" font-size="20">Final privacy scan, clean public history, GitHub safety settings and launch review.</text>
+      <text x="142" y="34" dominant-baseline="middle" fill="#63e6ff" font-size="19" font-weight="750">ONGOING MAINTENANCE</text>
+      <text x="142" y="72" dominant-baseline="middle" fill="#f8fafc" font-size="31" font-weight="750">Keep releases secure, current and reliable</text>
+      <text x="142" y="108" dominant-baseline="middle" fill="#a8b4c7" font-size="20">Dependency updates, regression coverage, secure upgrades and contributor review.</text>
     </g>
 
     <g transform="translate(80 305)">
@@ -36,7 +36,7 @@
       <rect x="105" y="0" width="990" height="130" rx="24" fill="#131e33" stroke="#30455f" stroke-width="2"/>
       <text x="142" y="34" dominant-baseline="middle" fill="#7dd3fc" font-size="19" font-weight="750">COMMUNITY FOUNDATION</text>
       <text x="142" y="72" dominant-baseline="middle" fill="#f8fafc" font-size="31" font-weight="750">Make self-hosting and contribution easy</text>
-      <text x="142" y="108" dominant-baseline="middle" fill="#a8b4c7" font-size="20">Better diagnostics, demo data, contributor-friendly issues and upgrade guidance.</text>
+      <text x="142" y="108" dominant-baseline="middle" fill="#a8b4c7" font-size="20">Better diagnostics, upgrade guidance, community issues and low-friction contribution.</text>
     </g>
 
     <g transform="translate(80 450)">
@@ -54,7 +54,7 @@
       <rect x="105" y="0" width="990" height="130" rx="24" fill="#131e33" stroke="#4d3a70" stroke-width="2"/>
       <text x="142" y="34" dominant-baseline="middle" fill="#a78bfa" font-size="19" font-weight="750">FLEET AND INTEGRATIONS</text>
       <text x="142" y="72" dominant-baseline="middle" fill="#f8fafc" font-size="31" font-weight="750">Broaden how Release Radar connects</text>
-      <text x="142" y="108" dominant-baseline="middle" fill="#a8b4c7" font-size="20">Fleet discovery, stable APIs, providers and stronger Portainer workflows.</text>
+      <text x="142" y="108" dominant-baseline="middle" fill="#a8b4c7" font-size="20">Stable APIs, more providers and stronger self-hosted integration workflows.</text>
     </g>
 
     <g transform="translate(80 740)">
