@@ -6,12 +6,11 @@
 
 Software Release Radar is a public self-hosted project designed so another person can install, understand and operate it without knowing anything about the private environment where it was created.
 
-The first public release is **v2.7.0**.
+The first public release is **v2.7.0**. The current public release baseline is **v2.8.0**, with ongoing maintenance active.
 
 <p align="center">
   <a href="#-current-position">📍 Current position</a> ·
-  <a href="#-final-publication-gates">🔒 Final gates</a> ·
-  <a href="#-next-community-ready-foundation">🔵 Next</a> ·
+  <a href="#-current-ongoing-maintenance-and-community-ready-foundation">🔵 Current</a> ·
   <a href="#-then-better-release-intelligence">🟣 Then</a> ·
   <a href="#-later-fleet-and-integrations">🟠 Later</a> ·
   <a href="#-feature-voting-and-roadmap-polls">🗳️ Vote</a>
@@ -23,9 +22,10 @@ The first public release is **v2.7.0**.
 
 | Area | Status | Notes |
 |---|---|---|
+| Current public release | ✅ v2.8.0 | Current version recorded in `VERSION` and the changelog |
 | Sanitised application source | ✅ Passed | Imported without private Gitea history |
 | AGPL-3.0 licensing | ✅ Passed | Repository licence is GNU AGPL-3.0 |
-| Docker image and Compose stack | ✅ Passed | Web app, automatic scheduler and Portainer worker |
+| Docker image and Compose stack | ✅ Passed | Web app, automatic scheduler and inventory worker |
 | Docker-only first-run setup | ✅ Passed | Tested on a clean GitHub Actions runner and macOS Docker Desktop |
 | Automatic release checking | ✅ Passed | Due-only scheduler is part of the standard Compose stack |
 | Backup and guarded restore | ✅ Passed | Online backup, integrity checks, safety copy and rollback path tested |
@@ -33,11 +33,13 @@ The first public release is **v2.7.0**.
 | Python regression suite | ✅ Passed | Runs on every push and pull request |
 | Dependency vulnerability audit | ✅ Passed | `pip-audit` is a blocking CI gate |
 | Static security review | ✅ Passed | Bandit gate rejects unexpected high-confidence findings |
+| Inventory providers | ✅ Portainer + Dockhand | Provider switching, reconciliation and fail-closed mismatch handling are covered |
+| Maintenance dependency baseline | ✅ Current | Gunicorn ≥26.2.0, `cryptography` ≥50.0.1, `regex` ≥2026.9.3 and QEMU action v4.3.0 |
 | Clean macOS UX acceptance | ✅ Passed | Clean deployment visually reviewed at normal desktop use |
 | Community files and funding | ✅ Passed | Issues, PR template, Discussions, Dependabot and support links |
-| v2.7.0 version freeze | ✅ Passed | Runtime and release metadata are aligned |
-| Final privacy and secret scan | ✅ Passed | Frozen tracked tree and staging history scanned |
-| Clean public Git history | ✅ Passed | Publication starts from a new sanitised root |
+| v2.7.0 version freeze | ✅ Passed | Historical first-public-release gate |
+| Final privacy and secret scan | ✅ Passed | Frozen tracked tree and staging history scanned before public launch |
+| Clean public Git history | ✅ Passed | Publication started from a new sanitised root |
 | GitHub safety settings | ✅ Launch gate | Applied or reviewed during publication |
 | Public launch | ✅ v2.7.0 | First public release |
 
@@ -81,7 +83,7 @@ The first public release is **v2.7.0**.
 - CSRF protection.
 - Encrypted stored integration secrets.
 - Login and reset-request throttling.
-- Portainer TLS verification enabled by default.
+- Inventory-provider TLS verification enabled by default.
 - Reverse-proxy header trust disabled by default.
 - Validated OpenAI-compatible HTTP or HTTPS endpoint configuration.
 - Strict SSH host-key checking for optional Docker probes.
@@ -114,16 +116,18 @@ The release process also removes obsolete staging releases and workflow history 
 
 ---
 
-# 🔵 Next: Community-ready foundation
+# 🔵 Current: Ongoing maintenance and community-ready foundation
 
-> **Goal:** learn from real users without making the application harder to maintain.
+> **Goal:** keep the public baseline secure, dependable and easy to operate while learning from real users.
 
 <table>
 <tr>
 <td width="50%" valign="top">
 
-### 🧰 Easier self-hosting
+### 🧰 Reliable self-hosting
 
+- [x] Support both Portainer and Dockhand inventory providers.
+- [x] Keep dependency and GitHub Action updates behind the full CI gate.
 - [ ] Optional demo-data mode for evaluation.
 - [ ] Better guided diagnostics for common configuration errors.
 - [ ] Tested reverse-proxy examples based on community demand.
@@ -161,7 +165,7 @@ The release process also removes obsolete staging releases and workflow history 
 | 🧾 **Historical timelines** | Make past release decisions and deployments easier to review |
 | 🔌 **More upstream sources** | Expand beyond the initial GitHub-focused model where there is a real use case |
 
-These are candidates for community voting after the first public release is stable.
+These remain candidates for community voting as real-world usage and demand become clearer.
 
 ---
 
@@ -169,7 +173,7 @@ These are candidates for community voting after the first public release is stab
 
 > **Goal:** support larger and more varied self-hosted environments without turning the project into a fragile automation platform.
 
-- [ ] Continue strengthening Portainer inventory and container rebinding.
+- [ ] Continue strengthening Portainer and Dockhand inventory, provider parity and container rebinding.
 - [ ] Explore Docker and Compose metadata discovery where it remains predictable.
 - [ ] Add documented integration points for external monitoring and inventory systems.
 - [ ] Add notification providers based on real demand.
@@ -213,12 +217,12 @@ Read **[FEATURE_VOTING.md](FEATURE_VOTING.md)** for the full process.
 
 | Candidate area | Poll state | Community signal |
 |---|---|---|
-| More upstream release sources | 💤 Not open yet | Opens after public launch |
-| Improved release-note comparison | 💤 Not open yet | Opens after public launch |
-| Docker and Compose discovery | 💤 Not open yet | Opens after public launch |
-| More notification providers | 💤 Not open yet | Opens after public launch |
-| Read-only API and integrations | 💤 Not open yet | Opens after public launch |
-| Dashboard and fleet UX | 💤 Not open yet | Opens after public launch |
+| More upstream release sources | 💡 Candidate | Open to proposals and demand signals |
+| Improved release-note comparison | 💡 Candidate | Open to proposals and demand signals |
+| Docker and Compose discovery | 💡 Candidate | Open to proposals and demand signals |
+| More notification providers | 💡 Candidate | Open to proposals and demand signals |
+| Read-only API and integrations | 💡 Candidate | Open to proposals and demand signals |
+| Dashboard and fleet UX | 💡 Candidate | Open to proposals and demand signals |
 
 ---
 
