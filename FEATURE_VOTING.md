@@ -88,13 +88,13 @@ A poll may include 4 to 8 options such as:
 
 When unrelated ideas would make a poll confusing, polls can be grouped by theme.
 
-### Planned public setup
+### Current public setup
 
-After public launch:
+The public project uses:
 
-- **GitHub Issues** will hold detailed feature proposals;
-- **👍 reactions** will provide a persistent demand signal; and
-- **GitHub Discussions polls** will be used for direct roadmap comparisons.
+- **GitHub Issues** for detailed feature proposals;
+- **👍 reactions** as a persistent demand signal; and
+- **GitHub Discussions polls** for direct roadmap comparisons when useful.
 
 ---
 
@@ -124,7 +124,7 @@ The reverse is also true. A low-vote security fix may move immediately because p
 
 ## 📝 Writing a useful feature request
 
-A strong request explains the problem you are trying to solve, what you do today instead, who would benefit, whether it affects Docker, Portainer or another deployment model, any privacy or security considerations, and what a good result would look like.
+A strong request explains the problem you are trying to solve, what you do today instead, who would benefit, whether it affects Docker, Portainer, Dockhand or another deployment model, any privacy or security considerations, and what a good result would look like.
 
 **Describe the problem before prescribing the implementation.** There may be a simpler or safer way to solve the same need.
 
@@ -140,9 +140,9 @@ When a roadmap poll changes priorities, the roadmap should be updated so the res
 
 ## 📍 Current state
 
-The first priority is the safe public release of **v2.7.0**.
+The public release baseline is established at **v2.8.0**, and ongoing maintenance is active.
 
-Feature voting can collect ideas now, but larger feature work should not displace the final privacy audit, clean public Git history and publication safety checks needed before the repository becomes public.
+Feature voting can now help prioritise improvements, while security, data integrity, deterministic monitoring, backwards compatibility and reliable self-hosted upgrades remain release gates for every change.
 
 <p align="center">
   <strong>Next stop:</strong> <a href="ROADMAP.md">view the roadmap</a>
