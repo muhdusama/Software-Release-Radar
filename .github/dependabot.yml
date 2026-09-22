@@ -8,8 +8,6 @@ updates:
       time: "08:00"
       timezone: Australia/Sydney
     open-pull-requests-limit: 5
-    labels:
-      - dependencies
 
   - package-ecosystem: github-actions
     directory: "/"
@@ -19,8 +17,6 @@ updates:
       time: "08:15"
       timezone: Australia/Sydney
     open-pull-requests-limit: 5
-    labels:
-      - dependencies
 
   - package-ecosystem: docker
     directory: "/"
@@ -30,5 +26,3 @@ updates:
       time: "08:30"
       timezone: Australia/Sydney
     open-pull-requests-limit: 5
-    labels:
-      - dependencies
