@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img alt="Version 2.9.1" src="https://img.shields.io/badge/version-2.9.1-2f81f7">
+  <img alt="Version 2.9.2" src="https://img.shields.io/badge/version-2.9.2-2f81f7">
   <img alt="Python 3.13 application" src="https://img.shields.io/badge/app-Python%203.13-3776AB?logo=python&logoColor=white">
   <img alt="Docker Compose deployment" src="https://img.shields.io/badge/deploy-Docker%20Compose-2496ED?logo=docker&logoColor=white">
   <img alt="AGPL 3.0 licence" src="https://img.shields.io/badge/licence-AGPL--3.0-663399">
@@ -22,7 +22,7 @@
 </p>
 
 > [!IMPORTANT]
-> **Latest release: [v2.9.1](https://github.com/muhdusama/Software-Release-Radar/releases/latest).** v2.9 adds Dockhand as a Docker inventory provider, global notification defaults, a strict Content Security Policy and guarded integration transport. Multi-architecture images are published to GHCR. See the [changelog](CHANGELOG.md).
+> **Latest release: [v2.9.2](https://github.com/muhdusama/Software-Release-Radar/releases/latest).** This maintenance update fixes a Fleet layout overlap, removes Gunicorn's unused control-socket start-up error and restricts backup file permissions. v2.9 also includes Dockhand inventory, global notification defaults and strengthened integration security. Multi-architecture images are published to GHCR. See the [changelog](CHANGELOG.md).
 
 # 📡 What is Software Release Radar?
 
@@ -276,7 +276,7 @@ See **[docs/DOCKER.md](docs/DOCKER.md)** for the full operational procedure.
 
 # 🔐 Security model
 
-The v2.9.1 release includes:
+The current release includes:
 
 - CSRF protection on state-changing browser routes;
 - HTTP-only, same-site session cookies;
@@ -306,7 +306,7 @@ For production hardening guidance, see **[docs/SECURITY-HARDENING.md](docs/SECUR
 
 The release candidate is tested as a complete lifecycle, not only as a Docker image build.
 
-| Gate | v2.9.1 status |
+| Gate | Status and verification |
 |---|---|
 | Python compilation and complete automated test suite | ✅ Passed |
 | Dependency vulnerability audit | ✅ Passed |
@@ -318,11 +318,11 @@ The release candidate is tested as a complete lifecycle, not only as a Docker im
 | Online SQLite backup and integrity check | ✅ Passed |
 | Guarded restore and return to healthy state | ✅ Passed |
 | Persistent state after Compose restart | ✅ Passed |
-| Clean macOS Docker Desktop acceptance | ✅ Passed |
-| Visual review of clean deployment | ✅ Passed |
-| Final privacy and secret scan after version freeze | ✅ Passed |
+| Clean macOS Docker Desktop acceptance | ✅ Passed at v2.9.0 |
+| Visual review of clean deployment | ✅ Passed at v2.9.0; v2.9.1 preview screenshots reviewed |
+| Final privacy and secret scan after version freeze | ✅ Passed at v2.9.0; v2.9.2 public diff reviewed |
 
-The automated gates run in CI on every pull request and on `main`. The macOS, visual-review and privacy-scan gates were run manually at the v2.9.0 version freeze; v2.9.1 is a one-line fix validated by CI.
+The automated gates run in CI on every pull request and on `main`. The macOS acceptance and full version-freeze gates were last run at v2.9.0; they are not presented as repeated v2.9.2 tests. v2.9.2 also includes fixes from the two merged pull requests and refreshed demo-only documentation screenshots.
 
 The public repository was launched at v2.7.0 from a sanitised, clean Git history after a final GitHub safety-settings review. See **[ROADMAP.md](ROADMAP.md)** for the launch checklist.
 

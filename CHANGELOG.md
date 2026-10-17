@@ -6,9 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+## [2.9.2] - 2026-10-18
+
 ### Fixed
 
-- The web container no longer logs `Control server error: [Errno 13] Permission denied: '/app/.gunicorn'` at start-up. Gunicorn's unused control socket is now disabled, so the application directory stays read-only for the non-root user.
+- Disabled Gunicorn's unused control socket. This removes a harmless permission error at start-up without making the application directory writable or changing the non-root container user.
+- Fixed an overlap between the Fleet machine/service summary and the inventory setup notice when no provider is configured.
+- Set owner-only permissions on verified SQLite backup files created by the backup helper, including copied backups on the host.
+
+### Documentation
+
+- Replaced outdated hand-drawn preview mock-ups with four actual v2.9.1 screen captures: Dashboard, Upgrade decisions, an Upgrade plan and Fleet. Captures use fictional demo data only, including documentation-reserved network addresses, with no deployment-specific information.
+- Updated the README's product overview, setup instructions, formatting, links and release-readiness wording to reflect the current application.
+- Corrected contributor acknowledgements and added Claude Code alongside OpenAI Codex.
+- Refreshed the repository description and topics to reflect Dockhand support and upgrade management.
+
+### Compatibility
+
+- No database schema migration, new configuration requirement or change to the existing data volume. This is a maintenance update on top of v2.9.1.
 
 ## [2.9.1] - 2026-10-18
 
