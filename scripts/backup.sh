@@ -1,5 +1,6 @@
 #!/bin/sh
 set -eu
+umask 077
 
 STAMP="${1:-$(date +%Y%m%d-%H%M%S)}"
 DEST_DIR="${2:-./backups}"
@@ -14,8 +15,9 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 docker compose exec -T radar python -c "import sqlite3; source=sqlite3.connect('/data/radar.db'); target=sqlite3.connect('${CONTAINER_COPY}'); source.backup(target); target.close(); source.close()"
-docker compose exec -T radar python -c "import sqlite3; conn=sqlite3.connect('file:${CONTAINER_COPY}?mode=ro', uri=True); result=conn.execute('PRAGMA integrity_check').fetchone()[0]; conn.close(); assert result == 'ok', f'Backup integrity check failed: {result}'"
+docker compose exec -T radar python -c "import os,sqlite3; conn=sqlite3.connect('file:${CONTAINER_COPY}?mode=ro', uri=True); result=conn.execute('PRAGMA integrity_check').fetchone()[0]; conn.close(); assert result == 'ok', f'Backup integrity check failed: {result}'; os.chmod('${CONTAINER_COPY}', 0o600)"
 docker compose cp "radar:${CONTAINER_COPY}" "$HOST_COPY" >/dev/null
+chmod 600 "$HOST_COPY"
 
 printf 'Backup created: %s\n' "$HOST_COPY"
 printf 'SQLite integrity_check: ok\n'

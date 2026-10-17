@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 - Disabled Gunicorn's unused control socket. This removes a harmless permission error at start-up without making the application directory writable or changing the non-root container user.
 - Fixed an overlap between the Fleet machine/service summary and the inventory setup notice when no provider is configured.
+- Set owner-only permissions on verified SQLite backup files created by the backup helper, including copied backups on the host.
 
 ### Documentation
 

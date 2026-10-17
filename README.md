@@ -22,7 +22,7 @@
 </p>
 
 > [!IMPORTANT]
-> **Latest release: [v2.9.2](https://github.com/muhdusama/Software-Release-Radar/releases/latest).** This maintenance update fixes a Fleet layout overlap and removes Gunicorn's unused control-socket start-up error. v2.9 also includes Dockhand inventory, global notification defaults and strengthened integration security. Multi-architecture images are published to GHCR. See the [changelog](CHANGELOG.md).
+> **Latest release: [v2.9.2](https://github.com/muhdusama/Software-Release-Radar/releases/latest).** This maintenance update fixes a Fleet layout overlap, removes Gunicorn's unused control-socket start-up error and restricts backup file permissions. v2.9 also includes Dockhand inventory, global notification defaults and strengthened integration security. Multi-architecture images are published to GHCR. See the [changelog](CHANGELOG.md).
 
 # 📡 What is Software Release Radar?
 
