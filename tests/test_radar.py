@@ -16,7 +16,7 @@ from types import SimpleNamespace
 
 from radar.ai_client import chat as ai_chat
 from radar.auth import hash_password, token_digest, verify_password
-from radar.checker import check_tracker
+from radar.checker import CheckResult, check_tracker
 from radar.db import connect, get_setting, init_db, set_settings, transaction, utcnow
 from radar.github import ReleaseInfo
 from radar.manage import main as manage_main
@@ -24,7 +24,7 @@ from radar.notifications import dispatch_release_notifications
 from radar.portainer import (PortainerError, import_service, inventory_summary,
                               sync_inventory, test_connection as portainer_test_connection)
 from radar.portainer_jobs import enqueue_import, claim_import_job, latest_import_job
-from radar.probes import _probe_ssh_docker, probe_tracker
+from radar.probes import ProbeResult, _probe_ssh_docker, probe_tracker
 from radar.secrets_store import decrypt_secret, encrypt_secret
 from radar.versioning import classify_upgrade, versions_match
 from radar.presentation import render_assistant_text
@@ -362,6 +362,31 @@ class RadarTests(unittest.TestCase):
         self.assertIn("PRAGMA integrity_check", backup)
         self.assertIn('docker compose cp "radar:${CONTAINER_COPY}"', backup)
         self.assertNotIn("cp /data/radar.db", backup)
+
+    def test_bulk_check_and_probe_with_inventory_tracker_do_not_crash(self):
+        tracker_id = self._insert_tracker(probe_mode="portainer")
+        app = create_app()
+        app.testing = True
+        with connect() as conn:
+            user = conn.execute("SELECT * FROM users WHERE username='admin'").fetchone()
+        client = app.test_client()
+        with client.session_transaction() as session:
+            session["user_id"] = int(user["id"])
+            session["password_stamp"] = token_digest(str(user["password_hash"]))
+            session["csrf_token"] = "bulk-csrf"
+        check = CheckResult(tracker_id=tracker_id, name="Example", repository="example/project", status="ok")
+        probe = ProbeResult(tracker_id, "ok", True, "1.0.0", 5)
+        with patch("radar.web.check_tracker", return_value=check) as check_mock, \
+             patch("radar.web.probe_tracker", return_value=probe) as probe_mock:
+            for action in ("check", "probe"):
+                with self.subTest(action=action):
+                    response = client.post("/trackers/bulk", data={
+                        "csrf_token": "bulk-csrf", "bulk_action": action,
+                        "tracker_ids": str(tracker_id),
+                    })
+                    self.assertEqual(response.status_code, 302)
+        check_mock.assert_called_once_with(tracker_id, refresh_portainer=False)
+        probe_mock.assert_called_once_with(tracker_id, refresh_portainer=False)
 
     def test_health_endpoint_uses_shared_application_version(self):
         from radar.version import APP_VERSION
