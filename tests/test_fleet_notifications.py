@@ -399,8 +399,7 @@ class FleetNotificationTests(unittest.TestCase):
         self.assertIn("Example service", page_body)
         self.assertIn("Mute", page_body)
         self.assertIn('data-saved-mode="off"', page_body)
-        self.assertIn("software-release-radar.notifications.filter", page_body)
-        self.assertIn("postNotificationForm", page_body)
+        self.assertIn("pages/notifications.js", page_body)
 
     def test_navigation_and_styles_expose_the_new_controls(self):
         root = Path(__file__).parents[1]
@@ -409,6 +408,7 @@ class FleetNotificationTests(unittest.TestCase):
         notifications = (
             root / "radar/templates/notifications.html"
         ).read_text()
+        notifications_script = (root / "radar/static/pages/notifications.js").read_text()
         style = (root / "radar/static/ui-polish.css").read_text()
         script = (root / "radar/static/app.js").read_text()
         self.assertIn("url_for('notifications_preferences')", base)
@@ -418,8 +418,9 @@ class FleetNotificationTests(unittest.TestCase):
         self.assertIn("Per-software controls", notifications)
         self.assertIn("system_notifications_enabled", notifications)
         self.assertIn("data-notification-mode", notifications)
-        self.assertIn("sessionStorage", notifications)
-        self.assertIn("postNotificationForm", notifications)
+        self.assertIn("software-release-radar.notifications.filter", notifications_script)
+        self.assertIn("sessionStorage", notifications_script)
+        self.assertIn("postNotificationForm", notifications_script)
         self.assertIn(".inline-name-editor", style)
         self.assertIn(".software-notification-row", style)
         self.assertIn("'5': '/notifications'", script)

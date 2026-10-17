@@ -210,16 +210,6 @@ def create_app() -> Flask:
         app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
     init_db()
 
-    @app.after_request
-    def add_security_headers(response):
-        response.headers.setdefault("X-Content-Type-Options", "nosniff")
-        response.headers.setdefault("X-Frame-Options", "DENY")
-        response.headers.setdefault("Referrer-Policy", "same-origin")
-        response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
-        if app.config["SESSION_COOKIE_SECURE"] and request.is_secure:
-            response.headers.setdefault("Strict-Transport-Security", "max-age=31536000")
-        return response
-
     @app.before_request
     def load_user():
         g.user = None
@@ -282,9 +272,10 @@ def create_app() -> Flask:
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("X-Frame-Options", "DENY")
         response.headers.setdefault("Referrer-Policy", "same-origin")
+        response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
         response.headers.setdefault(
             "Content-Security-Policy",
-            "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; "
+            "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; "
             "img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; "
             "base-uri 'self'; form-action 'self'",
         )
