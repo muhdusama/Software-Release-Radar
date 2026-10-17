@@ -17,6 +17,8 @@ from typing import Any
 from .db import connect, get_setting, transaction, utcnow
 from .version import APP_VERSION
 from .portainer import PortainerError, sync_inventory
+from .http_client import open_http
+from .safe_regex import SafeRegexError, search_version
 
 
 @dataclass
@@ -83,7 +85,7 @@ def _json_path(data: Any, path: str) -> Any:
 def _http_get(url: str, timeout: float = 8.0) -> tuple[bytes, dict[str, str], int]:
     started = time.monotonic()
     request = urllib.request.Request(url, headers={"User-Agent": f"Software-Release-Radar/{APP_VERSION}", "Accept": "application/json,text/plain,*/*"})
-    with urllib.request.urlopen(request, timeout=timeout) as response:
+    with open_http(request, timeout=timeout) as response:
         body = response.read(1_000_000)
         headers = {key.lower(): value for key, value in response.headers.items()}
     latency = max(1, round((time.monotonic() - started) * 1000))
@@ -154,10 +156,12 @@ def _probe_http_regex(tracker) -> tuple[str, int, str]:
     if not pattern:
         raise ValueError("A version regular expression is required.")
     body, _, latency = _http_get(_base_url(tracker, path))
-    match = re.search(pattern, body.decode("utf-8", "replace"), re.MULTILINE)
-    if not match:
+    try:
+        value = search_version(pattern, body.decode("utf-8", "replace"))
+    except SafeRegexError as exc:
+        raise ValueError(str(exc)) from exc
+    if value is None:
         raise ValueError("Version regular expression did not match the response.")
-    value = match.group(1) if match.groups() else match.group(0)
     return value.strip(), latency, f"HTTP regex {path}"
 
 

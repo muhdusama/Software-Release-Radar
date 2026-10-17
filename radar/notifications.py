@@ -11,8 +11,10 @@ import urllib.request
 from email.message import EmailMessage
 
 from .db import connect, get_settings, transaction, utcnow
+from .security_policy import _is_loopback_host, insecure_integrations_allowed
 from .secrets_store import decrypt_secret
 from .version import APP_VERSION
+from .http_client import open_http
 
 SMTP_KEYS = [
     "smtp_enabled",
@@ -141,6 +143,14 @@ def send_email(to_email: str, subject: str, body: str) -> None:
             if cfg["security"] == "starttls":
                 server.starttls(context=context)
                 server.ehlo()
+            elif cfg["security"] != "ssl" and not (
+                _is_loopback_host(str(cfg["host"])) or insecure_integrations_allowed()
+            ):
+                raise smtplib.SMTPException(
+                    "SMTP delivery requires STARTTLS or implicit TLS. "
+                    "Set ALLOW_INSECURE_INTEGRATIONS=true only for an explicitly "
+                    "accepted trusted-network exception."
+                )
             if cfg["username"]:
                 server.login(str(cfg["username"]), str(cfg["password"]))
             server.send_message(message)
@@ -192,8 +202,7 @@ def send_pushover(
         method="POST",
     )
     try:
-        # The request target is the fixed Pushover HTTPS API endpoint.
-        with urllib.request.urlopen(request, timeout=15) as response:  # nosec B310
+        with open_http(request, timeout=15) as response:
             result = json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", "replace")[:500]

@@ -8,6 +8,7 @@ import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from .version import APP_VERSION
+from .http_client import open_http
 
 
 class GitHubError(RuntimeError):
@@ -57,7 +58,7 @@ def _github_get(path: str):
     if token:
         request.add_header("Authorization", f"Bearer {token}")
     try:
-        with urllib.request.urlopen(request, timeout=20) as response:
+        with open_http(request, timeout=20) as response:
             return json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", "replace")[:400]
