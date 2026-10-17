@@ -6,7 +6,7 @@
 
 Software Release Radar is a public self-hosted project designed so another person can install, understand and operate it without knowing anything about the private environment where it was created.
 
-The first public release is **v2.7.0**. The current public release baseline is **v2.9.1**, with ongoing maintenance active.
+The first public release is **v2.7.0**. The current public release baseline is **v2.9.2**, with ongoing maintenance active.
 
 <p align="center">
   <a href="#-current-position">📍 Current position</a> ·
@@ -22,7 +22,7 @@ The first public release is **v2.7.0**. The current public release baseline is *
 
 | Area | Status | Notes |
 |---|---|---|
-| Current public release | ✅ v2.9.1 | Current version recorded in `VERSION` and the changelog |
+| Current public release | ✅ v2.9.2 | Current version recorded in `VERSION` and the changelog |
 | Sanitised application source | ✅ Passed | Imported without private Gitea history |
 | AGPL-3.0 licensing | ✅ Passed | Repository licence is GNU AGPL-3.0 |
 | Docker image and Compose stack | ✅ Passed | Web app, automatic scheduler and inventory worker |
