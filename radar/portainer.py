@@ -20,6 +20,7 @@ from .inventory_providers import (
 from .db import connect, get_settings, set_settings, transaction, utcnow
 from .secrets_store import decrypt_secret
 from .version import APP_VERSION
+from .http_client import open_http
 
 
 class PortainerError(RuntimeError):
@@ -78,7 +79,7 @@ def _request(path: str, *, timeout: int | None = None) -> Any:
     configured_timeout = int(settings.get("portainer_timeout") or 20)
     verify_tls = settings.get("portainer_verify_tls", "1") == "1"
     try:
-        with urllib.request.urlopen(
+        with open_http(
             request,
             timeout=timeout or configured_timeout,
             context=_context(verify_tls),

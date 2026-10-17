@@ -5,13 +5,19 @@ import urllib.error
 import urllib.request
 
 from .db import get_settings
-from .http_client import validate_http_url
+from .http_client import open_http, validate_http_url
 from .secrets_store import decrypt_secret
 from .version import APP_VERSION
 
 
 class AIClientError(RuntimeError):
     pass
+
+
+_MAX_MESSAGES = 24
+_MAX_MESSAGE_CHARS = 40_000
+_MAX_PROMPT_CHARS = 80_000
+_MAX_OUTPUT_CHARS = 100_000
 
 
 AI_KEYS = [
@@ -37,12 +43,28 @@ def config() -> dict[str, object]:
         "base_url": base_url,
         "api_key": decrypt_secret(raw["openai_api_key_enc"]),
         "model": raw["openai_model"].strip(),
-        "timeout": int(raw["openai_timeout"] or 120),
-        "max_tokens": int(raw["openai_max_tokens"] or 1800),
+        "timeout": max(10, min(120, int(raw["openai_timeout"] or 120))),
+        "max_tokens": max(200, min(4096, int(raw["openai_max_tokens"] or 1800))),
     }
 
 
+def _check_prompt_size(messages: list[dict[str, str]]) -> None:
+    if len(messages) > _MAX_MESSAGES:
+        raise AIClientError(f"Assistant requests must not exceed {_MAX_MESSAGES} messages.")
+    total = 0
+    for message in messages:
+        content = str(message.get("content") or "")
+        if len(content) > _MAX_MESSAGE_CHARS:
+            raise AIClientError(
+                f"An Assistant message exceeds the {_MAX_MESSAGE_CHARS}-character limit."
+            )
+        total += len(content)
+    if total > _MAX_PROMPT_CHARS:
+        raise AIClientError(f"Assistant prompt exceeds the {_MAX_PROMPT_CHARS}-character limit.")
+
+
 def chat(messages: list[dict[str, str]], *, temperature: float = 0.2) -> tuple[str, str]:
+    _check_prompt_size(messages)
     try:
         cfg = config()
     except RuntimeError as exc:
@@ -71,7 +93,7 @@ def chat(messages: list[dict[str, str]], *, temperature: float = 0.2) -> tuple[s
         },
     )
     try:
-        with urllib.request.urlopen(request, timeout=int(cfg["timeout"])) as response:  # nosec B310 - config() rejects non-HTTP(S) schemes.
+        with open_http(request, timeout=int(cfg["timeout"])) as response:
             result = json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", "replace")[:1200]
@@ -90,6 +112,8 @@ def chat(messages: list[dict[str, str]], *, temperature: float = 0.2) -> tuple[s
     content = str(content or "").strip()
     if not content:
         raise AIClientError("The configured model returned an empty response.")
+    if len(content) > _MAX_OUTPUT_CHARS:
+        raise AIClientError(f"Assistant response exceeds the {_MAX_OUTPUT_CHARS}-character limit.")
     return content, str(result.get("model") or cfg["model"])
 
 

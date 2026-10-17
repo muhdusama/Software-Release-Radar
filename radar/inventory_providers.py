@@ -13,6 +13,7 @@ from typing import Any, Callable
 from .db import get_settings
 from .secrets_store import decrypt_secret
 from .version import APP_VERSION
+from .http_client import open_http
 
 
 class InventoryProviderError(RuntimeError):
@@ -110,7 +111,7 @@ class DockhandProvider(InventoryProvider):
         verify_tls = settings.get("dockhand_verify_tls", "1") == "1"
         context = None if verify_tls else ssl._create_unverified_context()  # noqa: SLF001
         try:
-            with urllib.request.urlopen(
+            with open_http(
                 request,
                 timeout=int(settings.get("dockhand_timeout") or 20),
                 context=context,

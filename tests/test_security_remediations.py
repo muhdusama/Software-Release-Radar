@@ -4,10 +4,12 @@ import base64
 import os
 import re
 import smtplib
+import threading
 import tempfile
 import unittest
 import urllib.error
 import urllib.request
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from unittest.mock import patch
 
@@ -15,7 +17,8 @@ from radar.ai_client import AIClientError, chat as ai_chat
 from radar.application import create_app
 from radar.auth import hash_password
 from radar.db import connect, get_setting, set_settings, transaction, utcnow
-from radar.runtime_security import _BoundedResponse
+from radar.http_client import BoundedResponse, open_http
+from radar.notifications import NotificationError, send_email
 from radar.safe_regex import SafeRegexError, SafeRegexTimeout, search_version
 from radar.security_controls import (
     AIUsageLimitError,
@@ -322,8 +325,8 @@ class SecurityRemediationTests(unittest.TestCase):
             "http://192.0.2.10/v1",
             headers={"Authorization": "Bearer test"},
         )
-        with self.assertRaises(urllib.error.URLError):
-            urllib.request.urlopen(request, timeout=0.01)
+        with self.assertRaisesRegex(urllib.error.URLError, "require HTTPS"):
+            open_http(request, timeout=0.01)
 
         os.environ["ALLOW_INSECURE_INTEGRATIONS"] = "true"
         validate_credential_url(
@@ -332,14 +335,89 @@ class SecurityRemediationTests(unittest.TestCase):
             label="OpenAI-compatible base URL",
         )
 
-    def test_smtp_runtime_guard_blocks_remote_cleartext_delivery(self):
-        client = smtplib.SMTP()
-        client._host = "smtp.example.test"
-        with self.assertRaises(smtplib.SMTPException):
-            client.send_message(object())
+    def test_smtp_delivery_refuses_remote_cleartext_before_login(self):
+        calls = []
+
+        class FakeSMTP:
+            def __init__(self, host, port, timeout):
+                calls.append(("connect", host))
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def ehlo(self):
+                calls.append(("ehlo",))
+
+            def login(self, *_args):
+                calls.append(("login",))
+
+            def send_message(self, *_args):
+                calls.append(("send",))
+
+        set_settings({
+            "smtp_enabled": "1", "smtp_host": "smtp.example.test", "smtp_security": "none",
+            "smtp_username": "user", "smtp_from_email": "radar@example.test",
+        })
+        with patch("radar.notifications.smtplib.SMTP", FakeSMTP):
+            with self.assertRaises(NotificationError):
+                send_email("to@example.test", "Subject", "Body")
+            self.assertNotIn(("login",), calls)
+            self.assertNotIn(("send",), calls)
+
+            calls.clear()
+            set_settings({"smtp_host": "127.0.0.1", "smtp_username": ""})
+            send_email("to@example.test", "Subject", "Body")
+            self.assertIn(("send",), calls)
+
+    def test_credential_redirects_must_stay_on_the_same_origin(self):
+        class RedirectHandler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                self.send_response(302)
+                self.send_header("Location", f"http://localhost:{self.server.server_port}/elsewhere")
+                self.end_headers()
+
+            def log_message(self, *_args):
+                pass
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), RedirectHandler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            request = urllib.request.Request(
+                f"http://127.0.0.1:{server.server_port}/start",
+                headers={"X-API-Key": "secret"},
+            )
+            with self.assertRaises(urllib.error.HTTPError) as caught:
+                open_http(request, timeout=5)
+            self.assertIn("same origin", str(caught.exception.reason))
+        finally:
+            server.shutdown()
+            server.server_close()
+
+    def test_outbound_http_goes_through_the_guarded_client(self):
+        root = Path(__file__).parents[1] / "radar"
+        for path in root.rglob("*.py"):
+            if path.name == "http_client.py":
+                continue
+            with self.subTest(path=path.name):
+                self.assertNotIn("urlopen(", path.read_text())
+
+    def test_assistant_prompt_and_settings_limits_are_enforced(self):
+        with self.assertRaisesRegex(AIClientError, "must not exceed 24 messages"):
+            ai_chat([{"role": "user", "content": "x"}] * 25)
+        with self.assertRaisesRegex(AIClientError, "40000-character limit"):
+            ai_chat([{"role": "user", "content": "x" * 40_001}])
+        from radar.ai_client import config as ai_config
+        set_settings({"openai_timeout": "9999", "openai_max_tokens": "1"})
+        cfg = ai_config()
+        self.assertEqual(cfg["timeout"], 120)
+        self.assertEqual(cfg["max_tokens"], 200)
 
     def test_bounded_integration_response_rejects_excess_data(self):
-        response = _BoundedResponse(_OversizedResponse(), 3)
+        response = BoundedResponse(_OversizedResponse(), 3)
         with self.assertRaises(urllib.error.URLError):
             response.read()
 
