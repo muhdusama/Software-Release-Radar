@@ -64,7 +64,6 @@ def _target_args(parser: argparse.ArgumentParser) -> None:
 
 
 def track(args: argparse.Namespace) -> int:
-    init_db()
     repository = normalise_repository(args.repository)
     now = utcnow()
     requested_tags = normalise_tags(args.tags)
@@ -214,7 +213,6 @@ def track(args: argparse.Namespace) -> int:
 
 
 def list_trackers(_: argparse.Namespace) -> int:
-    init_db()
     with connect() as conn:
         rows = conn.execute("SELECT * FROM trackers ORDER BY name COLLATE NOCASE").fetchall()
     print(json.dumps([_row_dict(row) for row in rows], indent=2))
@@ -248,7 +246,6 @@ def show(args: argparse.Namespace) -> int:
 
 
 def status(_: argparse.Namespace) -> int:
-    init_db()
     with connect() as conn:
         totals = conn.execute(
             """SELECT COUNT(*) AS total,
@@ -372,7 +369,6 @@ def set_tags(args: argparse.Namespace) -> int:
 
 
 def fleet(_: argparse.Namespace) -> int:
-    init_db()
     with connect() as conn:
         rows = conn.execute("SELECT * FROM trackers ORDER BY machine_name COLLATE NOCASE, name COLLATE NOCASE").fetchall()
     groups: dict[str, dict] = {}
@@ -421,7 +417,6 @@ def ask(args: argparse.Namespace) -> int:
 
 
 def notification_smoke(args: argparse.Namespace) -> int:
-    init_db()
     if args.send and not args.confirm:
         raise ValueError("Use --confirm to send the deterministic notification smoke test.")
     result = notification_smoke_test(send=bool(args.send))
@@ -436,13 +431,11 @@ def portainer_status(_: argparse.Namespace) -> int:
 
 
 def portainer_inventory_command(_: argparse.Namespace) -> int:
-    init_db()
     print(json.dumps({"ok": True, **inventory_summary()}, indent=2))
     return 0
 
 
 def portainer_sync_command(args: argparse.Namespace) -> int:
-    init_db()
     if args.due:
         provider = str(get_setting("inventory_provider", "portainer") or "portainer")
         if provider not in {"portainer", "dockhand"}:
@@ -475,7 +468,6 @@ def portainer_import_command(args: argparse.Namespace) -> int:
 
 
 def upgrades(_: argparse.Namespace) -> int:
-    init_db()
     with connect() as conn:
         rows = conn.execute(
             """
@@ -791,6 +783,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     try:
         args = build_parser().parse_args(argv)
+        init_db()
         return int(args.func(args))
     except (ValueError, RuntimeError) as exc:
         print(json.dumps({"ok": False, "error": str(exc)}, indent=2))

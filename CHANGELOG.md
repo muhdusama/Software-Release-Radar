@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 - Gunicorn's minimum supported version is now 26.2.0.
 - `cryptography`'s minimum supported version is now 50.0.1.
 - `regex`'s minimum supported version is now 2026.9.3.
+- Database schema setup and migrations now run once when each process starts, instead of on every settings read and release check. This removes a write transaction from every page request and scheduler cycle.
 - `docker/setup-qemu-action` is updated from v4.2.0 to v4.3.0 using its immutable commit SHA.
 
 ### Fixed
