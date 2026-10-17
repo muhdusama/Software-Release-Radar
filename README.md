@@ -22,13 +22,13 @@
 </p>
 
 > [!IMPORTANT]
-> **v2.7.0 is the first public release of Software Release Radar.** The application, Docker lifecycle, backup and restore path, automated monitoring, dependency audit, static security gate and clean macOS installation were validated before publication.
+> **Latest release: [v2.9.1](https://github.com/muhdusama/Software-Release-Radar/releases/latest).** v2.9 adds Dockhand as a Docker inventory provider, global notification defaults, a strict Content Security Policy and guarded integration transport. Multi-architecture images are published to GHCR. See the [changelog](CHANGELOG.md).
 
 # 📡 What is Software Release Radar?
 
-Software Release Radar is a self-hosted dashboard for people who run a growing collection of software and want a better way to keep track of updates.
+Software Release Radar is a self-hosted dashboard for people who run a growing collection of software, such as a homelab or a small fleet of servers, and want one dependable place to see what needs updating.
 
-It checks upstream releases, compares them with the versions you run, adds machine and service context, and gives you one place to decide what should be updated, delayed, ignored or investigated.
+It watches upstream GitHub releases, detects the versions you actually run (through service probes, SSH Docker inspection or a Portainer or Dockhand inventory), and turns every confirmed difference into an explicit decision: update, wait, ignore or investigate. Email and Pushover alerts tell you when something new lands, and an optional AI assistant can summarise what changed.
 
 <table>
 <tr>
@@ -104,7 +104,13 @@ Put the result in one review queue
 
 ```bash
 git clone https://github.com/muhdusama/Software-Release-Radar.git
+```
+
+```bash
 cd Software-Release-Radar
+```
+
+```bash
 bash scripts/setup.sh
 ```
 
@@ -126,24 +132,38 @@ Read **[docs/DOCKER.md](docs/DOCKER.md)** before exposing Release Radar beyond a
 
 # 🖼️ Preview
 
-The following visuals use neutral demo data and contain no private production information.
+Screenshots of v2.9.1. They use fictional demo data only: invented software names, `demo-org/*` repositories and `192.0.2.x` documentation addresses.
 
 ### Dashboard
 
+Tracked software, update and attention counts, recent release activity and the decision queue at a glance.
+
 <p align="center">
-  <img src="docs/images/reference-dashboard.svg" alt="Software Release Radar dashboard reference screenshot" width="1050">
+  <img src="docs/images/screenshot-dashboard.webp" alt="Software Release Radar dashboard showing tracked software, update counts, a 14-day release activity chart and recently updated software" width="1050">
 </p>
 
-### Review queue
+### Upgrade decisions
+
+Every confirmed update becomes a decision with priority, risk, planned maintenance and checklist progress.
 
 <p align="center">
-  <img src="docs/images/reference-review-queue.svg" alt="Software Release Radar review queue reference screenshot" width="1050">
+  <img src="docs/images/screenshot-upgrades.webp" alt="Software Release Radar upgrade decision queue listing releases to review, update or wait on, with priority and risk badges" width="1050">
+</p>
+
+### Upgrade plan
+
+Record the decision, maintenance date, notes, a pre-upgrade checklist and rollback context for one release.
+
+<p align="center">
+  <img src="docs/images/screenshot-upgrade-decision.webp" alt="Software Release Radar upgrade plan for a major release with decision, priority, risk, notes and a pre-upgrade checklist" width="1050">
 </p>
 
 ### Fleet
 
+Software grouped by machine, with online, offline, update and attention states and editable display names.
+
 <p align="center">
-  <img src="docs/images/reference-fleet.svg" alt="Software Release Radar fleet reference screenshot" width="1050">
+  <img src="docs/images/screenshot-fleet.webp" alt="Software Release Radar fleet view grouping services by machine with version status and probe actions" width="1050">
 </p>
 
 ---
@@ -163,7 +183,7 @@ The following visuals use neutral demo data and contain no private production in
 | 🧠 **Optional AI** | OpenAI-compatible release comparison and tracker chat |
 | 👥 **Multi-user** | Administrator and standard-user roles |
 | 💾 **Data safety** | SQLite WAL mode, online backup helper and guarded restore helper |
-| 📦 **Deployment** | Docker Compose with persistent state |
+| 📦 **Deployment** | Docker Compose with persistent state, plus prebuilt `linux/amd64` and `linux/arm64` images on GHCR |
 
 ### 📡 Release intelligence
 
@@ -183,11 +203,12 @@ The following visuals use neutral demo data and contain no private production in
 - Edit machine, software and stack or folder display names directly from Fleet.
 - Follow renamed inventory-provider environments and services automatically while preserving deliberate local aliases.
 
-### Docker inventory providers
+### 🐳 Docker inventory providers
 
 Release Radar can discover Docker environments and containers from Portainer or Dockhand. Select a provider under Settings, save its encrypted API credential, test the connection, then synchronise from Inventory. Existing Portainer installations remain selected after upgrade.
 
-Dockhand synchronisation verifies each environment before accepting an empty container list. Offline environments keep their last-known inventory. See docs/CONFIGURATION.md for token setup and the current Dockhand API limitation.
+Dockhand synchronisation verifies each environment before accepting an empty container list. Offline environments keep their last-known inventory. See [docs/CONFIGURATION.md](docs/CONFIGURATION.md) for token setup and the current Dockhand API limitation.
+
 ### ✅ Upgrade decisions
 
 Release Radar provides an operational review queue rather than an unattended updater. A release can carry priority, risk, maintenance timing, notes, rollback context and deployment history.
@@ -214,7 +235,7 @@ Web application ───────────────┐
    │                           │
    ├── SQLite state            │
    ├── GitHub release API      │ shared application data
-   ├── optional inventory provider      │
+   ├── optional inventory      │
    └── optional AI             │
                                │
 Scheduler ─────────────────────┤
@@ -300,12 +321,10 @@ The release candidate is tested as a complete lifecycle, not only as a Docker im
 | Clean macOS Docker Desktop acceptance | ✅ Passed |
 | Visual review of clean deployment | ✅ Passed |
 | Final privacy and secret scan after version freeze | ✅ Passed |
-| Clean public Git root | ✅ Passed |
-| GitHub safety settings and final launch review | ✅ Passed |
 
-The public release is published from a sanitised clean Git history, and the same automated lifecycle gates continue to run on repository changes.
+The automated gates run in CI on every pull request and on `main`. The macOS, visual-review and privacy-scan gates were run manually at the v2.9.0 version freeze; v2.9.1 is a one-line fix validated by CI.
 
-See **[ROADMAP.md](ROADMAP.md)** for the final launch checklist.
+The public repository was launched at v2.7.0 from a sanitised, clean Git history after a final GitHub safety-settings review. See **[ROADMAP.md](ROADMAP.md)** for the launch checklist.
 
 ---
 
@@ -315,7 +334,7 @@ Software Release Radar is very much a **vibe-coded project**.
 
 I am not a software developer. I started building this because I had a practical problem in my own self-hosted setup and wanted a better way to solve it.
 
-I have used **OpenAI Codex heavily** to help design, write, refactor, test and document the project. I set the direction, decide what the application should do, test it in a real environment, review the results and make the final call on changes.
+I have used AI coding assistants heavily, first **OpenAI Codex** and more recently **Anthropic Claude Code**, to help design, write, refactor, test and document the project. I set the direction, decide what the application should do, test it in a real environment, review the results and make the final call on changes.
 
 I am being open about this because contributors should know how the project came together. There may be places where an experienced developer would choose a cleaner pattern or spot something that I missed. If you find one, please open an issue or pull request.
 
@@ -330,9 +349,9 @@ Product decisions, priorities and release decisions stay human-led.
 </td>
 <td width="33%" valign="top">
 
-### 🤖 Codex-assisted
+### 🤖 AI-assisted
 
-Codex has been used extensively for implementation, testing, refactoring and documentation.
+OpenAI Codex and Claude Code have been used extensively for implementation, testing, refactoring, review and documentation.
 
 </td>
 <td width="33%" valign="top">
@@ -352,14 +371,17 @@ AI-generated code is not treated as reviewed simply because a tool produced it. 
 <p align="center">
   <img alt="Human led" src="https://img.shields.io/badge/project-human%20led-2f81f7">
   <img alt="OpenAI Codex contributor" src="https://img.shields.io/badge/OpenAI%20Codex-AI%20coding%20contributor-412991?logo=openai&logoColor=white">
+  <img alt="Claude Code contributor" src="https://img.shields.io/badge/Claude%20Code-AI%20coding%20contributor-D97757?logo=anthropic&logoColor=white">
 </p>
 
 | Contributor | Role |
 |---|---|
 | [@muhdusama](https://github.com/muhdusama) | Creator and maintainer. Product direction, feature decisions, real-world testing and release decisions. |
+| [@KoshiirRa](https://github.com/KoshiirRa) | Human contributor. Dockhand inventory-provider compatibility. |
 | **OpenAI Codex** | AI coding contributor. Implementation, refactoring, tests, debugging, documentation and code review assistance. |
+| **Claude Code** | AI coding contributor. The v2.9 security, reliability and deployment work, release engineering and documentation. |
 
-Codex is an AI coding tool rather than a conventional GitHub contributor account. GitHub's contributor graph is based on commit authorship, so Codex may not appear there as a separate account.
+AI coding tools are not conventional GitHub contributor accounts. GitHub's contributor graph is based on commit authorship, so they may not appear there as separate accounts.
 
 See **[CONTRIBUTORS.md](CONTRIBUTORS.md)** for more detail.
 
@@ -371,7 +393,7 @@ See **[CONTRIBUTORS.md](CONTRIBUTORS.md)** for more detail.
   <img src="docs/images/feature-voting-loop.svg" alt="Feature proposal and roadmap voting process" width="1000">
 </p>
 
-Once the repository is public:
+To get involved:
 
 1. propose a feature using the structured feature request form;
 2. vote with a 👍 reaction on requests that would help you;

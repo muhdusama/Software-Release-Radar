@@ -7,12 +7,13 @@ Software Release Radar is built with human direction and extensive AI-assisted d
 | [@muhdusama](https://github.com/muhdusama) | Creator and maintainer. Product direction, feature decisions, real-world testing, release decisions and project stewardship. |
 | [@KoshiirRa](https://github.com/KoshiirRa) | Human contributor. Added Dockhand inventory-provider compatibility, including provider integration, documentation, regression coverage and follow-up fixes from maintainer review. |
 | **OpenAI Codex** | AI coding contributor. Used extensively for implementation, refactoring, tests, debugging, documentation and code review assistance. |
+| **Claude Code** | AI coding contributor. Used for the v2.9 security, reliability and deployment changes, release engineering, code review and documentation. |
 
-## About the Codex credit
+## About the AI credits
 
-OpenAI Codex is credited here because it has played a substantial role in building the project.
+OpenAI Codex and Anthropic Claude Code are credited here because they have played a substantial role in building the project.
 
-Codex is an AI coding tool rather than a conventional GitHub contributor account. GitHub's automatic contributor graph is based on commit authorship, so Codex may not appear there as a separate contributor even though its contribution is acknowledged by the project.
+They are AI coding tools rather than conventional GitHub contributor accounts. GitHub's automatic contributor graph is based on commit authorship, so they may not appear there as separate contributors even though their contribution is acknowledged by the project.
 
 The maintainer remains responsible for deciding what is accepted, testing changes in practice, reviewing results and approving releases.
 
