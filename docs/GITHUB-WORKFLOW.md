@@ -108,7 +108,7 @@ The same revision is stored in the container image label:
 ```bash
 docker image inspect \
   --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' \
-  "software-release-radar:$(tr -d '[:space:]' < VERSION)"
+  "ghcr.io/muhdusama/software-release-radar:$(tr -d '[:space:]' < VERSION)"
 ```
 
 This makes it possible to confirm that the running application matches the intended merged GitHub revision.

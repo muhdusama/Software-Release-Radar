@@ -18,6 +18,7 @@ class UIReleasePolishTests(unittest.TestCase):
         self.assertEqual(APP_VERSION, self.version)
         self.assertNotIn("{% set app_version", self.base)
         self.assertIn('class="sidebar-version"', self.base)
+        self.assertIn('href="https://github.com/muhdusama/Software-Release-Radar"', self.base)
         self.assertIn('v{{ app_version }}', self.base)
         self.assertIn("filename='ui-polish.css', v=app_version", self.base)
 

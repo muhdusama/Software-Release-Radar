@@ -30,6 +30,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 - Integration transport rules (HTTPS for credential-bearing requests, same-origin credential redirects, bounded responses, SMTP TLS, Assistant size limits and safe probe regular expressions) now live in the code that uses them instead of being patched into the standard library at import time. SMTP now refuses cleartext remote delivery before login rather than after it.
 - The Content Security Policy no longer allows inline script. Page scripts now load from `radar/static/pages/`, inline event handlers were replaced with listeners, and the two overlapping security-header handlers were merged into one.
 - `radar.web.create_app()` is now the single application factory and installs every route and protection; `radar.application.create_app()` remains as the Gunicorn entry point. No module replaces registered view functions any more, and templates read the version from `radar/version.py`.
+- Docker Compose now names its image `ghcr.io/muhdusama/software-release-radar:${RADAR_VERSION}`, so a published release can be run with `docker compose pull` and `docker compose up -d --no-build`. `scripts/setup.sh` still builds locally.
+- The sidebar shows a link to the source repository next to the version.
 - `docker/setup-qemu-action` is updated from v4.2.0 to v4.3.0 using its immutable commit SHA.
 
 ### Fixed

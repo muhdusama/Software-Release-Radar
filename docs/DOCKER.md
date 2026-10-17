@@ -260,6 +260,17 @@ docker compose build --pull
 docker compose up -d --build
 ```
 
+### Use the published image instead of building
+
+Tagged releases are published to GHCR as multi-architecture (`linux/amd64`, `linux/arm64`) images, and Compose names its services' image `ghcr.io/muhdusama/software-release-radar:${RADAR_VERSION}`. To run a published release without building it locally, set `RADAR_VERSION` in `.env` to a released version and run:
+
+```bash
+docker compose pull
+docker compose up -d --no-build
+```
+
+`docker compose pull` replaces any locally built image with the same tag. Use `docker compose up -d --build` again to return to a local build.
+
 Check the health endpoint and logs after the services restart.
 
 Review `CHANGELOG.md` before every upgrade. If a future release requires a special migration step, it will be called out in the release notes and upgrade documentation.
