@@ -78,7 +78,9 @@ class ContentSecurityPolicyTests(unittest.TestCase):
                 self.assertIsNone(_INLINE_HANDLER.search(html))
                 for src in _SCRIPT_SRC.findall(html):
                     self.assertIn("v=", src)
-                    self.assertEqual(self.client.get(src).status_code, 200, src)
+                    asset = self.client.get(src)
+                    asset.close()
+                    self.assertEqual(asset.status_code, 200, src)
 
 
 if __name__ == "__main__":
