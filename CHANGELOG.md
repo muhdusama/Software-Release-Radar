@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+### Fixed
+
+- The web container no longer logs `Control server error: [Errno 13] Permission denied: '/app/.gunicorn'` at start-up. Gunicorn's unused control socket is now disabled, so the application directory stays read-only for the non-root user.
+
 ## [2.9.1] - 2026-10-18
 
 ### Fixed
