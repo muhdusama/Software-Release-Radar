@@ -1,5 +1,4 @@
 from pathlib import Path
-import re
 import unittest
 
 
@@ -14,9 +13,10 @@ class UIReleasePolishTests(unittest.TestCase):
         cls.polish = (cls.root / "radar" / "static" / "ui-polish.css").read_text()
 
     def test_sidebar_version_matches_release_version(self):
-        match = re.search(r"\{% set app_version = '([^']+)' %\}", self.base)
-        self.assertIsNotNone(match)
-        self.assertEqual(match.group(1), self.version)
+        from radar.version import APP_VERSION
+
+        self.assertEqual(APP_VERSION, self.version)
+        self.assertNotIn("{% set app_version", self.base)
         self.assertIn('class="sidebar-version"', self.base)
         self.assertIn('v{{ app_version }}', self.base)
         self.assertIn("filename='ui-polish.css', v=app_version", self.base)

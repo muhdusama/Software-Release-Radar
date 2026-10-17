@@ -118,9 +118,9 @@ def _extract_auto_version(body: bytes, headers: dict[str, str]) -> str | None:
                 continue
             if isinstance(value, (str, int, float)) and str(value).strip():
                 return str(value).strip()
-    for header in ("x-app-version", "x-version", "server"):
+    for header in ("x-app-version", "x-version"):
         value = headers.get(header, "").strip()
-        if value and header != "server":
+        if value:
             return value
     match = re.search(r"(?i)(?:version|release|build)[\s\"':=]+v?([0-9]+(?:\.[0-9]+){1,4}(?:[-+._][A-Za-z0-9.-]+)?)", text[:100_000])
     return match.group(1) if match else None

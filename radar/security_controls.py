@@ -9,7 +9,6 @@ import secrets
 import threading
 import time
 from datetime import datetime, timedelta, timezone
-from functools import wraps
 
 from flask import (
     Flask,
@@ -474,86 +473,80 @@ def _validate_settings_submission():
     return None
 
 
+def handle_forgot_password_request():
+    """Issue a password reset for a POST that has already passed CSRF validation.
+
+    Reset links use only the configured trusted application origin, never the
+    request Host header, and the response time does not reveal whether the
+    account exists.
+    """
+    started = time.monotonic()
+    identity = request.form.get("identity", "").strip()
+    token = secrets.token_urlsafe(40)
+    digest = token_digest(token)
+    with connect() as conn:
+        user = conn.execute(
+            """
+            SELECT * FROM users
+             WHERE active = 1
+               AND (username = ? COLLATE NOCASE OR email = ? COLLATE NOCASE)
+            """,
+            (identity, identity),
+        ).fetchone()
+
+    try:
+        base_url = trusted_application_origin(
+            get_setting("app_base_url", ""),
+            required=True,
+        )
+    except ValueError:
+        base_url = None
+
+    if user and user["email"] and base_url:
+        now = datetime.now(timezone.utc)
+        expires = (now + timedelta(hours=1)).replace(microsecond=0).isoformat()
+        with transaction() as conn:
+            conn.execute(
+                """
+                UPDATE password_reset_tokens
+                   SET used_at = ?
+                 WHERE user_id = ? AND used_at IS NULL
+                """,
+                (utcnow(), user["id"]),
+            )
+            conn.execute(
+                """
+                INSERT INTO password_reset_tokens
+                    (user_id, token_hash, expires_at, created_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (user["id"], digest, expires, utcnow()),
+            )
+        reset_url = f"{base_url}{url_for('reset_password', token=token)}"
+        _enqueue_email(
+            str(user["email"]),
+            "Reset your Software Release Radar password",
+            (
+                f"A password reset was requested for {user['username']}.\n\n"
+                f"Use this link within one hour:\n{reset_url}\n\n"
+                "If you did not request this, ignore this email."
+            ),
+        )
+    else:
+        hmac.compare_digest(digest, token_digest(secrets.token_urlsafe(40)))
+
+    _minimum_reset_delay(started)
+    flash(
+        "If that active account has an email address and SMTP is configured, "
+        "a reset link has been sent.",
+        "success",
+    )
+    return redirect(url_for("login"))
+
+
 def install_security_controls(app: Flask) -> None:
     """Install fixes for validated authentication, AI, and transport findings."""
     _install_security_tables()
-
-    original_forgot_password = app.view_functions.get("forgot_password")
-    if original_forgot_password is None:
-        raise RuntimeError("forgot_password endpoint is required before security controls.")
-
-    @wraps(original_forgot_password)
-    def secure_forgot_password():
-        if request.method != "POST":
-            return original_forgot_password()
-
-        started = time.monotonic()
-        if not _csrf_is_valid():
-            return original_forgot_password()
-
-        identity = request.form.get("identity", "").strip()
-        token = secrets.token_urlsafe(40)
-        digest = token_digest(token)
-        with connect() as conn:
-            user = conn.execute(
-                """
-                SELECT * FROM users
-                 WHERE active = 1
-                   AND (username = ? COLLATE NOCASE OR email = ? COLLATE NOCASE)
-                """,
-                (identity, identity),
-            ).fetchone()
-
-        try:
-            base_url = trusted_application_origin(
-                get_setting("app_base_url", ""),
-                required=True,
-            )
-        except ValueError:
-            base_url = None
-
-        if user and user["email"] and base_url:
-            now = datetime.now(timezone.utc)
-            expires = (now + timedelta(hours=1)).replace(microsecond=0).isoformat()
-            with transaction() as conn:
-                conn.execute(
-                    """
-                    UPDATE password_reset_tokens
-                       SET used_at = ?
-                     WHERE user_id = ? AND used_at IS NULL
-                    """,
-                    (utcnow(), user["id"]),
-                )
-                conn.execute(
-                    """
-                    INSERT INTO password_reset_tokens
-                        (user_id, token_hash, expires_at, created_at)
-                    VALUES (?, ?, ?, ?)
-                    """,
-                    (user["id"], digest, expires, utcnow()),
-                )
-            reset_url = f"{base_url}{url_for('reset_password', token=token)}"
-            _enqueue_email(
-                str(user["email"]),
-                "Reset your Software Release Radar password",
-                (
-                    f"A password reset was requested for {user['username']}.\n\n"
-                    f"Use this link within one hour:\n{reset_url}\n\n"
-                    "If you did not request this, ignore this email."
-                ),
-            )
-        else:
-            hmac.compare_digest(digest, token_digest(secrets.token_urlsafe(40)))
-
-        _minimum_reset_delay(started)
-        flash(
-            "If that active account has an email address and SMTP is configured, "
-            "a reset link has been sent.",
-            "success",
-        )
-        return redirect(url_for("login"))
-
-    app.view_functions["forgot_password"] = secure_forgot_password
 
     @app.before_request
     def validated_security_controls():

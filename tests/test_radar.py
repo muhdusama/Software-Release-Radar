@@ -393,9 +393,8 @@ class RadarTests(unittest.TestCase):
 
         expected_version = (Path(__file__).parents[1] / "VERSION").read_text().strip()
         self.assertEqual(APP_VERSION, expected_version)
-        source = (Path(__file__).parents[1] / "radar" / "web.py").read_text()
-        self.assertIn('return {"status": "ok", "version": APP_VERSION', source)
-        self.assertNotIn('"version": "2.0.2"', source)
+        payload = create_app().test_client().get("/healthz").get_json()
+        self.assertEqual(payload["version"], APP_VERSION)
 
     def test_cli_manage_status_and_tracker_controls(self):
         from radar.version import APP_VERSION

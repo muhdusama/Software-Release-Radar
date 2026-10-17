@@ -17,6 +17,8 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 from .ai_client import AIClientError, chat as ai_chat, test_connection as ai_test_connection
 from .auth import hash_password, token_digest, verify_password
+from .auth_rate_limit import install_auth_rate_limits
+from .build_info import build_commit
 from .checker import check_all, check_tracker
 from .db import (
     ALLOWED_REFRESH_HOURS, audit, connect, get_setting, get_settings, init_db,
@@ -32,6 +34,7 @@ from .portainer import (PortainerError, ignore_service, inventory_summary,
                         test_connection as portainer_test_connection)
 from .portainer_jobs import enqueue_import, enqueue_sync, latest_import_job, latest_job
 from .secrets_store import decrypt_secret, encrypt_secret, validate_encryption_key
+from .security_controls import handle_forgot_password_request, install_security_controls
 from .tracker_utils import next_due_at, normalise_tags, parse_utc, split_tags, validate_refresh_hours
 from .upgrade_workflow import (
     DECISION_CHOICES, DECISION_VALUES, PRIORITY_CHOICES, PRIORITY_VALUES,
@@ -265,7 +268,7 @@ def create_app() -> Flask:
 
     @app.context_processor
     def inject_user():
-        return {"current_user": g.user, "product_name": "Software Release Radar"}
+        return {"current_user": g.user, "product_name": "Software Release Radar", "app_version": APP_VERSION}
 
     @app.after_request
     def security_headers(response):
@@ -305,7 +308,11 @@ def create_app() -> Flask:
 
     @app.get("/healthz")
     def healthz():
-        return {"status": "ok", "version": APP_VERSION, "name": "Software Release Radar"}
+        payload = {"status": "ok", "version": APP_VERSION, "name": "Software Release Radar"}
+        commit = build_commit()
+        if commit:
+            payload["commit"] = commit
+        return payload
 
     @app.route("/login", methods=["GET", "POST"])
     def login():
@@ -343,34 +350,7 @@ def create_app() -> Flask:
     def forgot_password():
         if request.method == "POST":
             require_csrf()
-            identity = request.form.get("identity", "").strip()
-            with connect() as conn:
-                user = conn.execute(
-                    "SELECT * FROM users WHERE active = 1 AND (username = ? COLLATE NOCASE OR email = ? COLLATE NOCASE)",
-                    (identity, identity),
-                ).fetchone()
-            if user and user["email"]:
-                token = secrets.token_urlsafe(40)
-                now = datetime.now(timezone.utc)
-                expires = (now + timedelta(hours=1)).replace(microsecond=0).isoformat()
-                with transaction() as conn:
-                    conn.execute("UPDATE password_reset_tokens SET used_at = ? WHERE user_id = ? AND used_at IS NULL", (utcnow(), user["id"]))
-                    conn.execute(
-                        "INSERT INTO password_reset_tokens (user_id, token_hash, expires_at, created_at) VALUES (?, ?, ?, ?)",
-                        (user["id"], token_digest(token), expires, utcnow()),
-                    )
-                base_url = (get_setting("app_base_url", request.url_root) or request.url_root).rstrip("/")
-                reset_url = f"{base_url}{url_for('reset_password', token=token)}"
-                try:
-                    send_email(
-                        str(user["email"]),
-                        "Reset your Software Release Radar password",
-                        f"A password reset was requested for {user['username']}.\n\nUse this link within one hour:\n{reset_url}\n\nIf you did not request this, ignore this email.",
-                    )
-                except (NotificationError, RuntimeError):
-                    pass
-            flash("If that active account has an email address and SMTP is configured, a reset link has been sent.", "success")
-            return redirect(url_for("login"))
+            return handle_forgot_password_request()
         return render_template("forgot_password.html")
 
     @app.route("/reset-password/<token>", methods=["GET", "POST"])
@@ -725,30 +705,6 @@ def create_app() -> Flask:
             target_release_name=target_release_name, historical_release=historical_release,
             decision_choices=DECISION_CHOICES, priority_choices=PRIORITY_CHOICES, risk_choices=RISK_CHOICES,
         )
-
-    @app.get("/fleet")
-    @login_required
-    def fleet():
-        with connect() as conn:
-            rows = conn.execute("""
-                SELECT t.*,
-                       COALESCE(t.detected_installed_version, t.installed_version) AS effective_installed_version
-                  FROM trackers t
-                 ORDER BY COALESCE(NULLIF(t.machine_name, ''), NULLIF(t.install_host, ''), 'Unassigned') COLLATE NOCASE,
-                          t.name COLLATE NOCASE
-            """).fetchall()
-        machines = {}
-        for row in rows:
-            tracker = dict(row)
-            tracker.update(classify_tracker_state(tracker))
-            key = tracker.get("machine_name") or tracker.get("install_host") or "Unassigned"
-            group = machines.setdefault(key, {"name": key, "host": tracker.get("install_host"), "trackers": [], "online": 0, "offline": 0, "updates": 0, "needs_attention": 0})
-            group["trackers"].append(tracker)
-            if tracker.get("last_probe_status") == "ok": group["online"] += 1
-            elif tracker.get("last_probe_status") == "error": group["offline"] += 1
-            if tracker["update_available"]: group["updates"] += 1
-            if tracker["needs_attention"]: group["needs_attention"] += 1
-        return render_template("fleet.html", machines=list(machines.values()))
 
     def tracker_form(tracker=None):
         default_refresh = int(get_setting("default_refresh_hours", "6") or 6)
@@ -1650,9 +1606,12 @@ def create_app() -> Flask:
             event_count=len(events),
         )
 
-    # Fleet naming and notification preferences extend the core web factory so
-    # development and test callers receive the same route set as production.
+    # Fleet naming, notification preferences, authentication rate limits and the
+    # remaining security controls extend this single factory so development, test
+    # and production callers all receive the same routes and protections.
     from .fleet_notifications import install_fleet_notification_controls
 
     install_fleet_notification_controls(app)
+    install_auth_rate_limits(app)
+    install_security_controls(app)
     return app
