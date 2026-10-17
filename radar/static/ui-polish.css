@@ -98,3 +98,4 @@
 .fleet-card{overflow:visible}
 .fleet-card:has(.inline-name-editor[open]){position:relative;z-index:30}
 .inline-name-editor[open]{z-index:35}
+.flash+.list-summary{margin-top:12px}
