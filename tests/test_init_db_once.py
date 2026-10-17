@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import base64
+import io
 import os
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 from unittest import mock
 
@@ -55,6 +57,13 @@ class InitDbOnceTests(unittest.TestCase):
                 {"smtp_host": "mail.example", "missing": ""},
             )
             self.assertEqual(check_all(enabled_only=True, due_only=True), [])
+
+    def test_checker_cli_initialises_a_fresh_database(self):
+        from radar.checker import main as checker_main
+
+        with redirect_stdout(io.StringIO()) as output:
+            self.assertEqual(checker_main(["--due", "--json"]), 0)
+        self.assertEqual(output.getvalue().strip(), "[]")
 
     def test_web_requests_do_not_rerun_schema_setup(self):
         app = create_app()

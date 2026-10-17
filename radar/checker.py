@@ -6,7 +6,7 @@ import sys
 from dataclasses import asdict, dataclass
 from typing import Iterable
 
-from .db import connect, transaction, utcnow
+from .db import connect, init_db, transaction, utcnow
 from .github import GitHubError, ReleaseInfo, get_latest
 from .notifications import dispatch_release_notifications
 from .portainer import PortainerError, sync_inventory
@@ -217,6 +217,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--due", action="store_true")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
+    init_db()
 
     results = [check_tracker(args.tracker_id, baseline=args.baseline)] if args.tracker_id else check_all(True, args.baseline, args.due)
 
