@@ -170,9 +170,14 @@
     }
   }
 
+  document.addEventListener('submit', (event) => {
+    const message = event.submitter?.dataset.confirm || event.target.dataset?.confirm;
+    if (message && !window.confirm(message)) event.preventDefault();
+  }, true);
+
   $$('form[method="post"]:not([data-no-busy]):not([data-assistant-form])').forEach((form) => {
     form.addEventListener('submit', (event) => {
-      if (form.dataset.submitting === '1' || !form.checkValidity()) return;
+      if (event.defaultPrevented || form.dataset.submitting === '1' || !form.checkValidity()) return;
       form.dataset.submitting = '1';
       form.setAttribute('aria-busy', 'true');
       const submitter = event.submitter || $('button[type="submit"], input[type="submit"]', form);

@@ -48,7 +48,7 @@
   {% if current_user['role'] == 'admin' and decision['decision_status'] != 'deployed' and not historical_release %}
   <section class="sticky-form-actions upgrade-plan-actions">
     <button class="button secondary" type="submit" name="action" value="save">Save decision</button>
-    <button class="button primary" type="submit" name="action" value="mark_deployed" onclick='return confirm({{ ("Record " ~ tracker["name"] ~ " " ~ release_key ~ " as deployed? This retains the previous version for rollback reference.")|tojson }});'>Mark release deployed</button>
+    <button class="button primary" type="submit" name="action" value="mark_deployed" data-confirm="{{ 'Record ' ~ tracker['name'] ~ ' ' ~ release_key ~ ' as deployed? This retains the previous version for rollback reference.' }}">Mark release deployed</button>
   </section>
   {% elif current_user['role'] == 'admin' and decision['decision_status'] != 'deployed' %}
   <section class="sticky-form-actions upgrade-plan-actions"><button class="button secondary" type="submit" name="action" value="save">Save historical notes</button></section>

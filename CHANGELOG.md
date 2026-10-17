@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 ### Fixed
 
 - Dashboard bulk "Check upstream now" and "Probe installed services" no longer fail with a server error when the selection includes an inventory-linked tracker (`sync_inventory` was never imported).
+- Cancelling a delete or deployment confirmation no longer leaves the form in a stuck "working" state.
 
 ### Changed
 
@@ -24,6 +25,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 - `regex`'s minimum supported version is now 2026.9.3.
 - Database schema setup and migrations now run once when each process starts, instead of on every settings read and release check. This removes a write transaction from every page request and scheduler cycle.
 - Integration transport rules (HTTPS for credential-bearing requests, same-origin credential redirects, bounded responses, SMTP TLS, Assistant size limits and safe probe regular expressions) now live in the code that uses them instead of being patched into the standard library at import time. SMTP now refuses cleartext remote delivery before login rather than after it.
+- The Content Security Policy no longer allows inline script. Page scripts now load from `radar/static/pages/`, inline event handlers were replaced with listeners, and the two overlapping security-header handlers were merged into one.
 - `docker/setup-qemu-action` is updated from v4.2.0 to v4.3.0 using its immutable commit SHA.
 
 ### Fixed

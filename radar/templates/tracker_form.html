@@ -37,7 +37,7 @@
   <section class="form-section divided-section">
     <div class="section-heading"><h2>Installed-version probe</h2><p>The deterministic probe can test reachability and retrieve the installed version without an LLM.</p></div>
     <div class="form-grid three-col">
-      <label>Probe method<select name="probe_mode" id="probe-mode" onchange="showProbeFields()">{% for value, label in probe_modes %}<option value="{{ value }}" {{ 'selected' if source.get('probe_mode', 'manual') == value else '' }}>{{ label }}</option>{% endfor %}</select></label>
+      <label>Probe method<select name="probe_mode" id="probe-mode">{% for value, label in probe_modes %}<option value="{{ value }}" {{ 'selected' if source.get('probe_mode', 'manual') == value else '' }}>{{ label }}</option>{% endfor %}</select></label>
       <label class="http-probe-field">Version endpoint path <small>optional</small><input name="version_probe_path" value="{{ source.get('version_probe_path', '') or '' }}" placeholder="/api/version"></label>
       <label class="json-probe-field">JSON path<input name="version_json_path" value="{{ source.get('version_json_path', '') or '' }}" placeholder="version or data.version"></label>
       <label class="regex-probe-field">Version regular expression<input name="version_regex" value="{{ source.get('version_regex', '') or '' }}" placeholder="version[\"':= ]+v?([0-9.]+)"></label>
@@ -50,8 +50,5 @@
   </section>
   <div class="form-actions"><a class="button secondary" href="{{ url_for('dashboard') }}">Cancel</a><button class="button primary" type="submit">{{ 'Save changes' if tracker else 'Add software' }}</button></div>
 </form>
-<script>
-function showProbeFields(){const mode=document.getElementById('probe-mode').value;document.querySelectorAll('.http-probe-field').forEach(e=>e.hidden=!['http_auto','http_json','http_regex'].includes(mode));document.querySelectorAll('.json-probe-field').forEach(e=>e.hidden=mode!=='http_json');document.querySelectorAll('.regex-probe-field').forEach(e=>e.hidden=mode!=='http_regex');document.querySelectorAll('.ssh-probe-field').forEach(e=>e.hidden=mode!=='ssh_docker');}
-showProbeFields();
-</script>
+<script src="{{ url_for('static', filename='pages/tracker-form.js', v=app_version) }}"></script>
 {% endblock %}
