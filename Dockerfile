@@ -34,4 +34,4 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=8s --retries=3 --start-period=20s \
   CMD python -c "import json,urllib.request; d=json.load(urllib.request.urlopen('http://127.0.0.1:8080/healthz', timeout=5)); assert d.get('status') == 'ok'" || exit 1
 
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "2", "--threads", "4", "--timeout", "180", "--access-logfile", "-", "--error-logfile", "-", "radar.application:create_app()"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "2", "--threads", "4", "--timeout", "180", "--access-logfile", "-", "--error-logfile", "-", "--no-control-socket", "radar.application:create_app()"]
