@@ -11,14 +11,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 - Dockhand support as an alternative Docker inventory provider alongside Portainer, including encrypted API-token storage, provider-specific synchronisation, environment availability checks and inventory normalisation.
 - A clearly labelled Global defaults section for inherited software notification behaviour and delivery channels.
 
-### Fixed
-
-- Dashboard bulk "Check upstream now" and "Probe installed services" no longer fail with a server error when the selection includes an inventory-linked tracker (`sync_inventory` was never imported).
-- Cancelling a delete or deployment confirmation no longer leaves the form in a stuck "working" state.
-### Security
-
-- `radar.web.create_app()` previously served a password-reset handler that built reset links from the request Host header. Only `radar.application.create_app()`, which the container uses, replaced it. The insecure handler has been removed.
-
 ### Changed
 
 - Docker inventory integration now uses a provider abstraction while preserving the existing Portainer-compatible database and Compose service names for backwards-compatible upgrades.
@@ -30,10 +22,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 - Integration transport rules (HTTPS for credential-bearing requests, same-origin credential redirects, bounded responses, SMTP TLS, Assistant size limits and safe probe regular expressions) now live in the code that uses them instead of being patched into the standard library at import time. SMTP now refuses cleartext remote delivery before login rather than after it.
 - The Content Security Policy no longer allows inline script. Page scripts now load from `radar/static/pages/`, inline event handlers were replaced with listeners, and the two overlapping security-header handlers were merged into one.
 - `radar.web.create_app()` is now the single application factory and installs every route and protection; `radar.application.create_app()` remains as the Gunicorn entry point. No module replaces registered view functions any more, and templates read the version from `radar/version.py`.
+- Docker Compose now names its image `ghcr.io/muhdusama/software-release-radar:${RADAR_VERSION}`, so a published release can be run with `docker compose pull` and `docker compose up -d --no-build`. `scripts/setup.sh` still builds locally.
+- The sidebar shows a link to the source repository next to the version.
 - `docker/setup-qemu-action` is updated from v4.2.0 to v4.3.0 using its immutable commit SHA.
 
 ### Fixed
 
+- Dashboard bulk "Check upstream now" and "Probe installed services" no longer fail with a server error when the selection includes an inventory-linked tracker (`sync_inventory` was never imported).
+- Cancelling a delete or deployment confirmation no longer leaves the form in a stuck "working" state.
 - Inventory probes now fail closed when a tracker mapping belongs to a different provider than the currently active inventory provider, preventing stale cross-provider version or state reporting.
 - Offline or malformed Dockhand environment responses preserve last-known-good inventory instead of incorrectly marking existing containers absent.
 - Dockhand due-sync scheduling now uses Dockhand-specific timing settings, and Dockhand origin validation rejects embedded credentials, paths, queries and fragments.
@@ -43,6 +39,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Security
 
+- `radar.web.create_app()` previously served a password-reset handler that built reset links from the request Host header. Only `radar.application.create_app()`, which the container uses, replaced it. The insecure handler has been removed.
 - Gunicorn 26.2.0 includes upstream HTTP/2 request-policy hardening.
 - Dependency minimums were refreshed after upstream security and reliability maintenance in `cryptography` and `regex`.
 

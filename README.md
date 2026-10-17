@@ -118,6 +118,8 @@ http://localhost:9120
 
 The administrator password itself is not written to `.env`.
 
+Release tags are also published to GHCR as `ghcr.io/muhdusama/software-release-radar` for `linux/amd64` and `linux/arm64`. See [Use the published image instead of building](docs/DOCKER.md#use-the-published-image-instead-of-building) to skip the local build.
+
 Read **[docs/DOCKER.md](docs/DOCKER.md)** before exposing Release Radar beyond a trusted network.
 
 ---
