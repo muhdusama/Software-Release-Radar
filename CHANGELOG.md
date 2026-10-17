@@ -11,6 +11,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 - Dockhand support as an alternative Docker inventory provider alongside Portainer, including encrypted API-token storage, provider-specific synchronisation, environment availability checks and inventory normalisation.
 - A clearly labelled Global defaults section for inherited software notification behaviour and delivery channels.
 
+### Fixed
+
+- Dashboard bulk "Check upstream now" and "Probe installed services" no longer fail with a server error when the selection includes an inventory-linked tracker (`sync_inventory` was never imported).
+
 ### Changed
 
 - Docker inventory integration now uses a provider abstraction while preserving the existing Portainer-compatible database and Compose service names for backwards-compatible upgrades.

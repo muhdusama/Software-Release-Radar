@@ -28,7 +28,7 @@ from .notifications import NotificationError, dispatch_release_notifications, se
 from .probes import probe_all, probe_tracker
 from .presentation import render_assistant_text
 from .portainer import (PortainerError, ignore_service, inventory_summary,
-                        is_expected_offline_error,
+                        is_expected_offline_error, sync_inventory,
                         test_connection as portainer_test_connection)
 from .portainer_jobs import enqueue_import, enqueue_sync, latest_import_job, latest_job
 from .secrets_store import decrypt_secret, encrypt_secret, validate_encryption_key
