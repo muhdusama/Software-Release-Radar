@@ -26,8 +26,13 @@ def connection():
 
 
 class PortainerRebindV263Tests(unittest.TestCase):
-    def test_rebinds_recreated_container_on_same_endpoint_name_and_repository(self):
+    def connection(self):
         conn = connection()
+        self.addCleanup(conn.close)
+        return conn
+
+    def test_rebinds_recreated_container_on_same_endpoint_name_and_repository(self):
+        conn = self.connection()
         conn.execute("INSERT INTO trackers VALUES (1, 'gotify/server', 10)")
         conn.execute("INSERT INTO portainer_services VALUES (10,97,'gotify',0,1,'old')")
         conn.execute("INSERT INTO portainer_services VALUES (11,97,'gotify',1,NULL,'new')")
@@ -46,7 +51,7 @@ class PortainerRebindV263Tests(unittest.TestCase):
         )
 
     def test_does_not_rebind_across_portainer_endpoints(self):
-        conn = connection()
+        conn = self.connection()
         conn.execute("INSERT INTO trackers VALUES (1, 'gotify/server', 10)")
         conn.execute("INSERT INTO portainer_services VALUES (10,97,'gotify',0,1,'old')")
         conn.execute("INSERT INTO portainer_services VALUES (11,1,'gotify',1,NULL,'new')")
@@ -60,7 +65,7 @@ class PortainerRebindV263Tests(unittest.TestCase):
         self.assertIsNone(result["tracker_id"])
 
     def test_does_not_rebind_when_container_name_changes(self):
-        conn = connection()
+        conn = self.connection()
         conn.execute("INSERT INTO trackers VALUES (1, 'jc21/nginx-proxy-manager', 10)")
         conn.execute("INSERT INTO portainer_services VALUES (10,97,'nginx',0,1,'old')")
         conn.execute("INSERT INTO portainer_services VALUES (11,97,'npm',1,NULL,'new')")
@@ -74,7 +79,7 @@ class PortainerRebindV263Tests(unittest.TestCase):
         self.assertIsNone(result["tracker_id"])
 
     def test_canonical_current_mapping_prevents_duplicate_service_steal(self):
-        conn = connection()
+        conn = self.connection()
         conn.execute("INSERT INTO trackers VALUES (1, 'immich-app/immich', 10)")
         conn.execute("INSERT INTO portainer_services VALUES (10,70,'immich_server',1,1,'old')")
         conn.execute("INSERT INTO portainer_services VALUES (11,70,'immich_machine_learning',1,1,'new')")
@@ -94,7 +99,7 @@ class PortainerRebindV263Tests(unittest.TestCase):
         )
 
     def test_unmapped_tracker_keeps_existing_exact_repository_auto_link(self):
-        conn = connection()
+        conn = self.connection()
         conn.execute("INSERT INTO trackers VALUES (1, 'portainer/portainer', NULL)")
         conn.execute("INSERT INTO portainer_services VALUES (11,97,'portainer',1,NULL,'new')")
         service = conn.execute("SELECT * FROM portainer_services WHERE id=11").fetchone()
@@ -108,7 +113,7 @@ class PortainerRebindV263Tests(unittest.TestCase):
 
 
     def test_explicit_mapping_stays_authoritative_during_sync_present_reset(self):
-        conn = connection()
+        conn = self.connection()
         conn.execute("INSERT INTO trackers VALUES (1, 'immich-app/immich', 10)")
         conn.execute("INSERT INTO portainer_services VALUES (10,70,'immich_machine_learning',0,1,'old')")
         conn.execute("INSERT INTO portainer_services VALUES (11,70,'immich_server',1,1,'new')")
