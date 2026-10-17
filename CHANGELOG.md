@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+## [2.9.0] - 2026-10-18
+
 ### Added
 
 - Dockhand support as an alternative Docker inventory provider alongside Portainer, including encrypted API-token storage, provider-specific synchronisation, environment availability checks and inventory normalisation.
