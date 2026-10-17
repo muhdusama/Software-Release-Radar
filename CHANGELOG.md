@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+## [2.9.1] - 2026-10-18
+
+### Fixed
+
+- `python -m radar.checker` initialises the database schema again before checking. Since 2.9.0 it failed with `no such table: trackers` on a database that the web service had not already initialised.
+
 ## [2.9.0] - 2026-10-18
 
 ### Added

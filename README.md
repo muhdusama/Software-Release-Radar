@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <img alt="Version 2.9.0" src="https://img.shields.io/badge/version-2.9.0-2f81f7">
+  <img alt="Version 2.9.1" src="https://img.shields.io/badge/version-2.9.1-2f81f7">
   <img alt="Python 3.13 application" src="https://img.shields.io/badge/app-Python%203.13-3776AB?logo=python&logoColor=white">
   <img alt="Docker Compose deployment" src="https://img.shields.io/badge/deploy-Docker%20Compose-2496ED?logo=docker&logoColor=white">
   <img alt="AGPL 3.0 licence" src="https://img.shields.io/badge/licence-AGPL--3.0-663399">
@@ -255,7 +255,7 @@ See **[docs/DOCKER.md](docs/DOCKER.md)** for the full operational procedure.
 
 # 🔐 Security model
 
-The v2.9.0 release includes:
+The v2.9.1 release includes:
 
 - CSRF protection on state-changing browser routes;
 - HTTP-only, same-site session cookies;
@@ -285,7 +285,7 @@ For production hardening guidance, see **[docs/SECURITY-HARDENING.md](docs/SECUR
 
 The release candidate is tested as a complete lifecycle, not only as a Docker image build.
 
-| Gate | v2.9.0 status |
+| Gate | v2.9.1 status |
 |---|---|
 | Python compilation and complete automated test suite | ✅ Passed |
 | Dependency vulnerability audit | ✅ Passed |

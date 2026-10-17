@@ -61,7 +61,7 @@
     <g transform="translate(318 472)">
       <rect width="1026" height="206" rx="20" fill="#131e33"/>
 
-      <text x="40" y="48" dominant-baseline="middle" fill="#f8fafc" font-size="25" font-weight="700">Demo Reverse Proxy · 2.9.0 → 2.9.1</text>
+      <text x="40" y="48" dominant-baseline="middle" fill="#f8fafc" font-size="25" font-weight="700">Demo Reverse Proxy · 2.9.1 → 2.9.1</text>
 
       <rect x="40" y="78" width="128" height="38" rx="19" fill="#173f34"/>
       <text x="104" y="97" text-anchor="middle" dominant-baseline="middle" fill="#a7f3d0" font-size="15" font-weight="700">NORMAL</text>
