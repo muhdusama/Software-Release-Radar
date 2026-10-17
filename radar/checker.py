@@ -6,7 +6,7 @@ import sys
 from dataclasses import asdict, dataclass
 from typing import Iterable
 
-from .db import connect, init_db, transaction, utcnow
+from .db import connect, transaction, utcnow
 from .github import GitHubError, ReleaseInfo, get_latest
 from .notifications import dispatch_release_notifications
 from .portainer import PortainerError, sync_inventory
@@ -105,7 +105,6 @@ def _record_error(tracker, message: str) -> CheckResult:
 
 
 def check_tracker(tracker_id: int, baseline: bool = False, run_probe: bool = True, *, refresh_portainer: bool = True) -> CheckResult:
-    init_db()
     with connect() as conn:
         tracker = conn.execute("SELECT * FROM trackers WHERE id = ?", (tracker_id,)).fetchone()
     if tracker is None:
@@ -131,7 +130,6 @@ def check_tracker(tracker_id: int, baseline: bool = False, run_probe: bool = Tru
 
 
 def check_all(enabled_only: bool = True, baseline: bool = False, due_only: bool = False) -> list[CheckResult]:
-    init_db()
     query = "SELECT * FROM trackers"
     if enabled_only:
         query += " WHERE enabled = 1"

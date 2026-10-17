@@ -479,14 +479,12 @@ def init_db() -> None:
 
 
 def get_setting(key: str, default: str | None = None) -> str | None:
-    init_db()
     with connect() as conn:
         row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
     return str(row["value"]) if row else default
 
 
 def get_settings(keys: list[str]) -> dict[str, str]:
-    init_db()
     if not keys:
         return {}
     placeholders = ",".join("?" for _ in keys)
