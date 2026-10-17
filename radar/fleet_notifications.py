@@ -321,6 +321,7 @@ def install_fleet_notification_controls(app: Flask) -> None:
     """Install editable Fleet names and granular release notification controls."""
     ensure_fleet_notification_schema()
 
+    @app.get("/fleet", endpoint="fleet")
     def fleet_view():
         response = _require_login()
         if response is not None:
@@ -335,8 +336,6 @@ def install_fleet_notification_controls(app: Flask) -> None:
                 get_setting("inventory_provider", "portainer") or "portainer"
             ).title(),
         )
-
-    app.view_functions["fleet"] = fleet_view
 
     @app.post("/fleet/machines/<int:endpoint_id>/name")
     def fleet_machine_name(endpoint_id: int):
