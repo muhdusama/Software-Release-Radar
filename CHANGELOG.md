@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+## [2.9.3] - 2026-10-19
+
+### Changed
+
+- The sidebar and sign-in page now show that Software Release Radar is developed and maintained by IMUVERSE, with a link to imuverse.com.
+
+### Documentation
+
+- Added IMUVERSE attribution to the README and refreshed the preview screen captures for v2.9.3, still using fictional demo data only.
+
 ## [2.9.2] - 2026-10-18
 
 ### Fixed
