@@ -14,7 +14,7 @@ body:
     attributes:
       label: Release Radar version
       description: Shown in the footer or returned by /healthz.
-      placeholder: "2.9.2"
+      placeholder: "2.9.3"
     validations:
       required: true
 

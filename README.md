@@ -3,12 +3,14 @@
 </p>
 
 <p align="center">
-  <img alt="Version 2.9.2" src="https://img.shields.io/badge/version-2.9.2-2f81f7">
+  <img alt="Version 2.9.3" src="https://img.shields.io/badge/version-2.9.3-2f81f7">
   <img alt="Python 3.13 application" src="https://img.shields.io/badge/app-Python%203.13-3776AB?logo=python&logoColor=white">
   <img alt="Docker Compose deployment" src="https://img.shields.io/badge/deploy-Docker%20Compose-2496ED?logo=docker&logoColor=white">
   <img alt="AGPL 3.0 licence" src="https://img.shields.io/badge/licence-AGPL--3.0-663399">
   <img alt="AI is optional" src="https://img.shields.io/badge/AI-optional-64748b">
 </p>
+
+<p align="center">Developed and maintained by <a href="https://imuverse.com"><strong>IMUVERSE</strong></a></p>
 
 <p align="center">
   <a href="#-quick-start">Quick start</a> ·
@@ -22,7 +24,7 @@
 </p>
 
 > [!IMPORTANT]
-> **Latest release: [v2.9.2](https://github.com/muhdusama/Software-Release-Radar/releases/latest).** This maintenance update fixes a Fleet layout overlap, removes Gunicorn's unused control-socket start-up error and restricts backup file permissions. v2.9 also includes Dockhand inventory, global notification defaults and strengthened integration security. Multi-architecture images are published to GHCR. See the [changelog](CHANGELOG.md).
+> **Latest release: [v2.9.3](https://github.com/muhdusama/Software-Release-Radar/releases/latest).** This update adds IMUVERSE attribution in the application. Recent v2.9 maintenance fixed a Fleet layout overlap, removed Gunicorn's unused control-socket start-up error and restricted backup file permissions. v2.9 also includes Dockhand inventory, global notification defaults and strengthened integration security. Multi-architecture images are published to GHCR. See the [changelog](CHANGELOG.md).
 
 # 📡 What is Software Release Radar?
 
@@ -132,7 +134,7 @@ Read **[docs/DOCKER.md](docs/DOCKER.md)** before exposing Release Radar beyond a
 
 # 🖼️ Preview
 
-Screenshots of v2.9.1. They use fictional demo data only: invented software names, `demo-org/*` repositories and `192.0.2.x` documentation addresses.
+Screenshots of v2.9.3. They use fictional demo data only: invented software names, `demo-org/*` repositories and `192.0.2.x` documentation addresses.
 
 ### Dashboard
 
@@ -320,9 +322,9 @@ The release candidate is tested as a complete lifecycle, not only as a Docker im
 | Persistent state after Compose restart | ✅ Passed |
 | Clean macOS Docker Desktop acceptance | ✅ Passed at v2.9.0 |
 | Visual review of clean deployment | ✅ Passed at v2.9.0; v2.9.1 preview screenshots reviewed |
-| Final privacy and secret scan after version freeze | ✅ Passed at v2.9.0; v2.9.2 public diff reviewed |
+| Final privacy and secret scan after version freeze | ✅ Passed at v2.9.0; v2.9.3 public diff reviewed |
 
-The automated gates run in CI on every pull request and on `main`. The macOS acceptance and full version-freeze gates were last run at v2.9.0; they are not presented as repeated v2.9.2 tests. v2.9.2 also includes fixes from the two merged pull requests and refreshed demo-only documentation screenshots.
+The automated gates run in CI on every pull request and on `main`. The macOS acceptance and full version-freeze gates were last run at v2.9.0; they are not presented as repeated v2.9.3 tests. v2.9.3 also includes fixes from the two merged pull requests and refreshed demo-only documentation screenshots.
 
 The public repository was launched at v2.7.0 from a sanitised, clean Git history after a final GitHub safety-settings review. See **[ROADMAP.md](ROADMAP.md)** for the launch checklist.
 
@@ -457,3 +459,5 @@ Financial support is optional. The project remains available under its open-sour
 </p>
 
 <p align="center"><strong>Track releases. Compare versions. Know what changed.</strong></p>
+
+<p align="center">Developed and maintained by <a href="https://imuverse.com">IMUVERSE</a> · <a href="https://imuverse.com">imuverse.com</a></p>

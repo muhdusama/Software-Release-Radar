@@ -19,6 +19,9 @@ class UIReleasePolishTests(unittest.TestCase):
         self.assertNotIn("{% set app_version", self.base)
         self.assertIn('class="sidebar-version"', self.base)
         self.assertIn('href="https://github.com/muhdusama/Software-Release-Radar"', self.base)
+        self.assertIn('Developed and maintained by <a href="https://imuverse.com"', self.base)
+        login = (self.root / "radar" / "templates" / "login.html").read_text()
+        self.assertIn('Developed and maintained by <a href="https://imuverse.com"', login)
         self.assertIn('v{{ app_version }}', self.base)
         self.assertIn("filename='ui-polish.css', v=app_version", self.base)
 
