@@ -1,6 +1,6 @@
 # Roadmap
 
-Updated 22 October 2026. Current application version: **2.10.0**.
+Updated 22 October 2026. Current application version: **2.10.1**.
 
 Release Radar is built around a practical question: **is this update worthwhile for the software I actually run?** The roadmap prioritises better evidence for that decision while keeping monitoring deterministic and deployment under operator control.
 
