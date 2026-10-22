@@ -4,7 +4,7 @@
   <div>
     <span class="eyebrow">RELEASE AND DEPLOYMENT MONITORING</span>
     <h1>Tracked software</h1>
-    <p>The hourly no-agent job checks only due trackers. Service probes compare deployed and upstream versions without using an LLM.</p>
+    <p>Automatic monitoring checks trackers when their refresh interval is due. Service probes compare installed and upstream versions without using an LLM.</p>
   </div>
   {% if current_user['role'] == 'admin' %}<div class="heading-actions">
     <form method="post" action="{{ url_for('probe_everything') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button secondary" type="submit">Probe services</button></form>

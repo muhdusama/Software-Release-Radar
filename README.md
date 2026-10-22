@@ -3,461 +3,182 @@
 </p>
 
 <p align="center">
-  <img alt="Version 2.9.3" src="https://img.shields.io/badge/version-2.9.3-2f81f7">
-  <img alt="Python 3.13 application" src="https://img.shields.io/badge/app-Python%203.13-3776AB?logo=python&logoColor=white">
-  <img alt="Docker Compose deployment" src="https://img.shields.io/badge/deploy-Docker%20Compose-2496ED?logo=docker&logoColor=white">
-  <img alt="AGPL 3.0 licence" src="https://img.shields.io/badge/licence-AGPL--3.0-663399">
+  <a href="https://github.com/muhdusama/Software-Release-Radar/releases/latest"><img alt="Version 2.10.0" src="https://img.shields.io/badge/version-2.10.0-2f81f7"></a>
+  <a href="https://github.com/muhdusama/Software-Release-Radar/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/muhdusama/Software-Release-Radar/actions/workflows/ci.yml/badge.svg"></a>
+  <img alt="Python 3.13" src="https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white">
+  <img alt="Docker Compose" src="https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white">
+  <a href="LICENSE"><img alt="AGPL 3.0 licence" src="https://img.shields.io/badge/licence-AGPL--3.0-663399"></a>
   <img alt="AI is optional" src="https://img.shields.io/badge/AI-optional-64748b">
 </p>
 
 <p align="center">Developed and maintained by <a href="https://imuverse.com"><strong>IMUVERSE</strong></a></p>
 
 <p align="center">
-  <a href="#-quick-start">Quick start</a> ·
-  <a href="#-preview">Preview</a> ·
-  <a href="#-what-it-does">Features</a> ·
-  <a href="#-how-monitoring-works">Monitoring</a> ·
-  <a href="#-production-readiness">Readiness</a> ·
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#why-release-radar">Why Release Radar?</a> ·
+  <a href="#preview">Preview</a> ·
+  <a href="docs/COMPARISON.md">Comparison</a> ·
+  <a href="CHANGELOG.md">Revision updates</a> ·
   <a href="ROADMAP.md">Roadmap</a> ·
-  <a href="CHANGELOG.md">Changelog</a> ·
-  <a href="#-support-the-project">Support</a>
+  <a href="#documentation">Documentation</a>
 </p>
 
-> [!IMPORTANT]
-> **Latest release: [v2.9.3](https://github.com/muhdusama/Software-Release-Radar/releases/latest).** This update adds IMUVERSE attribution in the application. Recent v2.9 maintenance fixed a Fleet layout overlap, removed Gunicorn's unused control-socket start-up error and restricted backup file permissions. v2.9 also includes Dockhand inventory, global notification defaults and strengthened integration security. Multi-architecture images are published to GHCR. See the [changelog](CHANGELOG.md).
+# Software Release Radar
 
-# 📡 What is Software Release Radar?
+**Understand what you gain, what might break and what you miss by waiting, before you update.**
 
-Software Release Radar is a self-hosted dashboard for people who run a growing collection of software, such as a homelab or a small fleet of servers, and want one dependable place to see what needs updating.
+Software Release Radar is a self-hosted dashboard for reviewing software updates across a homelab or small server fleet. It tracks upstream GitHub releases against the versions you actually run, adds service and container context, and keeps your upgrade decisions in one place.
 
-It watches upstream GitHub releases, detects the versions you actually run (through service probes, SSH Docker inspection or a Portainer or Dockhand inventory), and turns every confirmed difference into an explicit decision: update, wait, ignore or investigate. Email and Pushover alerts tell you when something new lands, and an optional AI assistant can summarise what changed.
+**Version 2.10.0** adds in-app revision updates and roadmap pages, clearer pre-update analysis and a comparison guide. See the [changelog](CHANGELOG.md) for changes and compatibility notes.
 
-<table>
-<tr>
-<td width="33%" valign="top">
+## Why Release Radar?
 
-### 🐍 Python application
+Knowing that an update exists is the start of the decision. You still need to understand its value and cost:
 
-The application is written in Python 3.13 and served through Gunicorn.
+- **What will I gain?** Features, fixes and improvements documented since the installed version.
+- **What could I lose?** Removed functionality, deprecated settings and changed behaviour described upstream.
+- **What do I miss if I wait?** Improvements and fixes that remain unavailable on the current version.
+- **What needs preparation?** Compatibility checks, migrations, a maintenance window and a rollback plan.
 
-</td>
-<td width="33%" valign="top">
+Release Radar connects that review to your installed versions, fleet inventory and an explicit **Update, Wait, Ignore or Needs Attention** decision. The optional Release Assistant interprets the evidence; you retain control of deployment.
 
-### 🐳 Docker deployment
+### Analyse before replacing a container image
 
-Docker Compose is the primary deployment path. Host Python is not required for the recommended first run.
+For inventory-linked services, Release Radar can bring the recorded running image reference, available digest, detected version and state into a release comparison. It reads the available GitHub release notes between the installed version and tracked target, then asks the Assistant to explain benefits, removals, the cost of waiting and evidence gaps.
 
-</td>
-<td width="33%" valign="top">
+**This is release and inventory analysis, not a candidate-image security scan.** Release Radar does not yet pull or inspect a proposed image, resolve registry digests, compare SBOMs, verify signatures or test the new container. It cannot guarantee compatibility from release notes. Exact image preflight is the first major item on the [roadmap](ROADMAP.md).
 
-### 🧠 AI is optional
+### How it differs from other tools
 
-Core monitoring is deterministic. AI can help interpret release notes when wanted.
+| Tool | Main job | Where Release Radar fits |
+|---|---|---|
+| [Diun](https://crazymax.dev/diun/) | Detect image tag or digest changes and notify | Review application release changes and record the operational decision |
+| [What's Up Docker](https://getwud.app/) | Monitor container updates and run notification or update triggers | Plan benefits, risks, timing and rollback before deployment |
+| [Renovate](https://docs.renovatebot.com/docker/) | Propose dependency, image tag and digest changes in Git | Add context from running services and a fleet-wide upgrade review |
+| [Trivy](https://trivy.dev/docs/latest/target/container_image/) | Inspect images for security findings and work with SBOMs | Review application changes; use Trivy separately for image security evidence |
 
-</td>
-</tr>
-</table>
+These tools have overlapping and complementary roles. See the [comparison guide](docs/COMPARISON.md) for details, sources and current limitations. Release Radar does not apply updates or replace your deployment tools.
 
----
+## Quick start
 
-# 🧒 ELI5
-
-Imagine you run 20 or 30 apps at home, in a homelab, or on your own servers.
-
-Each app gets updates at different times. Without a tool like this, you may need to visit several websites, remember what version you installed, read release notes, work out which server runs each app, and decide whether the update is worth doing.
-
-**Software Release Radar handles the repetitive tracking so you can focus on the decision.**
-
-```text
-Software you run
-       │
-       ▼
-Check official upstream releases
-       │
-       ▼
-Compare latest version with your version
-       │
-       ▼
-Add machine, container and health context
-       │
-       ▼
-Put the result in one review queue
-       │
-       ├── Update
-       ├── Wait
-       ├── Ignore
-       └── Investigate
-```
-
-> [!NOTE]
-> Release Radar is not an unattended production updater. It is designed to improve the information available before you make a change.
-
----
-
-# 🚀 Quick start
-
-### Requirements
-
-- Docker Engine or Docker Desktop
-- Docker Compose v2
-- Git
-
-### Install
+Requirements: Docker Engine or Docker Desktop, Docker Compose v2 or later, and Git.
 
 ```bash
 git clone https://github.com/muhdusama/Software-Release-Radar.git
-```
-
-```bash
 cd Software-Release-Radar
-```
-
-```bash
 bash scripts/setup.sh
 ```
 
-The setup helper asks for the first administrator account, generates secure application secrets inside a temporary Docker container, writes a protected `.env`, builds the stack, starts all services and waits for the application to report healthy.
+Open **http://localhost:9120**.
 
-Then open:
+The setup helper asks for the first administrator account, generates application secrets in a temporary container, writes a protected `.env`, builds the stack and waits for health. It does not save the administrator password itself. Host Python is not required.
 
-```text
-http://localhost:9120
-```
+Published images are available at `ghcr.io/muhdusama/software-release-radar` for `linux/amd64` and `linux/arm64`. To use one, follow [the published-image deployment instructions](docs/DOCKER.md#use-the-published-image-instead-of-building).
 
-The administrator password itself is not written to `.env`.
+Read the [Docker guide](docs/DOCKER.md) and [security hardening guide](docs/SECURITY-HARDENING.md) before exposing the application outside a trusted network.
 
-Release tags are also published to GHCR as `ghcr.io/muhdusama/software-release-radar` for `linux/amd64` and `linux/arm64`. See [Use the published image instead of building](docs/DOCKER.md#use-the-published-image-instead-of-building) to skip the local build.
+## Preview
 
-Read **[docs/DOCKER.md](docs/DOCKER.md)** before exposing Release Radar beyond a trusted network.
-
----
-
-# 🖼️ Preview
-
-Screenshots of v2.9.3. They use fictional demo data only: invented software names, `demo-org/*` repositories and `192.0.2.x` documentation addresses.
+Screenshots below show v2.9.3 using fictional demo data and documentation-reserved addresses. They illustrate the existing core workflow; the 2.10.0 project pages are described in the [changelog](CHANGELOG.md).
 
 ### Dashboard
 
-Tracked software, update and attention counts, recent release activity and the decision queue at a glance.
+Tracked software, installed and upstream versions, update counts and recent release activity.
 
-<p align="center">
-  <img src="docs/images/screenshot-dashboard.webp" alt="Software Release Radar dashboard showing tracked software, update counts, a 14-day release activity chart and recently updated software" width="1050">
-</p>
+![Dashboard with fictional tracked software](docs/images/screenshot-dashboard.webp)
 
 ### Upgrade decisions
 
-Every confirmed update becomes a decision with priority, risk, planned maintenance and checklist progress.
+A review queue with priority, risk and maintenance planning.
 
-<p align="center">
-  <img src="docs/images/screenshot-upgrades.webp" alt="Software Release Radar upgrade decision queue listing releases to review, update or wait on, with priority and risk badges" width="1050">
-</p>
+![Upgrade decision queue](docs/images/screenshot-upgrades.webp)
 
 ### Upgrade plan
 
-Record the decision, maintenance date, notes, a pre-upgrade checklist and rollback context for one release.
+A recorded decision, checklist and rollback context for a specific release.
 
-<p align="center">
-  <img src="docs/images/screenshot-upgrade-decision.webp" alt="Software Release Radar upgrade plan for a major release with decision, priority, risk, notes and a pre-upgrade checklist" width="1050">
-</p>
+![Upgrade plan and rollback checklist](docs/images/screenshot-upgrade-decision.webp)
 
 ### Fleet
 
-Software grouped by machine, with online, offline, update and attention states and editable display names.
+Services grouped by machine, with health and update status.
 
-<p align="center">
-  <img src="docs/images/screenshot-fleet.webp" alt="Software Release Radar fleet view grouping services by machine with version status and probe actions" width="1050">
-</p>
+![Fleet grouped by machine](docs/images/screenshot-fleet.webp)
 
----
+## Capabilities
 
-# ✨ What it does
-
-| Area | Capability |
+| Area | Available now |
 |---|---|
-| 📡 **Release tracking** | GitHub releases, prereleases and latest tags |
-| ⏱️ **Automatic monitoring** | Scheduler checks only trackers whose individual refresh interval is due |
-| 🔢 **Version awareness** | Installed, detected and upstream version comparison |
-| 🖥️ **Fleet inventory** | Machine, service, container, folder, port and health context with editable display names |
-| 🐳 **Portainer or Dockhand** | Inventory and source-name synchronisation with local aliases and resilient container rebinding |
-| ✅ **Review workflow** | Update, Wait, Ignore, Deployed and Needs Attention decisions |
-| 🩺 **Diagnostics** | Separates real updates from checker failures and unavailable comparisons |
-| 🔔 **Notifications** | System-wide, personal, channel and per-software controls for SMTP email and Pushover |
-| 🧠 **Optional AI** | OpenAI-compatible release comparison and tracker chat |
-| 👥 **Multi-user** | Administrator and standard-user roles |
-| 💾 **Data safety** | SQLite WAL mode, online backup helper and guarded restore helper |
-| 📦 **Deployment** | Docker Compose with persistent state, plus prebuilt `linux/amd64` and `linux/arm64` images on GHCR |
+| Release tracking | GitHub releases, prereleases and latest tags; refresh interval per tracker |
+| Version awareness | Manual versions, service probes, constrained SSH Docker inspection and inventory-provider detection |
+| Fleet inventory | Portainer or Dockhand, machine and service context, aliases and container rebinding |
+| Upgrade review | Decisions, priorities, risk, maintenance dates, checklists, rollback notes and deployment records |
+| Optional Assistant | Release comparison and tracker chat using an OpenAI-compatible endpoint |
+| Notifications | SMTP email and Pushover with system, user, channel and software preferences |
+| Project information | About, Revision updates and Roadmap pages inside the application |
+| Access and storage | Administrator and standard-user roles, SQLite WAL storage and encrypted integration secrets |
+| Deployment | Docker Compose, persistent state and published multi-architecture images |
 
-### 📡 Release intelligence
+### Monitoring without AI
 
-- Track stable releases, prereleases or latest tags.
-- Set a refresh interval per software package.
-- Compare upstream releases with installed or detected versions.
-- Keep checker failures separate from confirmed updates.
-- Handle version schemes that need deterministic normalisation.
+The standard stack runs three services: the web application, scheduler and inventory worker. The scheduler wakes every 60 seconds by default and checks only trackers whose own refresh interval is due. No external cron job or LLM is needed for release checks, version comparison, health probes or standard notifications.
 
-### 🖥️ Fleet context
+### Optional release analysis
 
-- Associate software with machines and services.
-- Record host, port, health and Docker container context.
-- Group services by machine.
-- Surface online, offline, update and needs-attention states.
-- Search and filter larger inventories.
-- Edit machine, software and stack or folder display names directly from Fleet.
-- Follow renamed inventory-provider environments and services automatically while preserving deliberate local aliases.
+Configure an OpenAI-compatible endpoint in Settings to use the Assistant. It receives selected tracker, deployment and release-note context, so choose a provider appropriate for your data. Model output is advisory, escaped for display and bounded by request controls.
 
-### 🐳 Docker inventory providers
+Release history currently uses the latest 20 GitHub release records returned by the API, filtered for the tracker's prerelease setting. Missing version boundaries and truncated notes are identified as incomplete. Tag-only tracking does not provide a complete historical release comparison.
 
-Release Radar can discover Docker environments and containers from Portainer or Dockhand. Select a provider under Settings, save its encrypted API credential, test the connection, then synchronise from Inventory. Existing Portainer installations remain selected after upgrade.
+### Upgrade and recovery
 
-Dockhand synchronisation verifies each environment before accepting an empty container list. Offline environments keep their last-known inventory. See [docs/CONFIGURATION.md](docs/CONFIGURATION.md) for token setup and the current Dockhand API limitation.
+Read the [revision updates](CHANGELOG.md) before upgrading. Version 2.10.0 requires no database migration or new configuration. Preserve your `.env`, data and SSH material, and retain a rollback image.
 
-### ✅ Upgrade decisions
-
-Release Radar provides an operational review queue rather than an unattended updater. A release can carry priority, risk, maintenance timing, notes, rollback context and deployment history.
-
-### 🧠 Optional Release Assistant
-
-An OpenAI-compatible endpoint can be used for release-note analysis and tracker chat. Core release checking, scheduling, probing, version comparison and standard notifications do not require an AI model.
-
-### 🔔 Notification control
-
-The Notifications page separates password-recovery email from release alerts. An administrator can pause release notifications system-wide, each user can choose a personal default and delivery channels, and individual software trackers can inherit that default, always notify, or remain muted. Muted releases are recorded as skipped so turning alerts back on does not send an unexpected backlog.
-
----
-
-# ⏱️ How monitoring works
-
-The standard Docker stack contains three long-running services:
-
-```text
-Browser
-   │
-   ▼
-Web application ───────────────┐
-   │                           │
-   ├── SQLite state            │
-   ├── GitHub release API      │ shared application data
-   ├── optional inventory      │
-   └── optional AI             │
-                               │
-Scheduler ─────────────────────┤
-   │                           │
-   └── checks due trackers     │
-                               │
-Inventory worker ──────────────┘
-       └── background inventory jobs
-```
-
-The scheduler wakes every 60 seconds by default. It does not check every tracker every minute. Each tracker keeps its own refresh interval, and only due trackers are checked.
-
-Automatic monitoring therefore works out of the box without an external cron job.
-
----
-
-# 💾 Back up and restore
-
-Create a verified online SQLite backup:
+The repository includes online SQLite backup and guarded restore helpers:
 
 ```bash
 ./scripts/backup.sh
-```
-
-Restore a verified backup:
-
-```bash
 bash scripts/restore.sh ./backups/radar-YYYYMMDD-HHMMSS.db --confirm
 ```
 
-The backup helper uses SQLite's online backup API and runs `PRAGMA integrity_check`.
+The [Docker guide](docs/DOCKER.md) explains their operation and the difference between restoring application state and reverting an image. Use your established host backup process as well.
 
-The restore helper validates the requested backup, creates a fresh pre-restore safety backup, stops database writers, restores through a narrowly scoped maintenance container, returns ownership to the non-root application user, validates the restored database and confirms that the full stack returns healthy.
+## Quality and security
 
-See **[docs/DOCKER.md](docs/DOCKER.md)** for the full operational procedure.
+Pull requests run Python 3.13 tests, dependency vulnerability auditing, a reviewed Bandit gate and Docker setup/recovery acceptance. The [Actions page](https://github.com/muhdusama/Software-Release-Radar/actions) records the result for each revision. A passing historical run is not a guarantee for a later build or a particular deployment.
 
----
+The application includes CSRF protection, authenticated access, login/reset throttling, encrypted integration credentials, a non-root container user and a Content Security Policy that blocks inline scripts. Credential-bearing integration requests require HTTPS by default and use constrained redirects and response sizes. Optional SSH probes use fixed commands and strict host-key checking.
 
-# 🔐 Security model
+Report vulnerabilities through [SECURITY.md](SECURITY.md), not a public issue. The [October repository review](docs/REPOSITORY-REVIEW.md) records addressed gaps and the highest-value remaining work.
 
-The current release includes:
+## Roadmap and contributions
 
-- CSRF protection on state-changing browser routes;
-- HTTP-only, same-site session cookies;
-- optional secure-only session cookies for HTTPS deployments;
-- generated application secrets;
-- Fernet encryption for stored integration secrets;
-- shared login and password-reset throttling;
-- security response headers;
-- TLS verification enabled by default for inventory providers;
-- proxy forwarding headers disabled unless explicitly enabled;
-- OpenAI-compatible endpoints restricted to complete HTTP or HTTPS URLs without embedded credentials;
-- a non-root application container user;
-- strict SSH host-key checking for optional Docker probes;
-- fixed remote Docker inspection rather than arbitrary remote shell execution;
-- blocking dependency vulnerability auditing with `pip-audit`;
-- a reviewed Bandit static-analysis gate in CI;
-- a Content Security Policy that blocks inline script; and
-- credential-bearing integration requests that require HTTPS, stay on the same origin across redirects and have bounded response sizes.
+The next priorities are exact candidate-image preflight, reproducible release comparisons and clearer operational evidence. Scanner integrations, more release sources and a read-only API remain future work. The [roadmap](ROADMAP.md) separates shipped capabilities from proposed additions and gives acceptance criteria for the next priorities.
 
-Security vulnerabilities should not be posted in public issues. Follow **[SECURITY.md](SECURITY.md)**.
+Use [Issues](https://github.com/muhdusama/Software-Release-Radar/issues) for reproducible bugs and feature requests, and [Discussions](https://github.com/muhdusama/Software-Release-Radar/discussions) for questions and proposals. See [CONTRIBUTING.md](CONTRIBUTING.md) and [feature voting](FEATURE_VOTING.md).
 
-For production hardening guidance, see **[docs/SECURITY-HARDENING.md](docs/SECURITY-HARDENING.md)**.
+## People and development
 
----
+Created and maintained by [@muhdusama](https://github.com/muhdusama) under [IMUVERSE](https://imuverse.com), with human contributions including Dockhand compatibility from [@KoshiirRa](https://github.com/KoshiirRa).
 
-# 🧪 Production readiness
+This is an openly AI-assisted project built to solve a practical self-hosting problem. OpenAI Codex and Claude Code have assisted with implementation, tests, reviews and documentation. The maintainer remains responsible for the changes and release decisions; generated code still needs verification. See [CONTRIBUTORS.md](CONTRIBUTORS.md).
 
-The release candidate is tested as a complete lifecycle, not only as a Docker image build.
+## Documentation
 
-| Gate | Status and verification |
+| Guide | Purpose |
 |---|---|
-| Python compilation and complete automated test suite | ✅ Passed |
-| Dependency vulnerability audit | ✅ Passed |
-| Reviewed Bandit security gate | ✅ Passed |
-| Real public first-run setup on a clean Linux runner | ✅ Passed |
-| Web health and login-page acceptance | ✅ Passed |
-| Automatic scheduler remains running | ✅ Passed |
-| Inventory worker remains running | ✅ Passed |
-| Online SQLite backup and integrity check | ✅ Passed |
-| Guarded restore and return to healthy state | ✅ Passed |
-| Persistent state after Compose restart | ✅ Passed |
-| Clean macOS Docker Desktop acceptance | ✅ Passed at v2.9.0 |
-| Visual review of clean deployment | ✅ Passed at v2.9.0; v2.9.1 preview screenshots reviewed |
-| Final privacy and secret scan after version freeze | ✅ Passed at v2.9.0; v2.9.3 public diff reviewed |
+| [Docker deployment](docs/DOCKER.md) | Install, upgrade, back up, restore and troubleshoot |
+| [Configuration](docs/CONFIGURATION.md) | Environment variables and optional integrations |
+| [Comparison](docs/COMPARISON.md) | Why Release Radar, other tools and analysis limits |
+| [Revision updates](CHANGELOG.md) | Versioned application changes and compatibility notes |
+| [Roadmap](ROADMAP.md) | Shipped features, priorities and future acceptance criteria |
+| [Repository review](docs/REPOSITORY-REVIEW.md) | Gaps addressed and remaining opportunities |
+| [Notifications](docs/NOTIFICATIONS.md) | Global, personal and per-software alert controls |
+| [Architecture](docs/ARCHITECTURE.md) | Runtime services and design boundaries |
+| [Security hardening](docs/SECURITY-HARDENING.md) | Deployment protections |
+| [GitHub workflow](docs/GITHUB-WORKFLOW.md) | Review, CI, releases and deployment provenance |
 
-The automated gates run in CI on every pull request and on `main`. The macOS acceptance and full version-freeze gates were last run at v2.9.0; they are not presented as repeated v2.9.3 tests. v2.9.3 also includes fixes from the two merged pull requests and refreshed demo-only documentation screenshots.
+## Licence and support
 
-The public repository was launched at v2.7.0 from a sanitised, clean Git history after a final GitHub safety-settings review. See **[ROADMAP.md](ROADMAP.md)** for the launch checklist.
+Licensed under [GNU AGPL-3.0](LICENSE). See [COMMERCIAL_USE.md](COMMERCIAL_USE.md) for commercial-use guidance and source-sharing obligations.
 
----
-
-# 🎛️ Vibe-coded and open about it
-
-Software Release Radar is very much a **vibe-coded project**.
-
-I am not a software developer. I started building this because I had a practical problem in my own self-hosted setup and wanted a better way to solve it.
-
-I have used AI coding assistants heavily, first **OpenAI Codex** and more recently **Anthropic Claude Code**, to help design, write, refactor, test and document the project. I set the direction, decide what the application should do, test it in a real environment, review the results and make the final call on changes.
-
-I am being open about this because contributors should know how the project came together. There may be places where an experienced developer would choose a cleaner pattern or spot something that I missed. If you find one, please open an issue or pull request.
-
-<table>
-<tr>
-<td width="33%" valign="top">
-
-### 🧭 Human direction
-
-Product decisions, priorities and release decisions stay human-led.
-
-</td>
-<td width="33%" valign="top">
-
-### 🤖 AI-assisted
-
-OpenAI Codex and Claude Code have been used extensively for implementation, testing, refactoring, review and documentation.
-
-</td>
-<td width="33%" valign="top">
-
-### 🧪 Validation matters
-
-AI-generated code is not treated as reviewed simply because a tool produced it. Tests and release gates still apply.
-
-</td>
-</tr>
-</table>
-
----
-
-# 👥 Contributors
-
-<p align="center">
-  <img alt="Human led" src="https://img.shields.io/badge/project-human%20led-2f81f7">
-  <img alt="OpenAI Codex contributor" src="https://img.shields.io/badge/OpenAI%20Codex-AI%20coding%20contributor-412991?logo=openai&logoColor=white">
-  <img alt="Claude Code contributor" src="https://img.shields.io/badge/Claude%20Code-AI%20coding%20contributor-D97757?logo=anthropic&logoColor=white">
-</p>
-
-| Contributor | Role |
-|---|---|
-| [@muhdusama](https://github.com/muhdusama) | Creator and maintainer. Product direction, feature decisions, real-world testing and release decisions. |
-| [@KoshiirRa](https://github.com/KoshiirRa) | Human contributor. Dockhand inventory-provider compatibility. |
-| **OpenAI Codex** | AI coding contributor. Implementation, refactoring, tests, debugging, documentation and code review assistance. |
-| **Claude Code** | AI coding contributor. The v2.9 security, reliability and deployment work, release engineering and documentation. |
-
-AI coding tools are not conventional GitHub contributor accounts. GitHub's contributor graph is based on commit authorship, so they may not appear there as separate accounts.
-
-See **[CONTRIBUTORS.md](CONTRIBUTORS.md)** for more detail.
-
----
-
-# 🗳️ Help shape the roadmap
-
-<p align="center">
-  <img src="docs/images/feature-voting-loop.svg" alt="Feature proposal and roadmap voting process" width="1000">
-</p>
-
-To get involved:
-
-1. propose a feature using the structured feature request form;
-2. vote with a 👍 reaction on requests that would help you;
-3. strong candidates can move into a roadmap poll for direct comparison; and
-4. results help guide priority alongside security, reliability and maintenance effort.
-
-<p align="center">
-  <a href="FEATURE_VOTING.md"><strong>📊 Read how feature voting works</strong></a>
-  &nbsp;&nbsp;•&nbsp;&nbsp;
-  <a href="ROADMAP.md"><strong>🗺️ View the roadmap</strong></a>
-</p>
-
----
-
-# 🔓 Open-source licence
-
-Software Release Radar is licensed under the **GNU Affero General Public License v3.0 (`AGPL-3.0`)**.
-
-AGPL-3.0 permits use, modification, distribution and commercial use while applying strong copyleft requirements. Covered modifications and derivative works must remain under AGPL-3.0. If a modified version is provided to users over a network, those users must be offered access to the corresponding source code under the licence.
-
-- [Full licence](LICENSE)
-- [Commercial use and AGPL obligations](COMMERCIAL_USE.md)
-- [Security policy](SECURITY.md)
-- [Contribution guide](CONTRIBUTING.md)
-
----
-
-# ☕ Support the project
-
-Software Release Radar is a side project I am building and maintaining while I look for my next role. If it saves you time or is useful in your environment, any support is appreciated and helps me keep improving it.
-
-<p align="center">
-  <a href="https://buymeacoffee.com/muhdusama"><img src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-Support-FFDD00?logo=buymeacoffee&logoColor=000000" alt="Support on Buy Me a Coffee"></a>
-  <a href="https://www.paypal.com/paypalme/muhdusama"><img src="https://img.shields.io/badge/PayPal-Donate-003087?logo=paypal&logoColor=white" alt="Donate with PayPal"></a>
-</p>
-
-Financial support is optional. The project remains available under its open-source licence either way.
-
----
-
-# 📚 Documentation
-
-| | Document | What it is for |
-|---|---|---|
-| 🐳 | [Docker deployment](docs/DOCKER.md) | Install, back up, restore, upgrade and troubleshoot |
-| ⚙️ | [Configuration](docs/CONFIGURATION.md) | Environment variables and optional integrations |
-| 🔔 | [Notification controls](docs/NOTIFICATIONS.md) | Global, personal, channel and per-software alert policy |
-| 🏗️ | [Architecture](docs/ARCHITECTURE.md) | Runtime services, data flow and design boundaries |
-| 🔐 | [Security hardening](docs/SECURITY-HARDENING.md) | Production deployment checklist |
-| 🗺️ | [Roadmap](ROADMAP.md) | Launch gates and future direction |
-| 📜 | [Changelog](CHANGELOG.md) | Release history |
-| 🗳️ | [Feature voting](FEATURE_VOTING.md) | How feature requests and roadmap polls work |
-| 🤝 | [Contributing](CONTRIBUTING.md) | Contribution and validation workflow |
-| 🛡️ | [Security policy](SECURITY.md) | How to report vulnerabilities |
-| ☕ | [Support](SUPPORT.md) | Project support and funding options |
-
----
-
-<p align="center">
-  <img src="docs/images/software-release-radar-logo.svg" alt="Software Release Radar logo" width="96">
-</p>
-
-<p align="center"><strong>Track releases. Compare versions. Know what changed.</strong></p>
-
-<p align="center">Developed and maintained by <a href="https://imuverse.com">IMUVERSE</a> · <a href="https://imuverse.com">imuverse.com</a></p>
+If the project is useful to you, optional support is available through [Buy Me a Coffee](https://buymeacoffee.com/muhdusama) or [PayPal](https://www.paypal.com/paypalme/muhdusama). See [SUPPORT.md](SUPPORT.md).

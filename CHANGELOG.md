@@ -2,9 +2,38 @@
 
 All notable changes to Software Release Radar are documented here.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project aims to follow semantic versioning for public releases.
+The project follows semantic versioning for public releases and the Keep a Changelog format.
+
+Format reference: https://keepachangelog.com/en/1.1.0/
 
 ## [Unreleased]
+
+## [2.10.0] - 2026-10-22
+
+### Added
+
+- Authenticated About, Revision updates and Roadmap pages, accessible from navigation and the command palette. Revision and roadmap content is bundled with the application from the canonical repository documents.
+- A practical comparison with Diun, WUD, Renovate and Trivy that explains the value and limits of reviewing an update before deployment.
+- Recorded image metadata in the Assistant context when a valid inventory mapping is available, with observation times and explicit completeness and freshness caveats.
+
+### Changed
+
+- Release analysis now asks for features gained, features removed or deprecated, what you miss by waiting, compatibility requirements and evidence gaps before a recommendation.
+- Browser and service paths share release-context builders and analysis prompts.
+- Refreshed the README and roadmap, separating shipped capabilities from planned image preflight and supply-chain checks.
+
+### Fixed
+
+- Kept mobile navigation controls on one row and corrected outdated dashboard scheduler wording.
+- Form-based Assistant chat sends each question once and only saves a conversation turn after a successful model response.
+- Assistant context treats tracker, inventory and upstream fields as untrusted data.
+- Release comparisons stay anchored to the tracked target instead of including newer releases returned by a later history lookup.
+- Assembled analysis context stays within the AI request limit, with missing boundaries and shortened evidence explicitly identified.
+
+### Compatibility
+
+- No database schema migration, new dependency or new configuration requirement. Existing tracker, inventory, notification and deployment settings are retained.
+- Image analysis uses recorded inventory metadata and GitHub release notes. Candidate-image inspection, CVE/SBOM scans, signature verification and automated deployment are not included.
 
 ## [2.9.3] - 2026-10-19
 
