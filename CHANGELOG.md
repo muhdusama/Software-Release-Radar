@@ -8,6 +8,24 @@ Format reference: https://keepachangelog.com/en/1.1.0/
 
 ## [Unreleased]
 
+## [2.10.3] - 2026-10-22
+
+### Added
+
+- A revision selector that defaults to the latest published release, with specific-version links and an all-revisions view.
+- An authenticated Contributors page with visible OpenAI Codex credit and links, accessible from navigation and the command palette.
+- A dedicated disclosure of AI assistance in software development and maintenance, separate from the optional in-app Assistant.
+
+### Changed
+
+- Redesigned Compare with a focused introduction, decision cards, current-versus-planned scope, complementary-tool cards and a practical example.
+- Kept comparisons respectful and encouraged readers to explore Diun, WUD, Renovate and Trivy.
+- Bundled canonical contributor documentation with the application.
+
+### Compatibility
+
+- No database migration, new dependency or configuration requirement.
+
 ## [2.10.2] - 2026-10-22
 
 ### Changed

@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Compare approaches · Software Release Radar{% endblock %}
+{% block topbar_title %}Product comparison{% endblock %}
+{% block content_class %}comparison-page{% endblock %}
+{% block content %}
+<div class="project-shell">
+  <section class="comparison-hero">
+    <div>
+      <span class="eyebrow">KNOW WHAT CHANGED. DECIDE WHAT MATTERS.</span>
+      <h1>Every update deserves<br>a clear decision.</h1>
+      <div class="assistant-rich-text project-lede">{{ introduction|assistant_markdown }}</div>
+      <div class="project-actions">
+        <a class="button primary" href="#great-projects-to-explore">Explore complementary tools <span aria-hidden="true">↓</span></a>
+        <a class="button ghost" href="{{ url_for('roadmap') }}">View roadmap</a>
+      </div>
+    </div>
+    <aside class="comparison-focus" aria-label="Release Radar focus">
+      <span class="section-kicker">SOFTWARE RELEASE RADAR</span>
+      <div class="focus-orbit" aria-hidden="true">◎</div>
+      <h2>Your fleet.<br>Your evidence.<br>Your decision.</h2>
+      <p>Review the benefits and trade-offs before replacing a running service.</p>
+      <span class="focus-caption">Release intelligence · Deployment under your control</span>
+    </aside>
+  </section>
+  {% for section in sections %}
+  <section class="project-section comparison-section section-{{ section.key }}" id="{{ section.key }}" aria-labelledby="heading-{{ section.key }}">
+    <div class="project-section-heading"><span class="section-number" aria-hidden="true">{{ '%02d'|format(loop.index) }}</span><h2 id="heading-{{ section.key }}">{{ section.title }}</h2></div>
+    {% if section.body %}<div class="assistant-rich-text project-section-copy">{{ section.body|assistant_markdown }}</div>{% endif %}
+    {% if section.cards %}
+    <div class="project-card-grid">
+      {% for card in section.cards %}
+      <article class="panel project-info-card">
+        <span class="project-card-mark" aria-hidden="true">{{ card.title[:1] if card.url else '%02d'|format(loop.index) }}</span>
+        <h3>{{ card.title }}</h3>
+        <div class="assistant-rich-text">{{ card.body|assistant_markdown }}</div>
+        {% if card.url %}<a class="project-card-link" href="{{ card.url }}" target="_blank" rel="noopener noreferrer">Explore {{ card.title }} <span aria-hidden="true">↗</span></a>{% endif %}
+      </article>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </section>
+  {% endfor %}
+  <footer class="project-footer"><span>Built with community contributions and AI assistance.</span><a href="{{ url_for('contributors') }}">Meet the contributors <span aria-hidden="true">→</span></a></footer>
+</div>
+{% endblock %}

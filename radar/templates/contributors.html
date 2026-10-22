@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Contributors · Software Release Radar{% endblock %}
+{% block topbar_title %}Contributors{% endblock %}
+{% block content_class %}contributors-page{% endblock %}
+{% block content %}
+<div class="project-shell">
+  <section class="page-heading"><div><span class="eyebrow">PEOPLE, COMMUNITY AND AI</span><h1>Contributors</h1><div class="assistant-rich-text project-lede">{{ introduction|assistant_markdown }}</div></div></section>
+  <nav class="project-jump-links" aria-label="Contributor sections"><a href="#people-and-tools-behind-the-project">Contributor credits</a><a href="#ai-assisted-development-and-maintenance">AI development disclosure</a></nav>
+  {% for section in sections %}
+  <section class="project-section section-{{ section.key }}" id="{{ section.key }}" aria-labelledby="heading-{{ section.key }}">
+    <div class="project-section-heading"><h2 id="heading-{{ section.key }}">{{ section.title }}</h2></div>
+    {% if section.body %}<div class="assistant-rich-text project-section-copy">{{ section.body|assistant_markdown }}</div>{% endif %}
+    {% if section.cards %}
+    <div class="project-card-grid">
+      {% for card in section.cards %}
+      <article class="panel project-info-card contributor-card">
+        <span class="project-card-mark" aria-hidden="true">{{ card.title[:1] }}</span>
+        <h3>{{ card.title }}</h3><div class="assistant-rich-text">{{ card.body|assistant_markdown }}</div>
+        {% if card.url %}<a class="project-card-link" href="{{ card.url }}" target="_blank" rel="noopener noreferrer">View {{ card.title }} on GitHub <span aria-hidden="true">↗</span></a>{% endif %}
+      </article>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </section>
+  {% endfor %}
+</div>
+{% endblock %}

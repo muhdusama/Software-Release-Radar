@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/muhdusama/Software-Release-Radar/releases/latest"><img alt="Version 2.10.2" src="https://img.shields.io/badge/version-2.10.2-2f81f7"></a>
+  <a href="https://github.com/muhdusama/Software-Release-Radar/releases/latest"><img alt="Version 2.10.3" src="https://img.shields.io/badge/version-2.10.3-2f81f7"></a>
   <a href="https://github.com/muhdusama/Software-Release-Radar/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/muhdusama/Software-Release-Radar/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Python 3.13" src="https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white">
   <img alt="Docker Compose" src="https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white">
@@ -29,7 +29,7 @@
 
 Software Release Radar is a self-hosted dashboard for reviewing software updates across a homelab or small server fleet. It tracks upstream GitHub releases against the versions you actually run, adds service and container context, and keeps your upgrade decisions in one place.
 
-**Version 2.10.2** makes the roadmap easier to follow with a visual timeline, clear stage labels and expandable details. See the [changelog](CHANGELOG.md) for changes and compatibility notes.
+**Version 2.10.3** adds revision filtering, a clearer comparison page and visible contributor credits with an AI development and maintenance disclosure. See the [changelog](CHANGELOG.md) for changes and compatibility notes.
 
 ## Why Release Radar?
 
@@ -135,7 +135,7 @@ Release history currently uses the latest 20 GitHub release records returned by 
 
 ### Upgrade and recovery
 
-Read the [revision updates](CHANGELOG.md) before upgrading. Version 2.10.2 requires no database migration or new configuration. Preserve your `.env`, data and SSH material, and retain a rollback image.
+Read the [revision updates](CHANGELOG.md) before upgrading. Version 2.10.3 requires no database migration or new configuration. Preserve your `.env`, data and SSH material, and retain a rollback image.
 
 The repository includes online SQLite backup and guarded restore helpers:
 
@@ -164,7 +164,13 @@ Use [Issues](https://github.com/muhdusama/Software-Release-Radar/issues) for rep
 
 Created and maintained by [@muhdusama](https://github.com/muhdusama) under [IMUVERSE](https://imuverse.com), with human contributions including Dockhand compatibility from [@KoshiirRa](https://github.com/KoshiirRa).
 
-This is an openly AI-assisted project built to solve a practical self-hosting problem. [OpenAI Codex (@codex)](https://github.com/codex) and Claude Code are credited contributors for their assistance with implementation, tests, reviews and documentation. The maintainer remains responsible for the changes and release decisions; generated code still needs verification. See [CONTRIBUTORS.md](CONTRIBUTORS.md).
+See the [Contributors page](CONTRIBUTORS.md) for visible credits, including [OpenAI Codex (@codex)](https://github.com/codex), Claude Code and community contributions. The application also includes a Contributors page under Project.
+
+## AI-assisted development and maintenance
+
+AI was used to assist in the development and maintenance of Software Release Radar. OpenAI Codex and Anthropic Claude Code have helped with implementation, debugging, tests, security review assistance, documentation and release preparation.
+
+The maintainer directs the work, reviews changes, verifies behaviour and decides what is accepted and deployed. AI assistance does not replace human responsibility. This disclosure is separate from the optional in-app Release Assistant: core monitoring and notifications work without an LLM.
 
 ## Documentation
 

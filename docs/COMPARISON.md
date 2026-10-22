@@ -1,72 +1,103 @@
-# Why Release Radar?
+# Compare approaches
 
-Know what changed before you update. Software Release Radar brings the software you run, upstream changes and your upgrade decision into one place.
+Software Release Radar helps you decide whether an update is worthwhile for the software you actually run. It connects installed versions, upstream changes and your upgrade plan in one place.
 
 ## Review the value of an update
 
-An image update can bring useful features, fixes, removed functionality or migration work. Release Radar helps you review that trade-off before replacing a running container:
+The focus is your decision before deployment. Start with the installed version, review the available evidence, then record Update, Wait, Ignore or Needs Attention.
 
-1. Establish the installed version through a service probe, manual entry or Portainer/Dockhand inventory.
-2. Compare it with the tracked GitHub release, using the available release history between the two versions.
-3. Review the benefits, removed or deprecated features, compatibility requirements and what you would miss by waiting.
-4. Record Update, Wait, Ignore or Needs Attention, with a maintenance date, checklist and rollback notes.
-5. Deploy through your existing tools, then record the result in Release Radar.
+### What will I gain?
 
-The optional Release Assistant explains this evidence in plain language. Monitoring, version comparison, probes, scheduling and standard notifications continue to work without AI.
+See the documented features, fixes and improvements between your installed version and the tracked release.
+
+### What could I lose?
+
+Look for removed features, deprecated settings and changed behaviour that could affect your deployment.
+
+### What if I wait?
+
+Understand which improvements and fixes remain unavailable on your current version.
+
+### What needs preparation?
+
+Review compatibility and migrations, then record a maintenance window, checklist and rollback plan.
 
 ## What image analysis means today
 
-Release Radar uses **running-container inventory metadata and upstream release notes**. When available from a valid inventory mapping, the Assistant can use the recorded image reference, image ID, digest, detected version, state and observation time. A missing digest or stale inventory is a gap to investigate, not proof of safety.
+The optional Assistant interprets supplied evidence and identifies uncertainty. Monitoring, version comparison, probes, scheduling and standard notifications work without AI.
 
-The Assistant is asked to distinguish **features gained**, **features removed or deprecated**, and **what you miss by waiting**, then explain compatibility, migrations, operational checks and its recommendation. These are model interpretations of the supplied evidence, not independently verified guarantees. If upstream notes omit a change, Release Radar cannot reliably infer it.
+### Available today
 
-Release Radar does **not** currently fetch and inspect a candidate image, resolve its registry digest, scan image layers for vulnerabilities, compare SBOMs, verify signatures, test architecture compatibility or run the update in a sandbox. Those checks belong to the proposed image preflight work on the roadmap. It does not deploy or restart your services.
+Recorded running-container metadata from a valid inventory mapping: image reference, image ID, digest, detected version, state and observation time. GitHub release notes provide the context for feature gains, removals and the cost of waiting.
 
-## How it fits alongside other tools
+Missing metadata and incomplete notes remain evidence gaps. The Assistant cannot reliably infer changes that upstream notes omit.
 
-Diun, What's Up Docker, Renovate and Trivy are excellent projects that serve the self-hosting and software maintenance community. We appreciate the work behind them and encourage you to visit their documentation and try them. Each brings useful capabilities, and they can work well alongside Release Radar.
+### On the roadmap
 
-What sets Software Release Radar apart is its focus on the upgrade decision for the software you actually run: what you gain, what may be removed, what you miss by waiting, and how you plan and record the change. The comparisons below describe how these projects fit together and help you find the combination that suits your workflow.
+Exact candidate-image inspection, registry digest resolution, platform and configuration comparison, and optional security evidence from established tools.
 
-### Diun: image change notifications
+Release Radar does not currently pull or run a candidate image, scan its layers, compare SBOMs or verify signatures. Deployment stays under your control.
 
-Diun watches container image tags and digests and sends notifications when they change. It is useful for detecting registry rebuilds, including changes that do not produce a new application release. Release Radar focuses on installed application versions, upstream release context and the operator's recorded decision. Use a registry watcher alongside Release Radar when digest-only changes matter.
+## Great projects to explore
+
+Diun, What's Up Docker, Renovate and Trivy are excellent projects. We appreciate their maintainers and encourage you to explore them. Their capabilities can complement Release Radar, and the best combination depends on your workflow.
+
+### Diun
+
+**Image change notifications.** Watches image tags and digests, including registry rebuilds that may not produce an application release.
+
+Use its registry alerts alongside Release Radar's review of application changes and recorded upgrade decisions.
 
 Official documentation: https://crazymax.dev/diun/
 
-### What's Up Docker (WUD): container update monitoring and triggers
+### What's Up Docker (WUD)
 
-WUD watches running containers and their registries, with notification and update triggers. Release Radar focuses on release review, including benefits, risks, maintenance planning and rollback notes. You can use WUD for container update monitoring and triggers alongside Release Radar for the review and planning that accompany an update.
+**Container update monitoring and triggers.** Watches running containers and their registries, with notification and update triggers.
+
+Use WUD for monitoring and triggers alongside Release Radar for benefits, risks, maintenance planning and rollback notes.
 
 Official documentation: https://getwud.app/
 
-### Renovate: proposed dependency changes in Git
+### Renovate
 
-Renovate finds image references in Dockerfiles, Compose files and other manifests, then proposes version or digest changes through pull requests. Release Radar centres the versions detected in your running services and the upgrade decision across your fleet. A Renovate pull request can remain your deployment change while Release Radar holds the operational review.
+**Dependency changes through Git.** Proposes image tag, digest and dependency changes through pull requests.
+
+A Renovate pull request can remain your deployment change while Release Radar holds the review of versions running across your fleet.
 
 Official documentation: https://docs.renovatebot.com/docker/
 
-### Trivy: image security inspection
+### Trivy
 
-Trivy inspects container images for security findings and can work with SBOMs. Its security evidence can complement Release Radar's review of documented features, fixes, compatibility and maintenance timing. We encourage using an image security tool such as Trivy when assessing a candidate image; Release Radar's current analysis uses inventory metadata and release notes.
+**Image security evidence.** Inspects container images for security findings and works with SBOMs.
+
+Use its security evidence alongside Release Radar's review of documented features, compatibility and maintenance timing.
 
 Official documentation: https://trivy.dev/docs/latest/target/container_image/
 
-## Example: is this update worthwhile?
+## An update decision in practice
 
-Suppose you run version 1.4 and the tracked release is 1.7. The upstream notes describe a new search feature in 1.5, a reliability fix in 1.6 and a removed authentication option in 1.7.
+An illustrative example: you run version 1.4 and the target is 1.7. The notes describe new search in 1.5, a reliability fix in 1.6 and a removed authentication option in 1.7.
 
-- **Gain:** the search feature and reliability fix.
-- **Potential loss:** the old authentication option, if your deployment uses it.
-- **Cost of waiting:** those improvements remain unavailable; any documented security fix also stays unapplied.
-- **Decision:** check your authentication configuration and migration instructions before scheduling the update.
+### Gain
 
-This is an illustrative example, not an assessment of a real package. Release Radar should identify missing release notes or an uncertain installed-version mapping instead of making up the missing details.
+The new search feature and reliability fix.
 
-## Evidence and privacy boundaries
+### Check
 
-GitHub release history is bounded to the latest 20 returned release records, filtered by the tracker's prerelease setting. Version boundaries that cannot be matched and notes shortened to fit the model request are explicitly identified as incomplete. Tag-only tracking does not provide a complete release-note comparison.
+Whether your deployment still uses the removed authentication option.
 
-Enabling the optional Assistant sends selected tracker, deployment and release-note context to the OpenAI-compatible endpoint you configure. Review that provider's data handling before using it with private infrastructure. Recommendations remain advisory and require an operator's judgement.
+### Wait
+
+Those improvements remain unavailable on the installed version.
+
+### Decide
+
+Review the migration instructions and your configuration before scheduling the update.
+
+## Evidence and privacy
+
+Release history is bounded to the latest 20 GitHub release records returned by the API, filtered by the tracker's prerelease setting. Missing version boundaries and truncated notes are identified as incomplete. Tag-only tracking does not provide a full release-note comparison.
+
+The optional Assistant sends selected tracker, deployment and release-note context to the OpenAI-compatible endpoint you configure. Review that provider's data handling for private infrastructure. Recommendations remain advisory and require operator judgement.
 
 Comparison checked against the linked official documentation on 22 October 2026. Product capabilities can change.
