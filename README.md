@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/muhdusama/Software-Release-Radar/releases/latest"><img alt="Version 2.10.4" src="https://img.shields.io/badge/version-2.10.4-2f81f7"></a>
+  <a href="https://github.com/muhdusama/Software-Release-Radar/releases/latest"><img alt="Version 2.10.5" src="https://img.shields.io/badge/version-2.10.5-2f81f7"></a>
   <a href="https://github.com/muhdusama/Software-Release-Radar/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/muhdusama/Software-Release-Radar/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Python 3.13" src="https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white">
   <img alt="Docker Compose" src="https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white">
@@ -29,7 +29,7 @@
 
 Software Release Radar is a self-hosted dashboard for reviewing software updates across a homelab or small server fleet. It tracks upstream GitHub releases against the versions you actually run, adds service and container context, and keeps your upgrade decisions in one place.
 
-**Version 2.10.4** keeps the comparison guide and application revision updates on GitHub. The app retains its Roadmap and Contributors pages, including the AI development and maintenance disclosure. See the [changelog](CHANGELOG.md) for changes and compatibility notes.
+**Version 2.10.5** keeps the roadmap, comparison guide and application revision updates on GitHub. The app retains Contributors and the AI development and maintenance disclosure. See the [changelog](CHANGELOG.md) for changes and compatibility notes.
 
 ## Why Release Radar?
 
@@ -119,7 +119,7 @@ Services grouped by machine, with health and update status.
 | Upgrade review | Decisions, priorities, risk, maintenance dates, checklists, rollback notes and deployment records |
 | Optional Assistant | Release comparison and tracker chat using an OpenAI-compatible endpoint |
 | Notifications | SMTP email and Pushover with system, user, channel and software preferences |
-| Project information | Roadmap and Contributors pages inside the application; comparison and revision updates on GitHub |
+| Project information | Contributors and AI disclosure inside the application; roadmap, comparison and revision updates on GitHub |
 | Access and storage | Administrator and standard-user roles, SQLite WAL storage and encrypted integration secrets |
 | Deployment | Docker Compose, persistent state and published multi-architecture images |
 
@@ -135,7 +135,7 @@ Release history currently uses the latest 20 GitHub release records returned by 
 
 ### Upgrade and recovery
 
-Read the [revision updates](CHANGELOG.md) before upgrading. Version 2.10.4 requires no database migration or new configuration. Preserve your `.env`, data and SSH material, and retain a rollback image.
+Read the [revision updates](CHANGELOG.md) before upgrading. Version 2.10.5 requires no database migration or new configuration. Preserve your `.env`, data and SSH material, and retain a rollback image.
 
 The repository includes online SQLite backup and guarded restore helpers:
 

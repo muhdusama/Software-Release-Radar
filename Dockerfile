@@ -1,6 +1,6 @@
 FROM python:3.13-slim
 
-ARG APP_VERSION=2.10.4
+ARG APP_VERSION=2.10.5
 ARG VCS_REF=""
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -26,7 +26,7 @@ WORKDIR /app
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 COPY --chown=radar:radar radar ./radar
-COPY --chown=radar:radar ROADMAP.md CONTRIBUTORS.md ./
+COPY --chown=radar:radar CONTRIBUTORS.md ./
 
 USER radar
 

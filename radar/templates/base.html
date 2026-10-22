@@ -35,7 +35,6 @@
       <span class="nav-section-label">Analyse</span>
       <a class="{{ 'active' if request.endpoint in ['assistant', 'assistant_run'] else '' }}" href="{{ url_for('assistant') }}"><span class="nav-icon" aria-hidden="true">✦</span><span>Assistant</span><kbd>7</kbd></a>
       <span class="nav-section-label">Project</span>
-      <a class="{{ 'active' if request.endpoint == 'roadmap' else '' }}" href="{{ url_for('roadmap') }}"><span class="nav-icon" aria-hidden="true">↝</span><span>Roadmap</span></a>
       <a class="{{ 'active' if request.endpoint == 'contributors' else '' }}" href="{{ url_for('contributors') }}"><span class="nav-icon" aria-hidden="true">◇</span><span>Contributors</span></a>
 
       {% if current_user['role'] == 'admin' %}
@@ -118,7 +117,6 @@
       <a class="command-item" href="{{ url_for('notifications_preferences') }}" data-command-item data-command-search-text="notifications alerts email pushover mute software preferences"><span class="command-item-icon">◉</span><span><strong>Notifications</strong><small>Global, channel and per-software controls</small></span><kbd>5</kbd></a>
       {% if current_user['role'] == 'admin' %}<a class="command-item" href="{{ url_for('portainer_inventory') }}" data-command-item data-command-search-text="portainer docker containers stacks inventory"><span class="command-item-icon">⬡</span><span><strong>Docker inventory</strong><small>Provider environments, projects and containers</small></span><kbd>6</kbd></a>{% endif %}
       <a class="command-item" href="{{ url_for('assistant') }}" data-command-item data-command-search-text="assistant ai analysis chat upgrade risk"><span class="command-item-icon">✦</span><span><strong>Release Assistant</strong><small>Deployment-aware upgrade analysis</small></span><kbd>7</kbd></a>
-      <a class="command-item" href="{{ url_for('roadmap') }}" data-command-item data-command-search-text="roadmap planned future image preflight"><span class="command-item-icon">↝</span><span><strong>Product roadmap</strong><small>Current and planned work</small></span></a>
       <a class="command-item" href="{{ url_for('contributors') }}" data-command-item data-command-search-text="contributors credits codex claude ai development maintenance disclosure"><span class="command-item-icon">◇</span><span><strong>Contributors</strong><small>People, AI assistance and maintenance</small></span></a>
       {% if current_user['role'] == 'admin' %}<a class="command-item" href="{{ url_for('settings') }}" data-command-item data-command-search-text="settings smtp pushover openai portainer"><span class="command-item-icon">⚙</span><span><strong>Settings</strong><small>Connections and application defaults</small></span><kbd>8</kbd></a>{% endif %}
     </div>
