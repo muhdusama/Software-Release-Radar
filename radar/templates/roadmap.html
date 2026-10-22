@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Product roadmap · Software Release Radar{% endblock %}
+{% block topbar_title %}Product roadmap{% endblock %}
+{% block content_class %}roadmap-page{% endblock %}
+{% block content %}
+<div class="roadmap-shell">
+  <section class="page-heading">
+    <div>
+      <span class="eyebrow">THE PATH AHEAD</span>
+      <h1>Product roadmap</h1>
+      <p>From knowing what changed to knowing exactly what you would deploy.</p>
+    </div>
+  </section>
+  <div class="roadmap-intro assistant-rich-text">{{ introduction|assistant_markdown }}</div>
+  {% if stages %}
+  <nav class="roadmap-stages" aria-label="Roadmap stages">
+    {% for stage in stages %}
+    <a href="#roadmap-{{ stage.key }}"><span aria-hidden="true">{{ '%02d'|format(loop.index) }}</span>{{ stage.phase }}</a>
+    {% endfor %}
+  </nav>
+  <ol class="roadmap-timeline" aria-label="Product development timeline">
+    {% for stage in stages %}
+    <li class="roadmap-milestone roadmap-{{ stage.key }}" id="roadmap-{{ stage.key }}">
+      <div class="roadmap-marker" aria-hidden="true">{{ '%02d'|format(loop.index) }}</div>
+      <article class="panel roadmap-card" aria-labelledby="roadmap-title-{{ stage.key }}">
+        <div class="roadmap-card-meta"><span class="roadmap-phase">{{ stage.phase }}</span><span class="roadmap-status">{{ stage.status }}</span></div>
+        <h2 id="roadmap-title-{{ stage.key }}">{{ stage.title }}</h2>
+        <div class="assistant-rich-text roadmap-summary">{{ stage.summary|assistant_markdown }}</div>
+        {% if stage.details %}
+        <details class="roadmap-details">
+          <summary>{{ 'Explore shipped capabilities' if stage.key == 'now' else 'Explore scope and acceptance criteria' }}</summary>
+          <div class="assistant-rich-text">{{ stage.details|assistant_markdown }}</div>
+        </details>
+        {% endif %}
+      </article>
+    </li>
+    {% endfor %}
+  </ol>
+  {% endif %}
+  <div class="roadmap-supporting">
+    {% for section in supporting %}
+    <section><h2>{{ section.title }}</h2><div class="assistant-rich-text">{{ section.body|assistant_markdown }}</div></section>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

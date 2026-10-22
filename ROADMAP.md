@@ -1,90 +1,91 @@
 # Roadmap
 
-Updated 22 October 2026. Current application version: **2.10.1**.
+Updated 22 October 2026. Current application version: **2.10.2**.
 
-Release Radar is built around a practical question: **is this update worthwhile for the software I actually run?** The roadmap prioritises better evidence for that decision while keeping monitoring deterministic and deployment under operator control.
+This timeline shows the intended order of work, not delivery dates. Only Now is available today; future stages may change as we learn from users.
 
-Items below are separated into shipped capabilities, next priorities and exploratory ideas. Planned items are not available features, delivery promises or scheduled releases.
+## Now: Review updates with confidence
 
-## Available in 2.10.0
+**Available today.** Connect the versions you run with upstream changes and record an informed upgrade decision.
 
-- GitHub release and tag tracking with per-software schedules, installed-version probes and update classification.
+- Track releases, installed versions and container inventory in one place.
+- Review feature gains, removals and what you miss by waiting.
+- Record Update, Wait, Ignore or Needs Attention with a maintenance and rollback plan.
+
+### Details
+
+- GitHub release and tag tracking, per-software schedules and installed-version probes.
 - Portainer and Dockhand inventory, fleet views and container rebinding.
-- Upgrade decisions with priority, risk, maintenance dates, checklists, rollback notes and deployment records.
-- Optional release analysis that asks what you gain, what may be removed and what you miss by waiting, using the available release notes and recorded image context.
-- Shared release-comparison context across the browser and service paths, with bounded inputs and explicit evidence gaps.
-- In-app About, Revision updates and Roadmap pages, with project documentation packaged in the application image.
+- Optional Assistant analysis using release notes and recorded image metadata, with bounded context and explicit evidence gaps.
+- Upgrade priorities, risk, maintenance dates, checklists, rollback notes and deployment records.
 - Email and Pushover notifications with global, personal and per-software preferences.
+- In-app comparison, revision history and roadmap pages.
 - Authenticated access, encrypted integration credentials, CSRF protection and a strict script policy.
 
-The first public release was 2.7.0. See the revision history for the changes in each release. Historical acceptance results are evidence for their original revisions, not a claim that every later release repeated every manual check.
+The first public release was 2.7.0. The application revision history records delivered changes. Image analysis currently uses inventory metadata and release notes; it does not inspect a proposed image.
 
-## Next priority: exact image preflight
+## Next: Know exactly which image you would deploy
 
-**Status: planned; not implemented.**
+**Planned.** Exact image preflight connects the update recommendation to the actual container image before you replace a running service.
 
-Resolve the running and proposed container images to immutable registry digests before an update. This would close the largest gap between release-note advice and the artifact you actually deploy.
+- Resolve running and candidate images to immutable registry digests.
+- Flag mutable-tag rebuilds, unsupported platforms and missing evidence.
+- Compare image configuration and runtime requirements without starting the candidate.
 
-Acceptance criteria:
+### Details
 
-- Record the image reference, digest, source registry, platform and inspection time for both versions.
-- Identify mutable-tag rebuilds, unsupported architectures and missing evidence.
-- Compare relevant image configuration and runtime requirements without starting the candidate image.
-- Keep registry access bounded and credential handling consistent with existing integration controls.
-- Present unknown or unavailable checks as Needs Attention, never as a successful safety check.
+Ready when:
 
-## Next priority: reproducible release comparisons
+- Both images have a recorded reference, digest, registry, platform and inspection time.
+- Unknown or unavailable checks show Needs Attention, never a successful safety check.
+- Registry requests remain bounded and credentials follow existing integration controls.
+- Configuration differences and runtime requirements can be reviewed before deployment.
 
-**Status: planned; current release lookups remain bounded.**
+## Then: Make every assessment reproducible
 
-- Persist the exact release IDs, URLs and version boundaries used for each assessment.
-- Add bounded pagination for versions older than the current 20-record lookup window.
-- Let an operator select a specific target release instead of only the tracked current release.
-- Show changes in the source material since a saved assessment.
-- Preserve completeness and truncation information with the stored analysis.
+**Planned.** Keep the evidence behind an upgrade recommendation so you can revisit it after upstream releases change.
 
-Acceptance means a reviewer can reconstruct the evidence behind an old recommendation even after upstream releases change.
+- Save exact release IDs, URLs, version boundaries and completeness information.
+- Reach older versions beyond the current 20-record lookup window with bounded pagination.
+- Choose a target release and see when its source material changes.
 
-## Next priority: clearer operational evidence
+### Details
 
-**Status: proposed.**
+Ready when a reviewer can reconstruct the evidence behind a saved recommendation. Missing boundaries, incomplete history and truncated notes must remain visible alongside that assessment.
 
-- Deterministic flags for documented migrations, removals and security notices, with links to the relevant source text.
-- A visible freshness summary for installed-version probes, inventory and upstream checks.
-- Exportable upgrade decision records for change reviews.
-- Cross-version upgrade tests and explicit migration and rollback notices when data compatibility changes.
-- Guided diagnostics for common configuration and provider failures.
+## Later: Make operational checks easier
 
-Text signals must be labelled as signals rather than guarantees, and must remain useful when AI is disabled.
+**Proposed.** Bring freshness, migration signals and decision records into a clearer review workflow, including when AI is disabled.
 
-## Later: optional supply-chain checks
+- Show when probes, inventory and upstream checks were last refreshed.
+- Flag documented migrations, removals and security notices with source links.
+- Export upgrade decisions and guide common configuration or provider diagnostics.
 
-**Status: exploratory; no scanner integration is shipped.**
+### Details
 
-- Import results from established vulnerability scanners rather than build a new scanner.
-- Compare SBOMs and report package additions, removals and known vulnerability changes.
-- Display signature and provenance verification results with their verification source and timestamp.
-- Link configuration changes and migration requirements to an upgrade plan.
+Ready when these checks remain useful without AI and text signals are labelled as signals, not guarantees. Cross-version upgrade tests and explicit migration and rollback notices must accompany future data compatibility changes.
 
-These checks should complement release analysis. A clean scan cannot prove that an update is compatible with a particular deployment.
+## Exploring: Connect more evidence and tools
 
-## Later: integrations and community
+**Exploratory.** Evaluate additions with the community before committing to implementation.
 
-**Status: proposed, prioritised by demonstrated demand.**
+- Import vulnerability scans, SBOM comparisons and signature or provenance results from established tools.
+- Explore more release sources, notification providers and a read-only API.
+- Improve fleet filtering, provide a fictional demo and expand deployment and support guidance.
 
-- Additional upstream release sources and notification providers.
-- A stable read-only API for inventory and upgrade decisions.
-- A disposable demo using fictional data.
-- More fleet filtering and documented reverse-proxy examples.
-- Clear maintenance and support policy as the contributor base grows.
+### Details
 
-## Product boundaries
+Supply-chain evidence should include its source and verification time, and connect relevant configuration or migration work to the upgrade plan. A clean scan cannot prove compatibility with a particular deployment.
 
-Core monitoring must not require an LLM. Release Radar should not become an unattended production updater, a replacement for backups or a general remote-command runner. AI recommendations remain advisory. New integrations must preserve authentication, data integrity and constrained access.
+Integrations will be prioritised by demonstrated demand and maintenance cost. No scanner integration or delivery date is committed. Community work includes documented reverse-proxy examples and a clearer maintenance and support policy as the contributor base grows.
 
-## Help set priorities
+## Principles throughout
 
-Propose a concrete use case in GitHub Issues, support existing requests with a reaction and discuss trade-offs in GitHub Discussions. Security, reliability and maintenance effort can take priority over votes. Accepted and delivered work is recorded in the changelog.
+Core monitoring stays independent of AI. Deployment remains under your control. New work must preserve authentication, data integrity and constrained access. Release Radar is not an unattended updater, a backup replacement or a general remote-command runner.
+
+## Help shape the next stage
+
+Share a concrete use case, support existing requests with a reaction or discuss trade-offs. Security, reliability and maintenance effort can take priority over votes.
 
 Feature requests: https://github.com/muhdusama/Software-Release-Radar/issues
 

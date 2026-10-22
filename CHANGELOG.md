@@ -8,6 +8,18 @@ Format reference: https://keepachangelog.com/en/1.1.0/
 
 ## [Unreleased]
 
+## [2.10.2] - 2026-10-22
+
+### Changed
+
+- Reorganised the roadmap as a Now, Next, Then, Later and Exploring timeline, with concise outcomes and clear delivery status.
+- Added a responsive timeline page with numbered milestones, stage shortcuts and keyboard-accessible expandable scope and acceptance criteria.
+- Kept repository and in-app roadmap content in one canonical document. Future stages show priority order without promising delivery dates.
+
+### Compatibility
+
+- Presentation and documentation update only. No database migration, new dependency or configuration requirement.
+
 ## [2.10.1] - 2026-10-22
 
 ### Documentation
