@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/muhdusama/Software-Release-Radar/releases/latest"><img alt="Version 2.10.0" src="https://img.shields.io/badge/version-2.10.0-2f81f7"></a>
+  <a href="https://github.com/muhdusama/Software-Release-Radar/releases/latest"><img alt="Version 2.10.1" src="https://img.shields.io/badge/version-2.10.1-2f81f7"></a>
   <a href="https://github.com/muhdusama/Software-Release-Radar/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/muhdusama/Software-Release-Radar/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Python 3.13" src="https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white">
   <img alt="Docker Compose" src="https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white">
@@ -29,7 +29,7 @@
 
 Software Release Radar is a self-hosted dashboard for reviewing software updates across a homelab or small server fleet. It tracks upstream GitHub releases against the versions you actually run, adds service and container context, and keeps your upgrade decisions in one place.
 
-**Version 2.10.0** adds in-app revision updates and roadmap pages, clearer pre-update analysis and a comparison guide. See the [changelog](CHANGELOG.md) for changes and compatibility notes.
+**Version 2.10.1** builds on the in-app revision updates, roadmap and upgrade analysis introduced in 2.10.0, with clearer project comparisons and contributor credits. See the [changelog](CHANGELOG.md) for changes and compatibility notes.
 
 ## Why Release Radar?
 
@@ -49,6 +49,10 @@ For inventory-linked services, Release Radar can bring the recorded running imag
 **This is release and inventory analysis, not a candidate-image security scan.** Release Radar does not yet pull or inspect a proposed image, resolve registry digests, compare SBOMs, verify signatures or test the new container. It cannot guarantee compatibility from release notes. Exact image preflight is the first major item on the [roadmap](ROADMAP.md).
 
 ### How it differs from other tools
+
+Diun, What's Up Docker, Renovate and Trivy are excellent projects, and we encourage you to explore them. We value their contributions to the community and see them as useful companions in a software maintenance workflow.
+
+Release Radar's distinctive focus is the upgrade decision for the software you run: what you gain, what may be removed, what you miss by waiting, and how you plan and record the change.
 
 | Tool | Main job | Where Release Radar fits |
 |---|---|---|
@@ -131,7 +135,7 @@ Release history currently uses the latest 20 GitHub release records returned by 
 
 ### Upgrade and recovery
 
-Read the [revision updates](CHANGELOG.md) before upgrading. Version 2.10.0 requires no database migration or new configuration. Preserve your `.env`, data and SSH material, and retain a rollback image.
+Read the [revision updates](CHANGELOG.md) before upgrading. Version 2.10.1 requires no database migration or new configuration. Preserve your `.env`, data and SSH material, and retain a rollback image.
 
 The repository includes online SQLite backup and guarded restore helpers:
 
@@ -160,7 +164,7 @@ Use [Issues](https://github.com/muhdusama/Software-Release-Radar/issues) for rep
 
 Created and maintained by [@muhdusama](https://github.com/muhdusama) under [IMUVERSE](https://imuverse.com), with human contributions including Dockhand compatibility from [@KoshiirRa](https://github.com/KoshiirRa).
 
-This is an openly AI-assisted project built to solve a practical self-hosting problem. OpenAI Codex and Claude Code have assisted with implementation, tests, reviews and documentation. The maintainer remains responsible for the changes and release decisions; generated code still needs verification. See [CONTRIBUTORS.md](CONTRIBUTORS.md).
+This is an openly AI-assisted project built to solve a practical self-hosting problem. [OpenAI Codex (@codex)](https://github.com/codex) and Claude Code are credited contributors for their assistance with implementation, tests, reviews and documentation. The maintainer remains responsible for the changes and release decisions; generated code still needs verification. See [CONTRIBUTORS.md](CONTRIBUTORS.md).
 
 ## Documentation
 

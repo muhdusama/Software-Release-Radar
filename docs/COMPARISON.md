@@ -24,6 +24,10 @@ Release Radar does **not** currently fetch and inspect a candidate image, resolv
 
 ## How it fits alongside other tools
 
+Diun, What's Up Docker, Renovate and Trivy are excellent projects that serve the self-hosting and software maintenance community. We appreciate the work behind them and encourage you to visit their documentation and try them. Each brings useful capabilities, and they can work well alongside Release Radar.
+
+What sets Software Release Radar apart is its focus on the upgrade decision for the software you actually run: what you gain, what may be removed, what you miss by waiting, and how you plan and record the change. The comparisons below describe how these projects fit together and help you find the combination that suits your workflow.
+
 ### Diun: image change notifications
 
 Diun watches container image tags and digests and sends notifications when they change. It is useful for detecting registry rebuilds, including changes that do not produce a new application release. Release Radar focuses on installed application versions, upstream release context and the operator's recorded decision. Use a registry watcher alongside Release Radar when digest-only changes matter.
@@ -32,7 +36,7 @@ Official documentation: https://crazymax.dev/diun/
 
 ### What's Up Docker (WUD): container update monitoring and triggers
 
-WUD watches running containers and their registries, with notification and update triggers. Release Radar adds a release review workflow with benefits, risks, maintenance planning and rollback notes. These are overlapping, complementary tools; the right choice depends on whether your main task is registry monitoring, applying updates or reviewing why to update.
+WUD watches running containers and their registries, with notification and update triggers. Release Radar focuses on release review, including benefits, risks, maintenance planning and rollback notes. You can use WUD for container update monitoring and triggers alongside Release Radar for the review and planning that accompany an update.
 
 Official documentation: https://getwud.app/
 
@@ -44,7 +48,7 @@ Official documentation: https://docs.renovatebot.com/docker/
 
 ### Trivy: image security inspection
 
-Trivy inspects container images for security findings and can work with SBOMs. Release Radar answers a different part of the decision: which documented features and fixes matter, what may break, and when you intend to update. A release-note summary does not replace an image security scan.
+Trivy inspects container images for security findings and can work with SBOMs. Its security evidence can complement Release Radar's review of documented features, fixes, compatibility and maintenance timing. We encourage using an image security tool such as Trivy when assessing a candidate image; Release Radar's current analysis uses inventory metadata and release notes.
 
 Official documentation: https://trivy.dev/docs/latest/target/container_image/
 

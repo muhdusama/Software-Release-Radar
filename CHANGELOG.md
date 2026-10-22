@@ -8,6 +8,18 @@ Format reference: https://keepachangelog.com/en/1.1.0/
 
 ## [Unreleased]
 
+## [2.10.1] - 2026-10-22
+
+### Documentation
+
+- Linked OpenAI Codex's GitHub profile in the contributor credits and README.
+- Updated the comparison guide and README to express appreciation for Diun, WUD, Renovate and Trivy, encourage readers to explore them, and describe how their capabilities complement Software Release Radar.
+- Kept Release Radar's distinct focus on upgrade decisions, feature gains, removals and the cost of waiting, with current image-analysis limits explicit.
+
+### Compatibility
+
+- Documentation and release metadata only. No application behaviour, database schema, dependency or configuration changes.
+
 ## [2.10.0] - 2026-10-22
 
 ### Added
