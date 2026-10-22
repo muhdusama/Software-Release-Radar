@@ -8,6 +8,19 @@ Format reference: https://keepachangelog.com/en/1.1.0/
 
 ## [Unreleased]
 
+## [2.10.5] - 2026-10-23
+
+### Changed
+
+- Kept the product roadmap on GitHub only, alongside the comparison guide and application revision updates.
+- Removed Roadmap from app navigation, the command palette, routes, templates, supporting styles and container packaging.
+- Retained Contributors, Codex credit and the AI development and maintenance disclosure in the app.
+
+### Compatibility
+
+- The former `/roadmap` app URL now returns 404. The roadmap remains linked from the repository README.
+- No database migration, new dependency or configuration requirement.
+
 ## [2.10.4] - 2026-10-23
 
 ### Changed

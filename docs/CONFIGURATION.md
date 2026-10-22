@@ -19,7 +19,7 @@ The recommended `bash scripts/setup.sh` flow creates `.env` for you.
 
 | Variable | Required | Default | Purpose |
 |---|---:|---|---|
-| `RADAR_VERSION` | yes | `2.10.4` | Image and build version label |
+| `RADAR_VERSION` | yes | `2.10.5` | Image and build version label |
 | `RADAR_BIND_ADDRESS` | yes | `0.0.0.0` | Address used to publish the web port on the Docker host |
 | `RADAR_PORT` | yes | `9120` | Host port for the web interface |
 | `RADAR_SCHEDULER_INTERVAL_SECONDS` | yes | `60` | How often the scheduler looks for trackers that are due |

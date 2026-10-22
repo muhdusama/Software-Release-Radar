@@ -143,7 +143,6 @@ def _release_history_context(tracker) -> str:
 
 
 _CANONICAL_DOCS = {
-    "roadmap": ("ROADMAP.md",),
     "contributors": ("CONTRIBUTORS.md",),
 }
 
@@ -175,24 +174,6 @@ def _project_sections(document: str) -> dict:
                          "key": re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")})
     introduction = parts[0].partition("\n")[2] if parts[0].startswith("# ") else parts[0]
     return {"introduction": introduction.strip(), "sections": sections}
-
-
-def _roadmap_content(document: str) -> dict:
-    """Present the canonical Markdown stages without duplicating roadmap copy."""
-    parts = re.split(r"^## ", document, flags=re.MULTILINE)
-    stages, supporting = [], []
-    statuses = {"Now": "Shipped", "Next": "Planned", "Then": "Planned", "Later": "Proposed", "Exploring": "Exploratory"}
-    for section in parts[1:]:
-        heading, _, body = section.partition("\n")
-        phase, _, title = heading.partition(": ")
-        if phase in statuses and title:
-            summary, _, details = body.partition("\n### Details\n")
-            stages.append({"phase": phase, "key": phase.lower(), "title": title,
-                           "status": statuses[phase], "summary": summary.strip(), "details": details.strip()})
-        else:
-            supporting.append({"title": heading, "body": body.strip()})
-    return {"introduction": parts[0].removeprefix("# Roadmap\n").strip(),
-            "stages": stages, "supporting": supporting}
 
 
 def create_app() -> Flask:
@@ -1609,14 +1590,6 @@ def create_app() -> Flask:
         return render_template(
             "contributors.html",
             **_project_sections(_canonical_document("contributors")),
-        )
-
-    @app.get("/roadmap")
-    @login_required
-    def roadmap():
-        return render_template(
-            "roadmap.html",
-            **_roadmap_content(_canonical_document("roadmap")),
         )
 
     # Fleet naming, notification preferences, authentication rate limits and the
