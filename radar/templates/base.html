@@ -34,6 +34,10 @@
 
       <span class="nav-section-label">Analyse</span>
       <a class="{{ 'active' if request.endpoint in ['assistant', 'assistant_run'] else '' }}" href="{{ url_for('assistant') }}"><span class="nav-icon" aria-hidden="true">✦</span><span>Assistant</span><kbd>7</kbd></a>
+      <span class="nav-section-label">Project</span>
+      <a class="{{ 'active' if request.endpoint == 'about' else '' }}" href="{{ url_for('about') }}"><span class="nav-icon" aria-hidden="true">≋</span><span>Compare</span></a>
+      <a class="{{ 'active' if request.endpoint == 'revisions' else '' }}" href="{{ url_for('revisions') }}"><span class="nav-icon" aria-hidden="true">▤</span><span>Revisions</span></a>
+      <a class="{{ 'active' if request.endpoint == 'roadmap' else '' }}" href="{{ url_for('roadmap') }}"><span class="nav-icon" aria-hidden="true">↝</span><span>Roadmap</span></a>
 
       {% if current_user['role'] == 'admin' %}
       <span class="nav-section-label">Administer</span>
@@ -115,6 +119,9 @@
       <a class="command-item" href="{{ url_for('notifications_preferences') }}" data-command-item data-command-search-text="notifications alerts email pushover mute software preferences"><span class="command-item-icon">◉</span><span><strong>Notifications</strong><small>Global, channel and per-software controls</small></span><kbd>5</kbd></a>
       {% if current_user['role'] == 'admin' %}<a class="command-item" href="{{ url_for('portainer_inventory') }}" data-command-item data-command-search-text="portainer docker containers stacks inventory"><span class="command-item-icon">⬡</span><span><strong>Docker inventory</strong><small>Provider environments, projects and containers</small></span><kbd>6</kbd></a>{% endif %}
       <a class="command-item" href="{{ url_for('assistant') }}" data-command-item data-command-search-text="assistant ai analysis chat upgrade risk"><span class="command-item-icon">✦</span><span><strong>Release Assistant</strong><small>Deployment-aware upgrade analysis</small></span><kbd>7</kbd></a>
+      <a class="command-item" href="{{ url_for('about') }}" data-command-item data-command-search-text="compare comparison diun wud renovate trivy image analysis"><span class="command-item-icon">≋</span><span><strong>Compare tools</strong><small>Scope and limits beside related tools</small></span></a>
+      <a class="command-item" href="{{ url_for('revisions') }}" data-command-item data-command-search-text="application revisions changelog release notes radar versions"><span class="command-item-icon">▤</span><span><strong>Application revisions</strong><small>Release Radar’s own change history</small></span></a>
+      <a class="command-item" href="{{ url_for('roadmap') }}" data-command-item data-command-search-text="roadmap planned future image preflight"><span class="command-item-icon">↝</span><span><strong>Product roadmap</strong><small>Current and planned work</small></span></a>
       {% if current_user['role'] == 'admin' %}<a class="command-item" href="{{ url_for('settings') }}" data-command-item data-command-search-text="settings smtp pushover openai portainer"><span class="command-item-icon">⚙</span><span><strong>Settings</strong><small>Connections and application defaults</small></span><kbd>8</kbd></a>{% endif %}
     </div>
     <div class="command-empty" data-command-empty hidden>No matching page or action.</div>

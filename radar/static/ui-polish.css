@@ -102,3 +102,10 @@
 .sidebar-credit{letter-spacing:.02em;font-weight:600}
 .auth-credit{margin:18px 0 0;color:var(--muted);font-size:12px}
 .auth-credit a{font-weight:700}
+.assistant-scope-note{margin:0 16px 16px;color:var(--muted);font-size:12px;line-height:1.55}
+.project-document{max-width:1050px;margin:0 auto}
+.project-document-page .page-heading{max-width:1050px;margin-left:auto;margin-right:auto}
+
+@media(max-width:850px){
+  .app-main>.topbar{flex-direction:row;align-items:center;gap:10px}
+}

@@ -6,7 +6,7 @@
   <div>
     <span class="eyebrow">OPTIONAL LLM ANALYSIS</span>
     <h1>Release Assistant</h1>
-    <p>Assess upgrade safety, breaking changes and operational risk using your installed deployment and upstream release history.</p>
+    <p>Compare documented gains, trade-offs and operational risk using your installed deployment and upstream release history.</p>
   </div>
   <div class="privacy-chip" title="The model is called only after you submit a request">
     <span class="privacy-dot" aria-hidden="true"></span>
@@ -84,6 +84,9 @@
         </div>
       </div>
       <div class="prompt-template-grid">
+        <button type="button" class="prompt-template" data-prompt="Compare this release with my installed version. Separate features gained, features removed or deprecated, what I miss by waiting, compatibility or migration work, evidence gaps, and a recommendation. Do not infer facts that are absent from the supplied release notes.">
+          <span class="template-icon" aria-hidden="true">⇄</span><strong>Gains and trade-offs</strong><span>What changes now, what is lost and what waiting costs.</span>
+        </button>
         <button type="button" class="prompt-template" data-prompt="Is this upgrade safe for my current deployment? Identify breaking changes, required migrations, compatibility risks, and anything that could cause downtime. Finish with a clear update now, wait, or avoid recommendation.">
           <span class="template-icon" aria-hidden="true">✓</span><strong>Safe to upgrade?</strong><span>Breaking changes, downtime and a clear recommendation.</span>
         </button>
@@ -103,6 +106,7 @@
           <span class="template-icon" aria-hidden="true">→</span><strong>Update, wait or ignore?</strong><span>Balanced operational recommendation.</span>
         </button>
       </div>
+      <p class="assistant-scope-note">The Assistant interprets recorded inventory metadata and upstream notes. It does not scan image layers or CVEs, resolve a candidate image, or run an update.</p>
     </section>
 
     {% if latest_analysis %}

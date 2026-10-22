@@ -140,7 +140,7 @@ When a roadmap poll changes priorities, the roadmap should be updated so the res
 
 ## 📍 Current state
 
-The public release baseline is established at **v2.9.3**, and ongoing maintenance is active.
+The public release baseline is established at **v2.10.0**, and ongoing maintenance is active.
 
 Feature voting can now help prioritise improvements, while security, data integrity, deterministic monitoring, backwards compatibility and reliable self-hosted upgrades remain release gates for every change.
 
