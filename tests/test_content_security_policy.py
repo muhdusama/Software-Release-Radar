@@ -68,7 +68,7 @@ class ContentSecurityPolicyTests(unittest.TestCase):
         pages = (
             "/", "/upgrades", "/fleet", "/history", "/settings", "/users", "/users/new",
             "/trackers/new", "/trackers/1/edit", "/notifications", "/portainer", "/profile",
-            "/about", "/revisions", "/roadmap",
+            "/about", "/revisions", "/roadmap", "/contributors",
         )
         for path in pages:
             with self.subTest(path=path):

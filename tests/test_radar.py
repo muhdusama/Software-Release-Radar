@@ -855,7 +855,7 @@ class RadarTests(unittest.TestCase):
             session["password_stamp"] = token_digest(str(user["password_hash"]))
         pages = {
             "/about": "What image analysis means today",
-            "/revisions": "All notable changes to Software Release Radar",
+            "/revisions": "Application revisions",
             "/roadmap": "This timeline shows the intended order",
         }
         for path, expected in pages.items():
@@ -863,6 +863,104 @@ class RadarTests(unittest.TestCase):
                 response = client.get(path)
                 self.assertEqual(response.status_code, 200)
                 self.assertIn(expected, response.get_data(as_text=True))
+
+    def test_revisions_selects_allowlisted_changelog_bodies(self):
+        document = """# Changelog
+
+## [Unreleased]
+
+## [2.10.2] - 2026-10-22
+
+Latest body with <script>alert(1)</script>.
+
+## [2.9.3] - 2026-10-19
+
+Older body.
+"""
+        app = create_app()
+        app.testing = True
+        client = app.test_client()
+        with connect() as conn:
+            user = conn.execute("SELECT * FROM users WHERE username = 'admin'").fetchone()
+        with client.session_transaction() as session:
+            session["user_id"] = int(user["id"])
+            session["password_stamp"] = token_digest(str(user["password_hash"]))
+        with patch("radar.web._canonical_document", return_value=document):
+            latest = client.get("/revisions")
+            latest_body = latest.get_data(as_text=True)
+            self.assertIn("Latest body", latest_body)
+            self.assertNotIn("Older body.", latest_body)
+            self.assertIn("Latest published: 2.10.2", latest_body)
+            self.assertIn("&lt;script&gt;", latest_body)
+            self.assertNotIn("<script>alert", latest_body)
+
+            chosen_body = client.get("/revisions?version=2.9.3").get_data(as_text=True)
+            self.assertIn("Older body.", chosen_body)
+            self.assertNotIn("Latest body", chosen_body)
+
+            all_body = client.get("/revisions?version=all").get_data(as_text=True)
+            self.assertIn("Latest body", all_body)
+            self.assertIn("Older body.", all_body)
+
+            unknown_body = client.get("/revisions?version=../../etc/passwd").get_data(as_text=True)
+            self.assertIn("requested revision is unavailable", unknown_body)
+            self.assertIn("Latest body", unknown_body)
+
+    def test_revisions_shows_unreleased_only_when_nonempty(self):
+        document = """# Changelog
+
+## [Unreleased]
+
+Pending work.
+
+## [2.10.2] - 2026-10-22
+
+Latest body.
+"""
+        app = create_app()
+        app.testing = True
+        client = app.test_client()
+        with connect() as conn:
+            user = conn.execute("SELECT * FROM users WHERE username = 'admin'").fetchone()
+        with client.session_transaction() as session:
+            session["user_id"] = int(user["id"])
+            session["password_stamp"] = token_digest(str(user["password_hash"]))
+        with patch("radar.web._canonical_document", return_value=document):
+            body = client.get("/revisions?version=unreleased").get_data(as_text=True)
+        self.assertIn("Pending work.", body)
+        self.assertNotIn("Latest body.", body)
+        self.assertIn("Unreleased changes", body)
+
+    def test_contributors_and_comparison_cards_keep_credits_and_escape_copy(self):
+        app = create_app()
+        app.testing = True
+        client = app.test_client()
+        self.assertEqual(client.get("/contributors").status_code, 302)
+        with connect() as conn:
+            user = conn.execute("SELECT * FROM users WHERE username = 'admin'").fetchone()
+        with client.session_transaction() as session:
+            session["user_id"] = int(user["id"])
+            session["password_stamp"] = token_digest(str(user["password_hash"]))
+        response = client.get("/contributors")
+        self.assertEqual(response.status_code, 200)
+        body = response.get_data(as_text=True)
+        self.assertIn('href="https://github.com/codex"', body)
+        self.assertIn('AI-assisted development and maintenance', body)
+        self.assertIn('AI was used to assist in the development and maintenance', body)
+        comparison = client.get("/about").get_data(as_text=True)
+        self.assertIn('project-card-grid', comparison)
+        self.assertIn('excellent projects', comparison)
+        for url in ('https://crazymax.dev/diun/', 'https://getwud.app/', 'https://docs.renovatebot.com/docker/', 'https://trivy.dev/docs/latest/target/container_image/'):
+            self.assertIn(f'href="{url}"', comparison)
+        document = '# Title\n\nIntro\n\n## <script>alert(1)</script>\n\n### <img src=x onerror=alert(1)>\n\n**Safe text**\n\nProfile: javascript:alert(1)'
+        with patch("radar.web._canonical_document", return_value=document):
+            for path in ("/about", "/contributors"):
+                body = client.get(path).get_data(as_text=True)
+                self.assertIn('&lt;script&gt;', body)
+                self.assertIn('&lt;img', body)
+                self.assertNotIn('<script>alert', body)
+                self.assertNotIn('href="javascript:', body)
+                self.assertIn('<strong>Safe text</strong>', body)
 
     def test_roadmap_timeline_preserves_stages_and_escapes_document_content(self):
         app = create_app()

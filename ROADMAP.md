@@ -1,6 +1,6 @@
 # Roadmap
 
-Updated 22 October 2026. Current application version: **2.10.2**.
+Updated 22 October 2026. Current application version: **2.10.3**.
 
 This timeline shows the intended order of work, not delivery dates. Only Now is available today; future stages may change as we learn from users.
 
