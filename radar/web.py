@@ -159,6 +159,24 @@ def _canonical_document(name: str) -> str:
         return "This canonical project document is not available in this installation."
 
 
+def _roadmap_content(document: str) -> dict:
+    """Present the canonical Markdown stages without duplicating roadmap copy."""
+    parts = re.split(r"^## ", document, flags=re.MULTILINE)
+    stages, supporting = [], []
+    statuses = {"Now": "Shipped", "Next": "Planned", "Then": "Planned", "Later": "Proposed", "Exploring": "Exploratory"}
+    for section in parts[1:]:
+        heading, _, body = section.partition("\n")
+        phase, _, title = heading.partition(": ")
+        if phase in statuses and title:
+            summary, _, details = body.partition("\n### Details\n")
+            stages.append({"phase": phase, "key": phase.lower(), "title": title,
+                           "status": statuses[phase], "summary": summary.strip(), "details": details.strip()})
+        else:
+            supporting.append({"title": heading, "body": body.strip()})
+    return {"introduction": parts[0].removeprefix("# Roadmap\n").strip(),
+            "stages": stages, "supporting": supporting}
+
+
 def create_app() -> Flask:
     app = Flask(__name__)
     secret_key = os.environ.get("SECRET_KEY", "").strip()
@@ -1595,12 +1613,8 @@ def create_app() -> Flask:
     @login_required
     def roadmap():
         return render_template(
-            "project_document.html",
-            document_title="Product roadmap",
-            topbar_title="Product roadmap",
-            eyebrow="WHAT IS NEXT",
-            introduction="Planned work and the current product direction for Software Release Radar.",
-            document_content=_canonical_document("roadmap"),
+            "roadmap.html",
+            **_roadmap_content(_canonical_document("roadmap")),
         )
 
     # Fleet naming, notification preferences, authentication rate limits and the

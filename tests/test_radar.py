@@ -856,13 +856,40 @@ class RadarTests(unittest.TestCase):
         pages = {
             "/about": "What image analysis means today",
             "/revisions": "All notable changes to Software Release Radar",
-            "/roadmap": "Release Radar is built around a practical question",
+            "/roadmap": "This timeline shows the intended order",
         }
         for path, expected in pages.items():
             with self.subTest(path=path):
                 response = client.get(path)
                 self.assertEqual(response.status_code, 200)
                 self.assertIn(expected, response.get_data(as_text=True))
+
+    def test_roadmap_timeline_preserves_stages_and_escapes_document_content(self):
+        app = create_app()
+        app.testing = True
+        client = app.test_client()
+        self.assertEqual(client.get("/roadmap").status_code, 302)
+        with connect() as conn:
+            user = conn.execute("SELECT * FROM users WHERE username = 'admin'").fetchone()
+        with client.session_transaction() as session:
+            session["user_id"] = int(user["id"])
+            session["password_stamp"] = token_digest(str(user["password_hash"]))
+        body = client.get("/roadmap").get_data(as_text=True)
+        for phase in ("now", "next", "then", "later", "exploring"):
+            self.assertIn(f'id="roadmap-{phase}"', body)
+            self.assertIn(f'href="#roadmap-{phase}"', body)
+        self.assertEqual(body.count('<details class="roadmap-details">'), 5)
+        self.assertIn("not delivery dates", body)
+        self.assertIn("Ready when", body)
+        document = '# Roadmap\n\nIntro\n\n## Next: <script>alert(1)</script>\n\n<img src=x onerror=alert(1)>\n\n### Details\n\n**Evidence**\n\n## Notes\n\nKeep this section.'
+        with patch("radar.web._canonical_document", return_value=document):
+            body = client.get("/roadmap").get_data(as_text=True)
+        self.assertIn("&lt;script&gt;", body)
+        self.assertIn("&lt;img", body)
+        self.assertNotIn("<script>alert", body)
+        self.assertNotIn("<img src=x", body)
+        self.assertIn("<strong>Evidence</strong>", body)
+        self.assertIn("Keep this section.", body)
 
     def test_assistant_context_pins_cached_target_and_bounds_prompts(self):
         tracker_id = self._insert_tracker(

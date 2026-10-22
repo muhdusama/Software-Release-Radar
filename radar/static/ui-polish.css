@@ -109,3 +109,47 @@
 @media(max-width:850px){
   .app-main>.topbar{flex-direction:row;align-items:center;gap:10px}
 }
+
+/* The roadmap uses the same canonical Markdown as the repository. */
+.roadmap-shell{max-width:1050px;margin:0 auto}
+.roadmap-intro{max-width:800px;color:var(--muted);line-height:1.65}
+.roadmap-intro p{margin:0 0 10px}
+.roadmap-stages{display:flex;flex-wrap:wrap;gap:8px;margin:26px 0 32px}
+.roadmap-stages a{display:flex;align-items:center;gap:9px;padding:11px 15px;border:1px solid var(--line);border-radius:10px;background:var(--panel);font-weight:700}
+.roadmap-stages a span{color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums}
+.roadmap-stages a:hover{border-color:var(--blue)}
+.roadmap-stages a:focus-visible,.roadmap-details summary:focus-visible{outline:2px solid var(--blue);outline-offset:4px}
+.roadmap-timeline{list-style:none;margin:0;padding:0}
+.roadmap-milestone{--milestone-color:var(--blue);display:grid;grid-template-columns:44px minmax(0,1fr);gap:20px;position:relative;padding:0 0 24px;scroll-margin-top:88px}
+.roadmap-milestone::before{content:"";position:absolute;left:21px;top:42px;bottom:0;width:2px;background:var(--line)}
+.roadmap-milestone:last-child::before{display:none}
+.roadmap-now{--milestone-color:var(--green)}
+.roadmap-later{--milestone-color:var(--amber)}
+.roadmap-exploring{--milestone-color:var(--muted)}
+.roadmap-marker{position:relative;z-index:1;display:grid;place-items:center;align-self:start;width:44px;height:44px;border-radius:50%;border:1px solid var(--milestone-color);background:var(--bg2);color:var(--milestone-color);font-weight:800;font-size:12px}
+.roadmap-card{padding:26px 28px;box-shadow:none;min-width:0}
+.roadmap-card-meta{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.roadmap-phase{color:var(--milestone-color);font-size:12px;text-transform:uppercase;letter-spacing:.12em;font-weight:800}
+.roadmap-status{border:1px solid var(--line);border-radius:20px;padding:4px 10px;color:var(--milestone-color);font-size:11px;font-weight:700}
+.roadmap-card h2{font-size:23px;letter-spacing:-.025em;line-height:1.25;margin-bottom:12px}
+.roadmap-summary{line-height:1.65}
+.roadmap-summary p{color:var(--muted);margin:0 0 14px}
+.roadmap-summary ul{padding-left:20px;margin:0}
+.roadmap-summary li{margin:7px 0}
+.roadmap-details{border-top:1px solid var(--line);margin-top:20px;padding-top:16px}
+.roadmap-details summary{cursor:pointer;color:var(--blue);font-size:13px;font-weight:650;line-height:1.5}
+.roadmap-details[open] summary{margin-bottom:16px}
+.roadmap-details .assistant-rich-text{color:var(--muted);font-size:13px;line-height:1.7;overflow-wrap:anywhere}
+.roadmap-supporting{display:grid;grid-template-columns:1fr 1fr;gap:28px;padding:16px 0 0 64px;color:var(--muted);font-size:13px;line-height:1.7}
+.roadmap-supporting h2{color:var(--text);font-size:16px;margin-bottom:12px}
+.roadmap-supporting a{overflow-wrap:anywhere}
+@media(max-width:600px){
+  .roadmap-milestone{grid-template-columns:30px minmax(0,1fr);gap:10px;padding-bottom:18px}
+  .roadmap-marker{width:30px;height:30px;font-size:10px}
+  .roadmap-milestone::before{left:14px;top:30px}
+  .roadmap-card{padding:18px 16px}
+  .roadmap-card h2{font-size:20px}
+  .roadmap-stages{gap:6px;margin:22px 0 26px}
+  .roadmap-stages a{padding:10px 12px;font-size:12px}
+  .roadmap-supporting{grid-template-columns:1fr;padding-left:40px;gap:18px}
+}
