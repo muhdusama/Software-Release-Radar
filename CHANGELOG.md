@@ -8,6 +8,19 @@ Format reference: https://keepachangelog.com/en/1.1.0/
 
 ## [Unreleased]
 
+## [2.10.4] - 2026-10-23
+
+### Changed
+
+- Kept the product comparison and application revision updates on GitHub only.
+- Removed Compare and Revisions from app navigation, the command palette, routes, templates and container packaging.
+- Retained the in-app Roadmap, Contributors and AI development disclosure.
+
+### Compatibility
+
+- The former `/about` and `/revisions` app URLs now return 404. The comparison guide and changelog remain linked from the repository README.
+- No database migration, new dependency or configuration requirement.
+
 ## [2.10.3] - 2026-10-22
 
 ### Added

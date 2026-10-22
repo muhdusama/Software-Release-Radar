@@ -143,8 +143,6 @@ def _release_history_context(tracker) -> str:
 
 
 _CANONICAL_DOCS = {
-    "about": ("docs", "COMPARISON.md"),
-    "revisions": ("CHANGELOG.md",),
     "roadmap": ("ROADMAP.md",),
     "contributors": ("CONTRIBUTORS.md",),
 }
@@ -195,46 +193,6 @@ def _roadmap_content(document: str) -> dict:
             supporting.append({"title": heading, "body": body.strip()})
     return {"introduction": parts[0].removeprefix("# Roadmap\n").strip(),
             "stages": stages, "supporting": supporting}
-
-
-_CHANGELOG_HEADING_RE = re.compile(r"^## \[([^\]]+)\](?:\s+-\s+(.+))?\s*$", re.MULTILINE)
-
-
-def _revision_content(document: str, selected: str) -> dict:
-    """Select a bounded, allowlisted Changelog revision without exposing file paths."""
-    matches = list(_CHANGELOG_HEADING_RE.finditer(document))
-    entries = []
-    for index, match in enumerate(matches):
-        body = document[match.end():matches[index + 1].start() if index + 1 < len(matches) else len(document)].strip()
-        entries.append({"version": match.group(1).strip(), "date": (match.group(2) or "").strip(), "body": body})
-    unreleased = next((entry for entry in entries if entry["version"].casefold() == "unreleased" and entry["body"]), None)
-    published = [entry for entry in entries if entry["version"].casefold() != "unreleased"]
-    latest = published[0] if published else None
-    choices = [{"value": "latest", "label": f"Latest published: {latest['version']}" if latest else "Latest published revision"}]
-    if len(published) > 1:
-        choices.append({"value": "all", "label": f"All published revisions ({len(published)})"})
-    if unreleased:
-        choices.append({"value": "unreleased", "label": "Unreleased changes"})
-    choices.extend({"value": entry["version"], "label": entry["version"]} for entry in published)
-
-    notice = ""
-    if selected == "all":
-        displayed = published
-    elif selected == "unreleased" and unreleased:
-        displayed = [unreleased]
-    elif selected in {"", "latest"}:
-        displayed = [latest] if latest else []
-        selected = "latest"
-    else:
-        selected_entry = next((entry for entry in published if entry["version"] == selected), None)
-        if selected_entry:
-            displayed = [selected_entry]
-        else:
-            displayed = [latest] if latest else []
-            selected = "latest"
-            notice = "The requested revision is unavailable; showing the latest published revision instead."
-    return {"revisions": displayed, "choices": choices, "selected": selected, "notice": notice,
-            "revision_count": len(displayed), "latest": latest}
 
 
 def create_app() -> Flask:
@@ -1645,14 +1603,6 @@ def create_app() -> Flask:
             event_count=len(events),
         )
 
-    @app.get("/about")
-    @login_required
-    def about():
-        return render_template(
-            "comparison.html",
-            **_project_sections(_canonical_document("about")),
-        )
-
     @app.get("/contributors")
     @login_required
     def contributors():
@@ -1660,13 +1610,6 @@ def create_app() -> Flask:
             "contributors.html",
             **_project_sections(_canonical_document("contributors")),
         )
-
-    @app.get("/revisions")
-    @login_required
-    def revisions():
-        return render_template("revisions.html", **_revision_content(
-            _canonical_document("revisions"), request.args.get("version", "").strip(),
-        ))
 
     @app.get("/roadmap")
     @login_required

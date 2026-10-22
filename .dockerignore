@@ -10,6 +10,6 @@ ssh
 backups
 candidates
 legacy-state
-docs/*
-!docs/COMPARISON.md
+docs
 tests
+CHANGELOG.md
