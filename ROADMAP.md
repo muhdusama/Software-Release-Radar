@@ -1,6 +1,6 @@
 # Roadmap
 
-Updated 22 October 2026. Current application version: **2.10.3**.
+Updated 23 October 2026. Current application version: **2.10.4**.
 
 This timeline shows the intended order of work, not delivery dates. Only Now is available today; future stages may change as we learn from users.
 
@@ -19,7 +19,7 @@ This timeline shows the intended order of work, not delivery dates. Only Now is 
 - Optional Assistant analysis using release notes and recorded image metadata, with bounded context and explicit evidence gaps.
 - Upgrade priorities, risk, maintenance dates, checklists, rollback notes and deployment records.
 - Email and Pushover notifications with global, personal and per-software preferences.
-- In-app comparison, revision history and roadmap pages.
+- In-app roadmap and contributor pages, with comparison and revision documentation on GitHub.
 - Authenticated access, encrypted integration credentials, CSRF protection and a strict script policy.
 
 The first public release was 2.7.0. The application revision history records delivered changes. Image analysis currently uses inventory metadata and release notes; it does not inspect a proposed image.
