@@ -10,7 +10,7 @@ from pathlib import Path
 # If a line moves, review it again before updating this list.
 ALLOWED_FINDINGS: dict[tuple[str, str, int], str] = {
     ("radar/portainer.py", "B323", 55): "TLS verification bypass is an explicit opt-in for self-signed Portainer and defaults to verification enabled.",
-    ("radar/inventory_providers.py", "B323", 112): "TLS verification bypass is an explicit opt-in for self-signed Dockhand and defaults to verification enabled.",
+    ("radar/inventory_providers.py", "B323", 122): "TLS verification bypass is an explicit opt-in for self-signed Dockhand and defaults to verification enabled.",
     ("radar/presentation.py", "B704", 80): "All source text is html.escape() encoded before the renderer adds its own fixed markup subset.",
 }
 

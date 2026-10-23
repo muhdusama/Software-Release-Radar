@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/muhdusama/Software-Release-Radar/releases/latest"><img alt="Version 2.10.5" src="https://img.shields.io/badge/version-2.10.5-2f81f7"></a>
+  <a href="https://github.com/muhdusama/Software-Release-Radar/releases/latest"><img alt="Version 2.10.6" src="https://img.shields.io/badge/version-2.10.6-2f81f7"></a>
   <a href="https://github.com/muhdusama/Software-Release-Radar/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/muhdusama/Software-Release-Radar/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Python 3.13" src="https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white">
   <img alt="Docker Compose" src="https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white">
@@ -29,7 +29,7 @@
 
 Software Release Radar is a self-hosted dashboard for reviewing software updates across a homelab or small server fleet. It tracks upstream GitHub releases against the versions you actually run, adds service and container context, and keeps your upgrade decisions in one place.
 
-**Version 2.10.5** keeps the roadmap, comparison guide and application revision updates on GitHub. The app retains Contributors and the AI development and maintenance disclosure. See the [changelog](CHANGELOG.md) for changes and compatibility notes.
+**Version 2.10.6** adds persistent recovery from GitHub rate limits and corrects upstream source and application-version detection for Portfolio Performance and Organizr. See the [changelog](CHANGELOG.md) for changes and compatibility notes.
 
 ## Why Release Radar?
 
@@ -131,11 +131,11 @@ The standard stack runs three services: the web application, scheduler and inven
 
 Configure an OpenAI-compatible endpoint in Settings to use the Assistant. It receives selected tracker, deployment and release-note context, so choose a provider appropriate for your data. Model output is advisory, escaped for display and bounded by request controls.
 
-Release history currently uses the latest 20 GitHub release records returned by the API, filtered for the tracker's prerelease setting. Missing version boundaries and truncated notes are identified as incomplete. Tag-only tracking does not provide a complete historical release comparison.
+Release history uses up to 20 upstream version records, filtered for the tracker's prerelease setting. Standard repositories use GitHub Releases; Organizr v2 uses its official version-history feed. Missing version boundaries and truncated notes are identified as incomplete. Tag-only tracking does not provide a complete historical release comparison.
 
 ### Upgrade and recovery
 
-Read the [revision updates](CHANGELOG.md) before upgrading. Version 2.10.5 requires no database migration or new configuration. Preserve your `.env`, data and SSH material, and retain a rollback image.
+Read the [revision updates](CHANGELOG.md) before upgrading. Version 2.10.6 applies an additive internal retry-state migration automatically; no new configuration is required. Preserve your `.env`, data and SSH material, and retain a rollback image.
 
 The repository includes online SQLite backup and guarded restore helpers:
 

@@ -137,7 +137,8 @@ def track(args: argparse.Namespace) -> int:
             if source_changed:
                 conn.execute(
                     """UPDATE trackers SET current_version=NULL,current_release_name=NULL,
-                       current_release_url=NULL,current_release_body=NULL,current_published_at=NULL
+                       current_release_url=NULL,current_release_body=NULL,current_published_at=NULL,
+                       github_retry_at=NULL
                        WHERE id=?""",
                     (old["id"],),
                 )

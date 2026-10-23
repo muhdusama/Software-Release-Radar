@@ -4,10 +4,12 @@ import argparse
 import json
 import sys
 from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
 from typing import Iterable
 
 from .db import connect, init_db, transaction, utcnow
-from .github import GitHubError, ReleaseInfo, get_latest
+from .github import (GitHubError, GitHubRateLimitError, ReleaseInfo,
+                     _persist_rate_limit, get_latest, shared_rate_limit_until)
 from .notifications import dispatch_release_notifications
 from .portainer import PortainerError, sync_inventory
 from .probes import probe_tracker
@@ -35,6 +37,14 @@ class CheckResult:
     installed_version: str | None = None
 
 
+def _deferred_result(tracker, retry_at: datetime) -> CheckResult:
+    return CheckResult(
+        tracker_id=tracker["id"], name=tracker["name"], repository=tracker["repository"],
+        status="deferred", skipped=True,
+        error=f"GitHub API rate limit recovery is scheduled for {retry_at.replace(microsecond=0).isoformat()}.",
+    )
+
+
 def _record_success(tracker, release: ReleaseInfo, baseline: bool = False) -> CheckResult:
     now = utcnow()
     old_version = tracker["current_version"]
@@ -49,7 +59,7 @@ def _record_success(tracker, release: ReleaseInfo, baseline: bool = False) -> Ch
             UPDATE trackers
                SET current_version = ?, current_release_name = ?, current_release_url = ?,
                    current_release_body = ?, current_published_at = ?, last_checked_at = ?,
-                   last_status = 'ok', last_error = NULL, updated_at = ?
+                   last_status = 'ok', last_error = NULL, github_retry_at = NULL, updated_at = ?
              WHERE id = ?
             """,
             (release.version, release.name, release.url, release.body, release.published_at, now, now, tracker["id"]),
@@ -93,10 +103,37 @@ def _record_error(tracker, message: str) -> CheckResult:
     with transaction() as conn:
         conn.execute(
             """
-            UPDATE trackers SET last_checked_at = ?, last_status = 'error', last_error = ?, updated_at = ?
+            UPDATE trackers SET last_checked_at = ?, last_status = 'error', last_error = ?,
+                                github_retry_at = NULL, updated_at = ?
              WHERE id = ?
             """,
             (now, message[:1000], now, tracker["id"]),
+        )
+    return CheckResult(
+        tracker_id=tracker["id"], name=tracker["name"], repository=tracker["repository"],
+        status="error", error=message, newly_failed=newly_failed,
+    )
+
+
+def _record_rate_limit_error(tracker, exc: GitHubRateLimitError) -> CheckResult:
+    now_dt = datetime.now(timezone.utc)
+    now = now_dt.replace(microsecond=0).isoformat()
+    retry_at = exc.retry_at or _persist_rate_limit(None)
+    if retry_at.tzinfo is None:
+        retry_at = retry_at.replace(tzinfo=timezone.utc)
+    else:
+        retry_at = retry_at.astimezone(timezone.utc)
+    retry_value = retry_at.replace(microsecond=0).isoformat()
+    with transaction() as conn:
+        newly_failed = tracker["last_status"] != "error"
+        message = f"GitHub API rate limit was reached. Retrying after {retry_value}."
+        conn.execute(
+            """
+            UPDATE trackers SET last_checked_at = ?, last_status = 'error', last_error = ?,
+                                github_retry_at = ?, updated_at = ?
+             WHERE id = ?
+            """,
+            (now, message, retry_value, now, tracker["id"]),
         )
     return CheckResult(
         tracker_id=tracker["id"], name=tracker["name"], repository=tracker["repository"],
@@ -110,9 +147,15 @@ def check_tracker(tracker_id: int, baseline: bool = False, run_probe: bool = Tru
     if tracker is None:
         raise ValueError(f"Tracker {tracker_id} does not exist.")
 
+    cooldown = shared_rate_limit_until()
+    if cooldown and cooldown > datetime.now(timezone.utc):
+        return _deferred_result(tracker, cooldown)
+
     try:
         release = get_latest(tracker["repository"], tracker["strategy"], bool(tracker["include_prereleases"]))
         result = _record_success(tracker, release, baseline=baseline)
+    except GitHubRateLimitError as exc:
+        result = _deferred_result(tracker, exc.retry_at) if exc.deferred and exc.retry_at else _record_rate_limit_error(tracker, exc)
     except (GitHubError, ValueError) as exc:
         result = _record_error(tracker, str(exc))
     except Exception as exc:  # pragma: no cover
@@ -138,7 +181,13 @@ def check_all(enabled_only: bool = True, baseline: bool = False, due_only: bool 
         trackers = conn.execute(query).fetchall()
     selected = trackers
     if due_only:
-        selected = [row for row in trackers if is_due(row["last_checked_at"], int(row["refresh_hours"] or 6))]
+        cooldown = shared_rate_limit_until()
+        if cooldown and cooldown > datetime.now(timezone.utc):
+            return []
+        selected = [
+            row for row in trackers
+            if is_due(row["last_checked_at"], int(row["refresh_hours"] or 6), retry_at=row["github_retry_at"])
+        ]
     has_portainer = any(str(row["probe_mode"] or "") == "portainer" for row in selected)
     if has_portainer:
         try:

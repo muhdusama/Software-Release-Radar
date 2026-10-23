@@ -157,6 +157,10 @@ class PortainerProvider(InventoryProvider):
     def image_labels(self, environment: InventoryEnvironment, image_id: str) -> dict[str, Any]:
         return _image_labels(int(environment.source_id), image_id)
 
+    def image_metadata(self, environment: InventoryEnvironment,
+                       image_id: str) -> tuple[dict[str, Any], str | None]:
+        return _image_metadata(int(environment.source_id), image_id)
+
     def test_connection(self) -> dict[str, Any]:
         started = time.monotonic()
         environments = self.list_environments()
@@ -299,28 +303,41 @@ def _github_repository(value: str | None) -> str | None:
     return None
 
 
-def _version_from(image: str, labels: dict[str, Any]) -> str | None:
+def _version_from(image: str, labels: dict[str, Any],
+                  app_version: str | None = None) -> str | None:
     for key in (
         "software-release-radar.version", "software.release.radar.version",
-        "org.opencontainers.image.version", "org.label-schema.version",
+        "org.opencontainers.image.version",
     ):
         value = str(labels.get(key) or "").strip()
         if value:
             return value
+    if app_version:
+        return app_version
+    value = str(labels.get("org.label-schema.version") or "").strip()
+    if value:
+        return value
     _, tag = _split_image(image)
     if tag and tag.lower() not in {"latest", "main", "master", "develop", "development", "edge", "stable"}:
         return tag
     return None
 
 
+_SOURCE_REPOSITORY_ALIASES = {
+    "meronx/portfolio-performance": "portfolio-performance/portfolio",
+    "organizr/docker-organizr": "causefx/Organizr",
+}
+
+
 def _repository_from(labels: dict[str, Any]) -> str | None:
-    for key in (
-        "software-release-radar.repository", "software.release.radar.repository",
-        "org.opencontainers.image.source", "org.label-schema.vcs-url",
-    ):
+    for key in ("software-release-radar.repository", "software.release.radar.repository"):
         repository = _github_repository(str(labels.get(key) or ""))
         if repository:
             return repository
+    for key in ("org.opencontainers.image.source", "org.label-schema.vcs-url"):
+        repository = _github_repository(str(labels.get(key) or ""))
+        if repository:
+            return _SOURCE_REPOSITORY_ALIASES.get(repository.lower(), repository)
     return None
 
 
@@ -373,19 +390,39 @@ def is_expected_offline_error(exc: PortainerError) -> bool:
     return any(marker in message for marker in offline_markers)
 
 
-def _image_labels(endpoint_id: int, image_id: str | None) -> dict[str, Any]:
+_APP_VERSION_RE = re.compile(r"^v?\d+(?:\.\d+){1,4}(?:[-+._][A-Za-z0-9.-]+)?$")
+
+
+def _image_metadata(endpoint_id: int, image_id: str | None) -> tuple[dict[str, Any], str | None]:
     if not image_id:
-        return {}
+        return {}, None
     encoded = urllib.parse.quote(str(image_id), safe="")
     try:
         payload = _request(f"/api/endpoints/{endpoint_id}/docker/images/{encoded}/json")
     except PortainerError:
-        return {}
+        return {}, None
     if not isinstance(payload, dict):
-        return {}
+        return {}, None
     config = payload.get("Config") or payload.get("config") or {}
+    if not isinstance(config, dict):
+        return {}, None
     labels = config.get("Labels") or config.get("labels") or {}
-    return labels if isinstance(labels, dict) else {}
+    app_version = None
+    environment = config.get("Env") or config.get("env") or []
+    if isinstance(environment, list):
+        for entry in environment:
+            if not isinstance(entry, str) or not entry.startswith("APP_VERSION="):
+                continue
+            candidate = entry.removeprefix("APP_VERSION=").strip()
+            if _APP_VERSION_RE.fullmatch(candidate):
+                app_version = candidate
+            break
+    return (labels if isinstance(labels, dict) else {}), app_version
+
+
+def _image_labels(endpoint_id: int, image_id: str | None) -> dict[str, Any]:
+    """Compatibility wrapper for callers that only need inspect labels."""
+    return _image_metadata(endpoint_id, image_id)[0]
 
 
 
@@ -476,7 +513,7 @@ def sync_inventory(progress: Callable[..., None] | None = None) -> PortainerSync
         raise PortainerError(str(exc)) from exc
 
     seen_environment_ids: set[int] = set()
-    image_label_cache: dict[tuple[int, str], dict[str, Any]] = {}
+    image_metadata_cache: dict[tuple[int, str], tuple[dict[str, Any], str | None]] = {}
     if progress:
         progress(total_environments=len(environments), processed_environments=0, services_found=0, offline_environments=0, unexpected_errors=0, message=f"Synchronising {provider.name.title()} environments")
 
@@ -556,14 +593,15 @@ def sync_inventory(progress: Callable[..., None] | None = None) -> PortainerSync
             if not isinstance(labels, dict):
                 labels = {}
             cache_key = (endpoint_id, image_id)
-            if cache_key not in image_label_cache:
-                image_label_cache[cache_key] = provider.image_labels(environment, image_id)
-            merged_labels = {**image_label_cache[cache_key], **labels}
+            if cache_key not in image_metadata_cache:
+                image_metadata_cache[cache_key] = provider.image_metadata(environment, image_id)
+            image_labels, app_version = image_metadata_cache[cache_key]
+            merged_labels = {**image_labels, **labels}
             ports, first_port = _published_ports(item)
             stack_name = str(merged_labels.get("com.docker.compose.project") or "").strip() or None
             service_name = str(merged_labels.get("com.docker.compose.service") or "").strip() or None
             repository = _repository_from(merged_labels)
-            version = _version_from(image, merged_labels)
+            version = _version_from(image, merged_labels, app_version)
             state = str(item.get("State") or item.get("state") or "unknown")
             container_status = str(item.get("Status") or item.get("status") or "")
             health = _health(item)

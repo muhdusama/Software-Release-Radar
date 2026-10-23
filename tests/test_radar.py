@@ -389,6 +389,36 @@ class RadarTests(unittest.TestCase):
         check_mock.assert_called_once_with(tracker_id, refresh_portainer=False)
         probe_mock.assert_called_once_with(tracker_id, refresh_portainer=False)
 
+    def test_deferred_bulk_and_all_checks_report_warning_not_successful_check(self):
+        tracker_id = self._insert_tracker()
+        app = create_app()
+        app.testing = True
+        with connect() as conn:
+            user = conn.execute("SELECT * FROM users WHERE username='admin'").fetchone()
+        client = app.test_client()
+        with client.session_transaction() as session:
+            session["user_id"] = int(user["id"])
+            session["password_stamp"] = token_digest(str(user["password_hash"]))
+            session["csrf_token"] = "deferred-csrf"
+        deferred = CheckResult(
+            tracker_id=tracker_id, name="Example", repository="owner/repo",
+            status="deferred", skipped=True,
+            error="GitHub API rate limit recovery is scheduled.",
+        )
+        with patch("radar.web.check_tracker", return_value=deferred):
+            bulk = client.post("/trackers/bulk", data={
+                "csrf_token": "deferred-csrf", "bulk_action": "check", "tracker_ids": str(tracker_id),
+            }, follow_redirects=True)
+        bulk_body = bulk.get_data(as_text=True)
+        self.assertIn("1 tracker deferred by GitHub rate-limit recovery.", bulk_body)
+        self.assertNotIn("Checked 1 tracker", bulk_body)
+
+        with patch("radar.web.check_all", return_value=[deferred]):
+            all_checks = client.post("/check-all", data={"csrf_token": "deferred-csrf"}, follow_redirects=True)
+        all_body = all_checks.get_data(as_text=True)
+        self.assertIn("1 tracker deferred by GitHub rate-limit recovery.", all_body)
+        self.assertNotIn("Checked 1 tracker", all_body)
+
     def test_health_endpoint_uses_shared_application_version(self):
         from radar.version import APP_VERSION
 
