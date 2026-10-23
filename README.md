@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/muhdusama/Software-Release-Radar/releases/latest"><img alt="Version 2.10.7" src="https://img.shields.io/badge/version-2.10.7-2f81f7"></a>
+  <a href="https://github.com/muhdusama/Software-Release-Radar/releases/latest"><img alt="Version 2.10.8" src="https://img.shields.io/badge/version-2.10.8-2f81f7"></a>
   <a href="https://github.com/muhdusama/Software-Release-Radar/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/muhdusama/Software-Release-Radar/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Python 3.13" src="https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white">
   <img alt="Docker Compose" src="https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white">
@@ -29,7 +29,7 @@
 
 Software Release Radar is a self-hosted dashboard for reviewing software updates across a homelab or small server fleet. It tracks upstream GitHub releases against the versions you actually run, adds service and container context, and keeps your upgrade decisions in one place.
 
-**Version 2.10.7** adds SearXNG rolling-release tracking from its official `master` commit history, including date-and-commit version matching and bounded history for upgrade analysis. See the [changelog](CHANGELOG.md) for changes and compatibility notes.
+**Version 2.10.8** adds guarded inventory rebinding for provider changes, corrects Dockhand application-version detection for inherited image labels, and prevents cached containers on offline environments from reporting a successful probe. See the [changelog](CHANGELOG.md) for changes and compatibility notes.
 
 ## Why Release Radar?
 
@@ -135,7 +135,7 @@ Release history uses up to 20 upstream version records. Standard repositories us
 
 ### Upgrade and recovery
 
-Read the [revision updates](CHANGELOG.md) before upgrading. Version 2.10.7 requires no new configuration or database migration beyond v2.10.6. Preserve your `.env`, data and SSH material, and retain a rollback image.
+Read the [revision updates](CHANGELOG.md) before upgrading. Version 2.10.8 requires no new dependency or database migration beyond v2.10.6. Changing inventory providers still requires an explicit mapping review; the [configuration guide](docs/CONFIGURATION.md#preserving-trackers-when-changing-providers) describes the guarded rebinding command. Preserve your `.env`, data and SSH material, and retain a rollback image.
 
 The repository includes online SQLite backup and guarded restore helpers:
 

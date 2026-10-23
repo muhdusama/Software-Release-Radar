@@ -10,7 +10,10 @@ from .checker import check_all, check_tracker
 from .db import audit, connect, get_setting, init_db, transaction, utcnow
 from .github import normalise_repository
 from .probes import probe_all, probe_tracker
-from .portainer import import_service, inventory_summary, sync_inventory, test_connection as portainer_test_connection
+from .portainer import (
+    import_service, inventory_summary, rebind_inventory, sync_inventory,
+    test_connection as portainer_test_connection,
+)
 from .notifications import notification_smoke_test
 from .tracker_utils import normalise_tags, parse_utc, split_tags, validate_refresh_hours
 from .upgrade_workflow import (
@@ -468,6 +471,16 @@ def portainer_import_command(args: argparse.Namespace) -> int:
     return 0 if check_result.status == "ok" else 2
 
 
+def inventory_rebind_command(args: argparse.Namespace) -> int:
+    result = rebind_inventory([{
+        "tracker_id": args.tracker_id,
+        "service_id": args.service_id,
+        "expected_service_id": args.expected_service_id,
+    }], confirm=bool(args.confirm))
+    print(json.dumps({"ok": True, **result}, indent=2))
+    return 0
+
+
 def upgrades(_: argparse.Namespace) -> int:
     with connect() as conn:
         rows = conn.execute(
@@ -754,6 +767,15 @@ def build_parser() -> argparse.ArgumentParser:
     portainer_import_parser.add_argument("--tags", default="portainer,docker")
     portainer_import_parser.add_argument("--include-prereleases", action="store_true")
     portainer_import_parser.set_defaults(func=portainer_import_command)
+
+    inventory_rebind_parser = sub.add_parser(
+        "inventory-rebind", help="Preview or confirm one reviewed inventory mapping change",
+    )
+    inventory_rebind_parser.add_argument("--tracker-id", type=int, required=True)
+    inventory_rebind_parser.add_argument("--service-id", type=int, required=True)
+    inventory_rebind_parser.add_argument("--expected-service-id", type=int, required=True)
+    inventory_rebind_parser.add_argument("--confirm", action="store_true")
+    inventory_rebind_parser.set_defaults(func=inventory_rebind_command)
 
     decide_parser = sub.add_parser("decide", help="Save a managed upgrade decision")
     _target_args(decide_parser)

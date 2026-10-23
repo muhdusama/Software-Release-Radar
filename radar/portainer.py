@@ -595,13 +595,16 @@ def sync_inventory(progress: Callable[..., None] | None = None) -> PortainerSync
             cache_key = (endpoint_id, image_id)
             if cache_key not in image_metadata_cache:
                 image_metadata_cache[cache_key] = provider.image_metadata(environment, image_id)
-            image_labels, app_version = image_metadata_cache[cache_key]
+            image_labels, image_app_version = image_metadata_cache[cache_key]
             merged_labels = {**image_labels, **labels}
             ports, first_port = _published_ports(item)
             stack_name = str(merged_labels.get("com.docker.compose.project") or "").strip() or None
             service_name = str(merged_labels.get("com.docker.compose.service") or "").strip() or None
             repository = _repository_from(merged_labels)
-            version = _version_from(image, merged_labels, app_version)
+            container_app_version = str(item.get("ApplicationVersion") or "").strip() or None
+            version = _version_from(
+                image, merged_labels, container_app_version or image_app_version,
+            )
             state = str(item.get("State") or item.get("state") or "unknown")
             container_status = str(item.get("Status") or item.get("status") or "")
             health = _health(item)
@@ -793,6 +796,155 @@ def import_service(service_id: int, repository: str, *, name: str | None = None,
             (tracker_id, repository, now, service_id),
         )
     return tracker_id, action
+
+
+def _rebind_plan(conn, bindings: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    active_provider = str(
+        get_settings(["inventory_provider"]).get("inventory_provider") or "portainer"
+    ).strip().lower()
+    if active_provider not in {"portainer", "dockhand"}:
+        raise PortainerError("Configured inventory provider is not supported.")
+    if not bindings:
+        raise ValueError("Provide at least one inventory binding.")
+
+    plan: list[dict[str, Any]] = []
+    seen_trackers: set[int] = set()
+    seen_targets: set[int] = set()
+    for binding in bindings:
+        try:
+            tracker_id = int(binding["tracker_id"])
+            target_id = int(binding["service_id"])
+            expected_id = int(binding["expected_service_id"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ValueError(
+                "Each inventory binding needs tracker_id, service_id and expected_service_id."
+            ) from exc
+        if tracker_id in seen_trackers or target_id in seen_targets:
+            raise ValueError("A tracker and target service may each appear only once in a rebind.")
+        if target_id == expected_id:
+            raise ValueError("The target inventory service must differ from the expected current service.")
+        seen_trackers.add(tracker_id)
+        seen_targets.add(target_id)
+
+        tracker = conn.execute("SELECT * FROM trackers WHERE id=?", (tracker_id,)).fetchone()
+        if tracker is None:
+            raise ValueError(f"Tracker {tracker_id} does not exist.")
+        if tracker["portainer_service_id"] in (None, "") or int(tracker["portainer_service_id"]) != expected_id:
+            raise ValueError(f"Tracker {tracker_id} no longer has the expected inventory mapping.")
+        old_service = conn.execute(
+            "SELECT * FROM portainer_services WHERE id=?", (expected_id,)
+        ).fetchone()
+        if old_service is None or int(old_service["tracker_id"] or 0) != tracker_id:
+            raise ValueError(f"Tracker {tracker_id}'s expected inventory service is no longer canonical.")
+        target = conn.execute(
+            """
+            SELECT ps.*, pe.name AS environment_name, pe.host AS environment_host,
+                   pe.status AS environment_status
+              FROM portainer_services ps
+              JOIN portainer_environments pe ON pe.endpoint_id=ps.endpoint_id
+             WHERE ps.id=?
+            """,
+            (target_id,),
+        ).fetchone()
+        if target is None:
+            raise ValueError(f"Target inventory service {target_id} does not exist.")
+        if str(target["provider"] or "").strip().lower() != active_provider:
+            raise ValueError(f"Target inventory service {target_id} is not from the active provider.")
+        if not int(target["present"]) or int(target["ignored"]):
+            raise ValueError(f"Target inventory service {target_id} is not an active inventory container.")
+        if str(target["environment_status"] or "unknown").lower() != "online":
+            raise ValueError(
+                f"Target inventory service {target_id} is on an unavailable environment."
+            )
+        target_tracker_id = int(target["tracker_id"] or 0)
+        if target_tracker_id not in {0, tracker_id}:
+            raise ValueError(f"Target inventory service {target_id} is already assigned to another tracker.")
+        referenced = conn.execute(
+            "SELECT id FROM trackers WHERE portainer_service_id=? AND id<>?",
+            (target_id, tracker_id),
+        ).fetchone()
+        if referenced is not None:
+            raise ValueError(f"Target inventory service {target_id} is already referenced by another tracker.")
+        override = str(target["repository_override"] or "").strip()
+        repository = str(tracker["repository"] or "").strip()
+        if override and override.lower() != repository.lower():
+            raise ValueError(f"Target inventory service {target_id} has a conflicting repository override.")
+        plan.append({
+            "tracker_id": tracker_id,
+            "expected_service_id": expected_id,
+            "service_id": target_id,
+            "provider": active_provider,
+            "repository": repository,
+            "container": str(target["container_name"] or ""),
+            "detected_version": str(target["detected_version"] or "").strip() or None,
+        })
+    return plan
+
+
+def rebind_inventory(bindings: list[dict[str, Any]], *, confirm: bool = False) -> dict[str, Any]:
+    """Move explicit tracker mappings to reviewed services without re-importing.
+
+    The dry run and confirmed operation perform the same identity checks.  A
+    confirmed batch holds an immediate SQLite transaction so no binding can be
+    validated against a stale mapping and partially applied.
+    """
+    if not confirm:
+        with connect() as conn:
+            plan = _rebind_plan(conn, bindings)
+        return {"action": "dry_run", "bindings": plan}
+
+    now = utcnow()
+    conn = connect()
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        plan = _rebind_plan(conn, bindings)
+        for item in plan:
+            target = conn.execute(
+                """
+                SELECT ps.*, pe.name AS environment_name, pe.host AS environment_host
+                  FROM portainer_services ps
+                  JOIN portainer_environments pe ON pe.endpoint_id=ps.endpoint_id
+                 WHERE ps.id=?
+                """,
+                (item["service_id"],),
+            ).fetchone()
+            conn.execute(
+                "UPDATE portainer_services SET tracker_id=NULL, updated_at=? WHERE id=?",
+                (now, item["expected_service_id"]),
+            )
+            conn.execute(
+                """
+                UPDATE portainer_services
+                   SET tracker_id=?, repository_override=?, updated_at=?
+                 WHERE id=?
+                """,
+                (item["tracker_id"], item["repository"], now, item["service_id"]),
+            )
+            conn.execute(
+                """
+                UPDATE trackers SET
+                    detected_installed_version=?, machine_name=?,
+                    install_host=COALESCE(?, install_host),
+                    install_port=COALESCE(?, install_port), docker_container=?,
+                    probe_mode='portainer', inventory_source=?, portainer_service_id=?,
+                    last_probe_at=NULL, last_probe_status='untested',
+                    last_probe_error=NULL, last_probe_latency_ms=NULL, updated_at=?
+                 WHERE id=?
+                """,
+                (
+                    target["detected_version"], target["environment_name"],
+                    target["environment_host"], target["primary_port"],
+                    target["container_name"], target["provider"], item["service_id"],
+                    now, item["tracker_id"],
+                ),
+            )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+    return {"action": "rebound", "bindings": plan}
 
 
 

@@ -247,7 +247,7 @@ def _probe_portainer(tracker, *, refresh_inventory: bool = True) -> tuple[str | 
     with connect() as conn:
         service = conn.execute(
             """
-            SELECT ps.*, pe.name AS environment_name
+            SELECT ps.*, pe.name AS environment_name, pe.status AS environment_status
               FROM portainer_services ps
               JOIN portainer_environments pe ON pe.endpoint_id=ps.endpoint_id
              WHERE ps.id=?
@@ -256,6 +256,11 @@ def _probe_portainer(tracker, *, refresh_inventory: bool = True) -> tuple[str | 
         ).fetchone()
     if service is None or not int(service["present"]):
         raise RuntimeError("The mapped inventory container is no longer present.")
+    environment_status = str(service["environment_status"] or "unknown").lower()
+    if environment_status != "online":
+        raise RuntimeError(
+            f"Inventory environment is {environment_status}; cached container state is unavailable."
+        )
     state = str(service["state"] or "unknown").lower()
     if state != "running":
         raise RuntimeError(f"Inventory provider reports container state: {state}")

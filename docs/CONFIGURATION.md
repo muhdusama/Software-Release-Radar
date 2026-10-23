@@ -19,7 +19,7 @@ The recommended `bash scripts/setup.sh` flow creates `.env` for you.
 
 | Variable | Required | Default | Purpose |
 |---|---:|---|---|
-| `RADAR_VERSION` | yes | `2.10.7` | Image and build version label |
+| `RADAR_VERSION` | yes | `2.10.8` | Image and build version label |
 | `RADAR_BIND_ADDRESS` | yes | `0.0.0.0` | Address used to publish the web port on the Docker host |
 | `RADAR_PORT` | yes | `9120` | Host port for the web interface |
 | `RADAR_SCHEDULER_INTERVAL_SECONDS` | yes | `60` | How often the scheduler looks for trackers that are due |
@@ -94,6 +94,19 @@ Select either **Portainer** or **Dockhand**. Release Radar saves each provider c
 
 Switching changes which provider is synchronised and displayed, but it does not silently move existing tracker-to-container mappings. Those mappings remain attached to their original provider record until an administrator imports the corresponding service from the newly selected provider. Importing that service explicitly transfers the tracker mapping and clears the previous service link. Switching back exposes the retained inventory again.
 
+### Preserving trackers when changing providers
+
+Importing applies import preferences to an existing tracker. To preserve its existing preferences and manual installed version, use the guarded rebinding command instead. Synchronise the selected provider first and review the old and new records, including host, container identity, Compose labels and release source. A matching name alone is not sufficient evidence.
+
+```bash
+docker compose exec -T radar python -m radar.manage inventory-rebind \
+  --tracker-id 12 --service-id 345 --expected-service-id 123
+```
+
+The command above is a dry run. Review its plan, then repeat it with `--confirm` to apply. IDs are illustrative; use IDs from your own inventory. A changed previous mapping, another tracker's claim, an offline environment, an ignored or missing service, a conflicting source override or a target outside the selected provider causes rejection.
+
+Rebinding retains the tracker name, release source, enabled state, tags, refresh interval, prerelease preference, manual installed version, notes, custom probe settings and history. It changes the inventory binding and recorded container context, takes the detected version from the target record, and clears previous probe results. Probe the newly bound service to establish its current state. An offline environment retains last-known inventory and cannot establish a healthy live probe.
+
 For either provider:
 
 - use an HTTPS base URL wherever possible;
@@ -123,6 +136,8 @@ If Release Radar instead connects directly to Dockhand over an internal HTTP URL
 Dockhand's container route currently returns an empty JSON list both for a genuinely empty environment and when its Docker connection fails. Release Radar therefore calls POST /api/environments/{id}/test before GET /api/containers?env={id}&all=true. Only a successful test permits reconciliation. An unavailable or malformed environment retains its last-known inventory and is shown as offline or error.
 
 Dockhand supplies container IDs, names, image references, state, status, health, labels, ports, networks and Compose labels through its container list. Image IDs are retained when supplied by the installed Dockhand version. Current Dockhand list responses may omit image IDs, in which case Release Radar leaves that optional field empty rather than guessing.
+
+If a container has only a legacy version label, Release Radar can use Dockhand's `GET /api/containers/{id}/inspect?env={id}` route to read a validated `APP_VERSION`. This is a per-container observation, not image-level metadata. Explicit Release Radar and OCI version labels take precedence. The existing token needs container-inspection permission for this optional fallback; an unavailable inspection falls back to label detection. Release Radar does not persist arbitrary container environment values or change token permissions.
 
 The background inventory worker remains idle when no jobs are queued.
 ## OpenAI-compatible assistant
