@@ -8,6 +8,24 @@ Format reference: https://keepachangelog.com/en/1.1.0/
 
 ## [Unreleased]
 
+## [2.10.7] - 2026-10-24
+
+### Added
+
+- SearXNG rolling-release checks and bounded history from its official `master` commit history, using the existing GitHub authentication and rate-limit recovery path.
+- Date-and-commit version matching for application and Docker formats, with conservative handling of different revisions on the same date.
+
+### Changed
+
+- Rolling date updates carry unknown risk instead of semantic version risk estimates.
+- Source commit links and messages retain their provenance in upgrade analysis; they do not claim that a candidate image has been published or tested.
+- Tracking controls and version labels describe upstream versions without assuming every source publishes Git tags.
+
+### Compatibility
+
+- Existing SearXNG release trackers adopt rolling history automatically. No new dependency, configuration or database migration beyond v2.10.6 is required.
+- Existing trackers, installed versions, decisions, history and private configuration are preserved.
+
 ## [2.10.6] - 2026-10-24
 
 ### Fixed

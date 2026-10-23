@@ -11,10 +11,11 @@
       <label>Software name<input name="name" value="{{ source.get('name', '') or '' }}" maxlength="120" required></label>
       <label>GitHub repository<input name="repository" value="{{ source.get('repository', '') or '' }}" placeholder="immich-app/immich" required></label>
       <label>Refresh interval<select name="refresh_hours">{% set selected_refresh = source.get('refresh_hours', default_refresh)|int %}{% for hours in allowed_refresh_hours %}<option value="{{ hours }}" {{ 'selected' if selected_refresh == hours else '' }}>Every {{ hours }} hour{{ '' if hours == 1 else 's' }}{% if hours == 168 %} (weekly){% endif %}</option>{% endfor %}</select></label>
-      <label>Tracking method<select name="strategy"><option value="release" {{ 'selected' if source.get('strategy', 'release') == 'release' else '' }}>Latest GitHub release</option><option value="tag" {{ 'selected' if source.get('strategy') == 'tag' else '' }}>Latest Git tag</option></select></label>
+      <label>Tracking method<select name="strategy"><option value="release" {{ 'selected' if source.get('strategy', 'release') == 'release' else '' }}>Latest upstream release</option><option value="tag" {{ 'selected' if source.get('strategy') == 'tag' else '' }}>Latest Git tag</option></select></label>
       <label>Tags <small>optional</small><input name="tags" value="{{ source.get('tags', '') or '' }}" placeholder="ai, production, self-hosted"></label>
       <label>Homepage URL <small>optional</small><input type="url" name="homepage_url" value="{{ source.get('homepage_url', '') or '' }}" placeholder="https://example.com"></label>
     </div>
+    <p class="muted">SearXNG release tracking follows rolling commits on its official master branch. Organizr v2 uses its official version feed.</p>
     <label>Notes <small>optional</small><textarea name="notes" rows="3" placeholder="Purpose, upgrade constraints, or deployment notes">{{ source.get('notes', '') or '' }}</textarea></label>
     <div class="toggle-grid">
       <label class="toggle-card"><input type="checkbox" name="enabled" {{ 'checked' if source.get('enabled', 1)|int else '' }}><span><strong>Enabled</strong><small>Include this tracker in scheduled checks.</small></span></label>

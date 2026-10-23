@@ -43,6 +43,8 @@ _ORGANIZR_REPOSITORY = "causefx/organizr"
 _ORGANIZR_V2_FEED_PATH = "/repos/causefx/Organizr/contents/js/version.json?ref=v2-master"
 _ORGANIZR_V2_FEED_URL = "https://github.com/causefx/Organizr/blob/v2-master/js/version.json"
 _ORGANIZR_VERSION_RE = re.compile(r"^v?(\d+(?:\.\d+){1,3})(?:-([0-9A-Za-z.-]+))?$")
+_SEARXNG_REPOSITORY = "searxng/searxng"
+_SEARXNG_COMMIT_SHA_RE = re.compile(r"^[0-9a-fA-F]{40}$")
 _RATE_LIMIT_UNTIL = "github_rate_limit_until"
 _RATE_LIMIT_BACKOFF = "github_rate_limit_backoff_seconds"
 _MIN_RATE_LIMIT_BACKOFF_SECONDS = 60
@@ -237,6 +239,58 @@ def _organizr_v2_releases(include_prereleases: bool, limit: int) -> list[Release
     return [release for _, release in releases[:max(1, min(int(limit), 50))]]
 
 
+def is_searxng_rolling_repository(repository: str) -> bool:
+    """Whether the repository uses SearXNG's master-commit release policy."""
+    try:
+        return normalise_repository(repository).casefold() == _SEARXNG_REPOSITORY
+    except ValueError:
+        return False
+
+
+def _searxng_rolling_release(candidate: object) -> ReleaseInfo:
+    if not isinstance(candidate, dict):
+        raise GitHubError("SearXNG master commit history was invalid.")
+    sha = str(candidate.get("sha") or "").strip()
+    commit = candidate.get("commit")
+    committer = commit.get("committer") if isinstance(commit, dict) else None
+    published_at = str(committer.get("date") or "").strip() if isinstance(committer, dict) else ""
+    if not _SEARXNG_COMMIT_SHA_RE.fullmatch(sha) or not published_at:
+        raise GitHubError("SearXNG master commit history was invalid.")
+    try:
+        committed = datetime.fromisoformat(published_at.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise GitHubError("SearXNG master commit history was invalid.") from exc
+    if committed.tzinfo is None:
+        raise GitHubError("SearXNG master commit history was invalid.")
+    committed = committed.astimezone(timezone.utc)
+    version = f"{committed.year}.{committed.month}.{committed.day}-{sha[:9].lower()}"
+    message = str(commit.get("message") or "").strip() if isinstance(commit, dict) else ""
+    if len(message) > 120_000:
+        message = message[:120_000] + "\n\n[Commit message truncated by Software Release Radar.]"
+    body = (
+        "Rolling source commit from SearXNG master. This is upstream commit metadata, not formal release "
+        "notes, and does not prove a container image was published."
+    )
+    if message:
+        body += f"\n\nCommit message:\n{message}"
+    return ReleaseInfo(
+        version=version,
+        name=f"SearXNG rolling release {version}",
+        url=f"https://github.com/searxng/searxng/commit/{sha.lower()}",
+        published_at=published_at,
+        body=body,
+    )
+
+
+def _searxng_rolling_releases(limit: int) -> list[ReleaseInfo]:
+    """Return master commits in GitHub's upstream order for SearXNG rolling releases."""
+    limit = max(1, min(int(limit), 50))
+    payload = _github_get(f"/repos/searxng/searxng/commits?sha=master&per_page={limit}")
+    if not isinstance(payload, list) or not payload:
+        raise GitHubError("SearXNG master did not include any commits.")
+    return [_searxng_rolling_release(candidate) for candidate in payload[:limit]]
+
+
 def normalise_repository(value: str) -> str:
     value = (value or "").strip()
     if value.startswith("git@github.com:"):
@@ -320,6 +374,8 @@ def get_latest(repository: str, strategy: str = "release", include_prereleases: 
         if not releases:
             raise GitHubError("Organizr's v2 version feed did not include a published release.")
         return releases[0]
+    if repository.casefold() == _SEARXNG_REPOSITORY and strategy == "release":
+        return _searxng_rolling_releases(1)[0]
     owner, repo = repository.split("/", 1)
     encoded = f"/{urllib.parse.quote(owner)}/{urllib.parse.quote(repo)}"
 
@@ -359,6 +415,8 @@ def get_recent_releases(repository: str, include_prereleases: bool = False, limi
     repository = normalise_repository(repository)
     if repository.casefold() == _ORGANIZR_REPOSITORY:
         return _organizr_v2_releases(include_prereleases, limit)
+    if repository.casefold() == _SEARXNG_REPOSITORY:
+        return _searxng_rolling_releases(limit)
     owner, repo = repository.split("/", 1)
     encoded = f"/{urllib.parse.quote(owner)}/{urllib.parse.quote(repo)}"
     limit = max(1, min(int(limit), 50))

@@ -39,6 +39,63 @@ class VersioningTests(unittest.TestCase):
         self.assertFalse(result["available"])
         self.assertEqual(result["reason"], "comparison_unavailable")
 
+    def test_rolling_versions_match_hash_prefix_across_date_format_and_timezone_change(self):
+        self.assertTrue(versions_match(
+            "2026.10.09+81371861f67226091d1c4df2e3908a11d3b54eb9",
+            "SearXNG rolling release 2026.10.9-81371861f",
+            "2026.10.9-81371861f",
+        ))
+
+    def test_same_day_different_rolling_commits_are_not_current_or_ordered_by_hash(self):
+        result = classify_upgrade(
+            "2026.10.19-aaaaaaaaa",
+            "SearXNG rolling release 2026.10.19-bbbbbbbbb",
+            "2026.10.19-bbbbbbbbb",
+        )
+        self.assertFalse(result["available"])
+        self.assertEqual(result["reason"], "comparison_unavailable")
+
+    def test_newer_rolling_commit_date_is_unknown_risk_rolling_update(self):
+        result = classify_upgrade(
+            "2026.10.19-aaaaaaaaa",
+            "SearXNG rolling release 2026.10.20-bbbbbbbbb",
+            "2026.10.20-bbbbbbbbb",
+        )
+        self.assertTrue(result["available"])
+        self.assertEqual(result["level"], "rolling")
+        self.assertEqual(result["label"], "Rolling update")
+        self.assertEqual(result["risk"], "unknown")
+
+    def test_dirty_rolling_suffix_does_not_match_a_clean_commit_prefix(self):
+        for installed in ("2026.10.19+abcdef123+dirty", "2026.10.19+abcdef123.dirty"):
+            with self.subTest(installed=installed):
+                self.assertFalse(versions_match(
+                    installed,
+                    "SearXNG rolling release 2026.10.19-abcdef123",
+                    "2026.10.19-abcdef123",
+                ))
+                self.assertEqual(
+                    classify_upgrade(
+                        installed,
+                        "SearXNG rolling release 2026.10.19-abcdef123",
+                        "2026.10.19-abcdef123",
+                    )["reason"],
+                    "comparison_unavailable",
+                )
+
+    def test_calendar_versions_without_the_searxng_marker_keep_generic_semver_behaviour(self):
+        cases = (
+            ("2026.10.19-deadbeef", "Release v2026.10.19-deadbeef", "v2026.10.19-deadbeef", False, "current"),
+            ("2026.10.19-deadbeef", "Release v2026.10.20-deadbeef", "v2026.10.20-deadbeef", True, "patch"),
+            ("2026.10.19-deadbeef", "Release v2026.10.19-cafebabe", "v2026.10.19-cafebabe", False, "unknown"),
+            ("2026.10.19+deadbeef", "Release v2026.10.20+deadbeef", "v2026.10.20+deadbeef", True, "patch"),
+        )
+        for installed, name, tag, available, level in cases:
+            with self.subTest(installed=installed, tag=tag):
+                result = classify_upgrade(installed, name, tag)
+                self.assertEqual(result["available"], available)
+                self.assertEqual(result["level"], level)
+
     def test_checker_failure_excludes_cached_update(self):
         state = classify_tracker_state({
             "installed_version": "1.0.0",

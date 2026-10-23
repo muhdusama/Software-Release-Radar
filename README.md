@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/muhdusama/Software-Release-Radar/releases/latest"><img alt="Version 2.10.6" src="https://img.shields.io/badge/version-2.10.6-2f81f7"></a>
+  <a href="https://github.com/muhdusama/Software-Release-Radar/releases/latest"><img alt="Version 2.10.7" src="https://img.shields.io/badge/version-2.10.7-2f81f7"></a>
   <a href="https://github.com/muhdusama/Software-Release-Radar/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/muhdusama/Software-Release-Radar/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Python 3.13" src="https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white">
   <img alt="Docker Compose" src="https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white">
@@ -29,7 +29,7 @@
 
 Software Release Radar is a self-hosted dashboard for reviewing software updates across a homelab or small server fleet. It tracks upstream GitHub releases against the versions you actually run, adds service and container context, and keeps your upgrade decisions in one place.
 
-**Version 2.10.6** adds persistent recovery from GitHub rate limits and corrects upstream source and application-version detection for Portfolio Performance and Organizr. See the [changelog](CHANGELOG.md) for changes and compatibility notes.
+**Version 2.10.7** adds SearXNG rolling-release tracking from its official `master` commit history, including date-and-commit version matching and bounded history for upgrade analysis. See the [changelog](CHANGELOG.md) for changes and compatibility notes.
 
 ## Why Release Radar?
 
@@ -113,7 +113,7 @@ Services grouped by machine, with health and update status.
 
 | Area | Available now |
 |---|---|
-| Release tracking | GitHub releases, prereleases and latest tags; refresh interval per tracker |
+| Release tracking | GitHub releases, prereleases and latest tags; SearXNG rolling commits and Organizr v2 feed; refresh interval per tracker |
 | Version awareness | Manual versions, service probes, constrained SSH Docker inspection and inventory-provider detection |
 | Fleet inventory | Portainer or Dockhand, machine and service context, aliases and container rebinding |
 | Upgrade review | Decisions, priorities, risk, maintenance dates, checklists, rollback notes and deployment records |
@@ -131,11 +131,11 @@ The standard stack runs three services: the web application, scheduler and inven
 
 Configure an OpenAI-compatible endpoint in Settings to use the Assistant. It receives selected tracker, deployment and release-note context, so choose a provider appropriate for your data. Model output is advisory, escaped for display and bounded by request controls.
 
-Release history uses up to 20 upstream version records, filtered for the tracker's prerelease setting. Standard repositories use GitHub Releases; Organizr v2 uses its official version-history feed. Missing version boundaries and truncated notes are identified as incomplete. Tag-only tracking does not provide a complete historical release comparison.
+Release history uses up to 20 upstream version records. Standard repositories use GitHub Releases and the tracker's prerelease setting; Organizr v2 uses its official version-history feed, and SearXNG uses its official `master` commit history. Commit messages provide source-change evidence and do not prove that a container image has been published or tested. Missing version boundaries and truncated notes are identified as incomplete. Tag-only tracking does not provide a complete historical release comparison.
 
 ### Upgrade and recovery
 
-Read the [revision updates](CHANGELOG.md) before upgrading. Version 2.10.6 applies an additive internal retry-state migration automatically; no new configuration is required. Preserve your `.env`, data and SSH material, and retain a rollback image.
+Read the [revision updates](CHANGELOG.md) before upgrading. Version 2.10.7 requires no new configuration or database migration beyond v2.10.6. Preserve your `.env`, data and SSH material, and retain a rollback image.
 
 The repository includes online SQLite backup and guarded restore helpers:
 
