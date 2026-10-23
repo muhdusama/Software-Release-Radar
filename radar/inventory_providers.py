@@ -69,6 +69,16 @@ class InventoryProvider(ABC):
     def image_labels(self, environment: InventoryEnvironment, image_id: str) -> dict[str, Any]:
         return {}
 
+    def image_metadata(self, environment: InventoryEnvironment,
+                       image_id: str) -> tuple[dict[str, Any], str | None]:
+        """Return inspect labels and an allowlisted application version.
+
+        Providers without image inspection retain their existing label behaviour.
+        The narrow return value keeps arbitrary image environment data out of
+        synchronisation and storage.
+        """
+        return self.image_labels(environment, image_id), None
+
 
 class DockhandProvider(InventoryProvider):
     name = "dockhand"

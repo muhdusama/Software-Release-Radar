@@ -19,7 +19,7 @@ The recommended `bash scripts/setup.sh` flow creates `.env` for you.
 
 | Variable | Required | Default | Purpose |
 |---|---:|---|---|
-| `RADAR_VERSION` | yes | `2.10.5` | Image and build version label |
+| `RADAR_VERSION` | yes | `2.10.6` | Image and build version label |
 | `RADAR_BIND_ADDRESS` | yes | `0.0.0.0` | Address used to publish the web port on the Docker host |
 | `RADAR_PORT` | yes | `9120` | Host port for the web interface |
 | `RADAR_SCHEDULER_INTERVAL_SECONDS` | yes | `60` | How often the scheduler looks for trackers that are due |
@@ -30,7 +30,7 @@ The recommended `bash scripts/setup.sh` flow creates `.env` for you.
 | `ADMIN_PASSWORD_HASH` | first run | empty | PBKDF2 hash for the initial administrator |
 | `SECRET_KEY` | yes | empty | Flask session signing secret |
 | `ENCRYPTION_KEY` | yes | empty | Fernet key used for encrypted application secrets |
-| `GITHUB_TOKEN` | no | empty | Raises GitHub API rate limits |
+| `GITHUB_TOKEN` | recommended | empty | Authenticates release requests and raises the shared GitHub API quota |
 | `SESSION_COOKIE_SECURE` | no | `false` | Restrict session cookies to HTTPS |
 | `TRUST_PROXY_HEADERS` | no | `false` | Trust forwarding headers from one directly connected reverse proxy |
 
@@ -214,3 +214,33 @@ The database contains tracker definitions, users, decisions, integration configu
 Your `.env` is separate from the database. Keep an appropriately protected copy of `.env` as part of your normal host backup strategy because its `ENCRYPTION_KEY` is needed to decrypt stored credentials.
 
 Never publish either file.
+
+## GitHub authentication and rate-limit recovery
+
+For public repositories, create a dedicated [fine-grained personal access token](https://github.com/settings/personal-access-tokens/new) with **Public repositories (read-only)** access and an expiry date. Public read access is included automatically; no additional repository, account or write permissions are required. For private trackers, select only the repositories needed and grant **Contents: read** for their resource owner.
+
+Set the token in the deployment's private `.env` file:
+
+```dotenv
+GITHUB_TOKEN=your-dedicated-token
+```
+
+Apply the environment change by recreating the services:
+
+```bash
+docker compose up -d --no-build --force-recreate radar scheduler portainer-worker
+```
+
+A restart alone does not reload changed Compose environment values. Keep the token out of source control, logs, screenshots and support messages.
+
+Unauthenticated REST requests share a limit of 60 requests per hour for the originating public IP. A personal access token normally provides 5,000 requests per hour, shared with other activity using that account. See [GitHub's rate-limit documentation](https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api).
+
+Release checks persist a shared cooldown when GitHub reports a primary or secondary rate limit. They honour `Retry-After` and `X-RateLimit-Reset`; otherwise they use bounded exponential backoff. Affected trackers retry when eligible instead of waiting their full refresh interval. The cooldown survives a restart and applies to scheduled and interactive release requests. Requests return promptly while waiting; cached release data remains available. Ordinary permission and missing-repository errors do not become rate-limit retries.
+
+## Publisher-specific upstream sources
+
+Inventory source labels for `meronx/portfolio-performance` and `Organizr/docker-organizr` describe container packaging repositories. Default import suggestions use `portfolio-performance/portfolio` and `causefx/Organizr` for application update tracking. Explicit Release Radar repository labels and saved repository overrides remain authoritative.
+
+Portfolio Performance images declare `APP_VERSION`; this takes precedence over an inherited legacy base-image version label. Explicit Release Radar and OCI application version labels remain the first choice. Arbitrary image environment values are not stored.
+
+Organizr v2 publishes its version history in [`js/version.json` on `v2-master`](https://github.com/causefx/Organizr/blob/v2-master/js/version.json). Release tracking for `causefx/Organizr` uses this official feed for current versions and history, rather than its legacy v1 GitHub Releases page. Version links point to that source, and notes retain their upstream provenance.

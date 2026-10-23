@@ -28,7 +28,7 @@ The optional Assistant interprets supplied evidence and identifies uncertainty. 
 
 ### Available today
 
-Recorded running-container metadata from a valid inventory mapping: image reference, image ID, digest, detected version, state and observation time. GitHub release notes provide the context for feature gains, removals and the cost of waiting.
+Recorded running-container metadata from a valid inventory mapping: image reference, image ID, digest, detected version, state and observation time. GitHub release notes provide the context for feature gains, removals and the cost of waiting. Organizr v2 uses its official version-history feed.
 
 Missing metadata and incomplete notes remain evidence gaps. The Assistant cannot reliably infer changes that upstream notes omit.
 
@@ -96,7 +96,7 @@ Review the migration instructions and your configuration before scheduling the u
 
 ## Evidence and privacy
 
-Release history is bounded to the latest 20 GitHub release records returned by the API, filtered by the tracker's prerelease setting. Missing version boundaries and truncated notes are identified as incomplete. Tag-only tracking does not provide a full release-note comparison.
+Release history is bounded to 20 upstream version records, filtered by the tracker's prerelease setting. Standard repositories use GitHub Releases; Organizr v2 uses its official version-history feed. Missing version boundaries and truncated notes are identified as incomplete. Tag-only tracking does not provide a full release-note comparison.
 
 The optional Assistant sends selected tracker, deployment and release-note context to the OpenAI-compatible endpoint you configure. Review that provider's data handling for private infrastructure. Recommendations remain advisory and require operator judgement.
 

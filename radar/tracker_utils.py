@@ -57,15 +57,20 @@ def parse_utc(value: str | None) -> datetime | None:
     return parsed.astimezone(timezone.utc)
 
 
-def next_due_at(last_checked_at: str | None, refresh_hours: int) -> datetime:
+def next_due_at(last_checked_at: str | None, refresh_hours: int,
+                now: datetime | None = None, *, retry_at: str | None = None) -> datetime:
+    retry = parse_utc(retry_at)
+    if retry is not None:
+        return retry
     last = parse_utc(last_checked_at)
     if last is None:
-        return datetime.now(timezone.utc)
+        return now or datetime.now(timezone.utc)
     return last + timedelta(hours=refresh_hours)
 
 
-def is_due(last_checked_at: str | None, refresh_hours: int, now: datetime | None = None) -> bool:
-    if parse_utc(last_checked_at) is None:
+def is_due(last_checked_at: str | None, refresh_hours: int,
+           now: datetime | None = None, *, retry_at: str | None = None) -> bool:
+    if parse_utc(retry_at) is None and parse_utc(last_checked_at) is None:
         return True
     now = now or datetime.now(timezone.utc)
-    return next_due_at(last_checked_at, refresh_hours) <= now
+    return next_due_at(last_checked_at, refresh_hours, now, retry_at=retry_at) <= now

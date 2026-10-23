@@ -26,7 +26,7 @@ from .db import (
     ALLOWED_REFRESH_HOURS, audit, connect, get_setting, get_settings, init_db,
     set_settings, transaction, utcnow,
 )
-from .github import get_recent_releases, normalise_repository
+from .github import get_recent_releases, normalise_repository, shared_rate_limit_until
 from .inventory_providers import validate_origin_url
 from .notifications import NotificationError, dispatch_release_notifications, send_email, send_pushover
 from .probes import probe_all, probe_tracker
@@ -67,6 +67,21 @@ def _release_result_label(result) -> str:
     if release_name and version and release_name.casefold() != version.casefold():
         return f"{release_name} (Git tag {version})"
     return release_name or version or "unknown release"
+
+
+def _flash_check_summary(results) -> None:
+    completed = [result for result in results if not result.skipped]
+    deferred = len(results) - len(completed)
+    if completed or not results:
+        completed_noun = "tracker" if len(completed) == 1 else "trackers"
+        flash(
+            f"Checked {len(completed)} {completed_noun}: {sum(item.changed for item in completed)} update(s), "
+            f"{sum(item.status == 'error' for item in completed)} error(s).",
+            "success",
+        )
+    if deferred:
+        deferred_noun = "tracker" if deferred == 1 else "trackers"
+        flash(f"{deferred} {deferred_noun} deferred by GitHub rate-limit recovery.", "warning")
 
 
 def _safe_optional_url(value: str, label: str = "URL") -> str | None:
@@ -374,6 +389,7 @@ def create_app() -> Flask:
     @login_required
     def dashboard():
         now = datetime.now(timezone.utc)
+        github_cooldown = shared_rate_limit_until()
         seven_days_ago = (now - timedelta(days=7)).replace(microsecond=0).isoformat()
         one_day_ago = (now - timedelta(days=1)).replace(microsecond=0).isoformat()
         with connect() as conn:
@@ -431,7 +447,13 @@ def create_app() -> Flask:
             tracker = dict(row)
             tracker["tags_list"] = split_tags(tracker.get("tags"))
             all_tags.update(tracker["tags_list"])
-            tracker["next_due_at"] = next_due_at(tracker.get("last_checked_at"), int(tracker.get("refresh_hours") or 6)).replace(microsecond=0).isoformat()
+            next_due = next_due_at(
+                tracker.get("last_checked_at"), int(tracker.get("refresh_hours") or 6),
+                retry_at=tracker.get("github_retry_at"),
+            )
+            if github_cooldown and github_cooldown > now and github_cooldown > next_due:
+                next_due = github_cooldown
+            tracker["next_due_at"] = next_due.replace(microsecond=0).isoformat()
             latest_event = parse_utc(tracker.get("latest_event_at"))
             tracker["recently_updated"] = bool(latest_event and latest_event >= now - timedelta(days=7))
             tracker.update(classify_tracker_state(tracker))
@@ -774,7 +796,8 @@ def create_app() -> Flask:
                                 """
                                 UPDATE trackers SET current_version = NULL, current_release_name = NULL,
                                 current_release_url = NULL, current_release_body = NULL,
-                                current_published_at = NULL, last_status = NULL, last_error = NULL
+                                current_published_at = NULL, last_status = NULL, last_error = NULL,
+                                github_retry_at = NULL
                                 WHERE id = ?
                                 """,
                                 (tracker["id"],),
@@ -853,6 +876,8 @@ def create_app() -> Flask:
             dispatch_release_notifications([result.event_id])
         if result.status == "error":
             flash(f"Check failed for {result.name}: {result.error}", "error")
+        elif result.skipped:
+            flash(f"Check deferred for {result.name}: {result.error}", "warning")
         elif result.changed:
             flash(f"New release detected for {result.name}: {_release_result_label(result)}. Notifications were queued.", "success")
         else:
@@ -911,7 +936,7 @@ def create_app() -> Flask:
             event_ids = [item.event_id for item in results if item.event_id]
             if event_ids:
                 dispatch_release_notifications(event_ids)
-            flash(f"Checked {len(results)} tracker(s): {sum(i.changed for i in results)} update(s), {sum(i.status == 'error' for i in results)} error(s).", "success")
+            _flash_check_summary(results)
         elif action == "probe":
             if portainer_selected:
                 try:
@@ -954,7 +979,7 @@ def create_app() -> Flask:
         event_ids = [item.event_id for item in results if item.event_id]
         if event_ids:
             dispatch_release_notifications(event_ids)
-        flash(f"Checked {len(results)} trackers: {sum(i.changed for i in results)} update(s), {sum(i.status == 'error' for i in results)} error(s).", "success")
+        _flash_check_summary(results)
         return redirect(url_for("dashboard"))
 
     @app.post("/probe-all")

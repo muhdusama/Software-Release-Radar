@@ -8,6 +8,26 @@ Format reference: https://keepachangelog.com/en/1.1.0/
 
 ## [Unreleased]
 
+## [2.10.6] - 2026-10-24
+
+### Fixed
+
+- GitHub rate limits now defer and retry affected checks after the provider cooldown instead of waiting the full tracker refresh interval.
+- Shared retry state survives restarts and avoids repeated outbound requests while GitHub is rate limited. Ordinary permission failures remain distinct.
+- Single and bulk checks identify deferred work instead of reporting it as successfully checked.
+- Default inventory sources now identify the application upstreams for Portfolio Performance and Organizr instead of their container packaging repositories.
+- Portfolio Performance application metadata takes precedence over an inherited legacy base-image version label.
+- Organizr v2 tracking uses its official version-history feed rather than the old v1 release page.
+
+### Documentation
+
+- Added minimal GitHub token permissions, environment setup and rate-limit recovery guidance.
+
+### Compatibility
+
+- Applies an additive internal retry-state migration on startup. Existing configuration, trackers, decisions and history are preserved.
+- Back up the database and private environment before upgrading; retain the previous image for rollback.
+
 ## [2.10.5] - 2026-10-23
 
 ### Changed

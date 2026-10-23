@@ -130,6 +130,7 @@ def init_db() -> None:
                 last_checked_at TEXT,
                 last_status TEXT,
                 last_error TEXT,
+                github_retry_at TEXT,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
@@ -391,6 +392,7 @@ def init_db() -> None:
             "last_seen_online_at TEXT",
             "portainer_service_id INTEGER",
             "inventory_source TEXT NOT NULL DEFAULT 'manual'",
+            "github_retry_at TEXT",
         ]
         for definition in tracker_columns:
             _add_column(conn, "trackers", definition)
@@ -459,6 +461,8 @@ def init_db() -> None:
             "portainer_last_sync_at": "",
             "portainer_last_sync_status": "never",
             "portainer_last_sync_error": "",
+            "github_rate_limit_until": "",
+            "github_rate_limit_backoff_seconds": "60",
         }
         for key, value in defaults.items():
             conn.execute(
