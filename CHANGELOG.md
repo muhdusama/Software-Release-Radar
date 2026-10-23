@@ -8,6 +8,24 @@ Format reference: https://keepachangelog.com/en/1.1.0/
 
 ## [Unreleased]
 
+## [2.10.8] - 2026-10-24
+
+### Added
+
+- An explicit inventory-rebinding command with a dry run, expected previous mapping, provider and ownership checks, and atomic validation for batches. Rebinding preserves tracker preferences, manual installed versions, release sources, history and upgrade decisions.
+
+### Fixed
+
+- Dockhand probes now check environment availability before trusting a cached running-container record.
+- Where only a legacy version label is available, Dockhand can inspect the individual container for a validated `APP_VERSION`. Explicit Release Radar and OCI version labels retain priority. Only the allowlisted version is used; arbitrary environment values are not stored.
+- Rebinding clears old probe results until the new mapping is tested and uses the target container's detected version instead of retaining a different container's observation.
+
+### Compatibility
+
+- No new dependency or database schema migration. Provider changes do not automatically guess or transfer mappings.
+- Optional Dockhand version inspection uses the existing token and container-inspection permission. If inspection is unavailable, normal label detection remains available; no additional grant is requested automatically.
+- Back up the database and private environment before applying reviewed mapping changes. Retain the previous image and the expected mapping IDs for rollback.
+
 ## [2.10.7] - 2026-10-24
 
 ### Added

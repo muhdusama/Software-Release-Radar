@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import ssl
 import time
 import urllib.error
@@ -14,6 +15,9 @@ from .db import get_settings
 from .secrets_store import decrypt_secret
 from .version import APP_VERSION
 from .http_client import open_http
+
+
+_APP_VERSION_RE = re.compile(r"^v?\d+(?:\.\d+){1,4}(?:[-+._][A-Za-z0-9.-]+)?$")
 
 
 class InventoryProviderError(RuntimeError):
@@ -225,6 +229,54 @@ class DockhandProvider(InventoryProvider):
             "Ports": clean_ports,
         }
 
+    @staticmethod
+    def _needs_container_app_version(labels: dict[str, Any]) -> bool:
+        explicit_keys = (
+            "software-release-radar.version", "software.release.radar.version",
+            "org.opencontainers.image.version",
+        )
+        return (
+            bool(str(labels.get("org.label-schema.version") or "").strip())
+            and not any(str(labels.get(key) or "").strip() for key in explicit_keys)
+        )
+
+    def _container_app_version(self, environment: InventoryEnvironment,
+                               container: dict[str, Any]) -> str | None:
+        container_id = str(container["Id"] or "").strip()
+        image_id = str(container["ImageID"] or "").strip()
+        if not container_id or not image_id:
+            return None
+        try:
+            source_id = urllib.parse.quote(environment.source_id, safe="")
+            payload = self._request(
+                f"/api/containers/{urllib.parse.quote(container_id, safe='')}/inspect?env={source_id}"
+            )
+        except InventoryProviderError:
+            return None
+        if not isinstance(payload, dict):
+            return None
+        inspected_id = str(payload.get("Id") or payload.get("id") or "").strip()
+        inspected_image = str(
+            payload.get("Image") or payload.get("image") or payload.get("imageId") or ""
+        ).strip()
+        if inspected_id != container_id or inspected_image != image_id:
+            return None
+        config = (
+            payload.get("Config") or payload.get("config")
+            or payload.get("DockerConfig") or payload.get("dockerConfig") or {}
+        )
+        if not isinstance(config, dict):
+            return None
+        entries = config.get("Env") or config.get("env") or []
+        if not isinstance(entries, list):
+            return None
+        for entry in entries:
+            if not isinstance(entry, str) or not entry.startswith("APP_VERSION="):
+                continue
+            candidate = entry.removeprefix("APP_VERSION=").strip()
+            return candidate if _APP_VERSION_RE.fullmatch(candidate) else None
+        return None
+
     def list_containers(self, environment: InventoryEnvironment) -> list[dict[str, Any]]:
         # Dockhand's list route returns [] for both a genuine empty host and a failed
         # Docker connection. The explicit test route is therefore the fail-safe gate.
@@ -241,7 +293,12 @@ class DockhandProvider(InventoryProvider):
                 raise InventoryProviderError(
                     f"{environment.name}: Dockhand container listing contained a malformed item."
                 )
-            result.append(self.normalise_container(item))
+            container = self.normalise_container(item)
+            if self._needs_container_app_version(container["Labels"]):
+                app_version = self._container_app_version(environment, container)
+                if app_version:
+                    container["ApplicationVersion"] = app_version
+            result.append(container)
         return result
 
     def test_connection(self) -> dict[str, Any]:
