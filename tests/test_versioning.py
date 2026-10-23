@@ -83,6 +83,19 @@ class VersioningTests(unittest.TestCase):
                     "comparison_unavailable",
                 )
 
+    def test_calendar_versions_without_the_searxng_marker_keep_generic_semver_behaviour(self):
+        cases = (
+            ("2026.10.19-deadbeef", "Release v2026.10.19-deadbeef", "v2026.10.19-deadbeef", False, "current"),
+            ("2026.10.19-deadbeef", "Release v2026.10.20-deadbeef", "v2026.10.20-deadbeef", True, "patch"),
+            ("2026.10.19-deadbeef", "Release v2026.10.19-cafebabe", "v2026.10.19-cafebabe", False, "unknown"),
+            ("2026.10.19+deadbeef", "Release v2026.10.20+deadbeef", "v2026.10.20+deadbeef", True, "patch"),
+        )
+        for installed, name, tag, available, level in cases:
+            with self.subTest(installed=installed, tag=tag):
+                result = classify_upgrade(installed, name, tag)
+                self.assertEqual(result["available"], available)
+                self.assertEqual(result["level"], level)
+
     def test_checker_failure_excludes_cached_update(self):
         state = classify_tracker_state({
             "installed_version": "1.0.0",

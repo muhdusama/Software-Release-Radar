@@ -13,9 +13,7 @@ _ROLLING_VERSION_RE = re.compile(
     r"(?<![A-Za-z0-9])(?P<year>\d{4})\.(?P<month>\d{1,2})\.(?P<day>\d{1,2})"
     r"[-+](?P<sha>[0-9a-fA-F]{7,40})(?![A-Za-z0-9+_.-])"
 )
-_ROLLING_MARKER_RE = re.compile(
-    r"(?<![A-Za-z0-9])\d{4}\.\d{1,2}\.\d{1,2}[-+][0-9a-fA-F]{7,}"
-)
+_SEARXNG_ROLLING_NAME_PREFIX = "searxng rolling release "
 
 ATTENTION_REASON_LABELS = {
     "checker_error": "Checker error",
@@ -74,8 +72,8 @@ def _same_commit(left: str, right: str) -> bool:
     return len(left) >= 7 and len(right) >= 7 and (left.startswith(right) or right.startswith(left))
 
 
-def _has_rolling_marker(*values: str | None) -> bool:
-    return any(_ROLLING_MARKER_RE.search(str(value or "")) for value in values)
+def _is_searxng_rolling_release_name(value: str | None) -> bool:
+    return str(value or "").strip().casefold().startswith(_SEARXNG_ROLLING_NAME_PREFIX)
 
 
 def _normalise_core(parts: tuple[int, ...]) -> tuple[int, ...]:
@@ -142,9 +140,9 @@ def _same_release(installed: dict[str, object], upstream: dict[str, object]) -> 
 
 
 def versions_match(installed: str | None, release_name: str | None, release_tag: str | None) -> bool:
-    installed_rolling = _rolling_version(installed)
-    upstream_rolling = _rolling_version(release_tag, release_name)
-    if installed_rolling or upstream_rolling or _has_rolling_marker(installed, release_name, release_tag):
+    if _is_searxng_rolling_release_name(release_name):
+        installed_rolling = _rolling_version(installed)
+        upstream_rolling = _rolling_version(release_tag, release_name)
         return bool(installed_rolling and upstream_rolling and _same_commit(installed_rolling[1], upstream_rolling[1]))
     installed_candidates = version_candidates(installed)
     release_candidates = version_candidates(release_name, release_tag)
@@ -204,9 +202,9 @@ def classify_upgrade(installed: str | None, release_name: str | None, release_ta
         return {"available": False, "level": "unknown", "label": "Installed version unknown", "risk": "unknown", "reason": "installed_version_unavailable"}
     if not ((release_tag or "").strip() or (release_name or "").strip()):
         return {"available": False, "level": "unknown", "label": "Upstream version unavailable", "risk": "unknown", "reason": "upstream_version_unavailable"}
-    installed_rolling = _rolling_version(installed)
-    upstream_rolling = _rolling_version(release_tag, release_name)
-    if installed_rolling or upstream_rolling or _has_rolling_marker(installed, release_name, release_tag):
+    if _is_searxng_rolling_release_name(release_name):
+        installed_rolling = _rolling_version(installed)
+        upstream_rolling = _rolling_version(release_tag, release_name)
         if not (installed_rolling and upstream_rolling):
             return {"available": False, "level": "unknown", "label": "Version comparison unavailable", "risk": "unknown", "reason": "comparison_unavailable"}
         if _same_commit(installed_rolling[1], upstream_rolling[1]):
