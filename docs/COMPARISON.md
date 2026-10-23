@@ -96,7 +96,7 @@ Review the migration instructions and your configuration before scheduling the u
 
 ## Evidence and privacy
 
-Release history is bounded to 20 upstream version records, filtered by the tracker's prerelease setting. Standard repositories use GitHub Releases; Organizr v2 uses its official version-history feed. Missing version boundaries and truncated notes are identified as incomplete. Tag-only tracking does not provide a full release-note comparison.
+Release history is bounded to 20 upstream version records. Standard repositories use GitHub Releases and the tracker's prerelease setting; Organizr v2 uses its official version-history feed, and SearXNG uses its official `master` commit history. Source commits do not prove that a container image has been published or tested. Missing version boundaries and truncated notes are identified as incomplete. Tag-only tracking does not provide a full release-note comparison.
 
 The optional Assistant sends selected tracker, deployment and release-note context to the OpenAI-compatible endpoint you configure. Review that provider's data handling for private infrastructure. Recommendations remain advisory and require operator judgement.
 

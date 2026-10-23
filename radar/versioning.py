@@ -2,12 +2,20 @@ from __future__ import annotations
 
 import re
 from collections.abc import Mapping
+from datetime import date
 
 _VERSION_RE = re.compile(r"(?<![A-Za-z0-9])v?(\d+(?:\.\d+){1,4}(?:[-+._][A-Za-z0-9.-]+)?)", re.IGNORECASE)
 _STRUCTURED_RE = re.compile(r"^v?(?P<core>\d+(?:\.\d+){1,4})(?P<suffix>[-+._][A-Za-z0-9.-]+)?$", re.IGNORECASE)
 _LS_RE = re.compile(r"(?:^|[-+._])ls(?P<build>\d+)(?:$|[-+._])", re.IGNORECASE)
 _RC_RE = re.compile(r"(?:^|[-+._])rc[.-]?(?P<build>\d+)(?:$|[-+._])", re.IGNORECASE)
 _NUMERIC_SUFFIX_RE = re.compile(r"^[-+._](?P<build>\d+)$")
+_ROLLING_VERSION_RE = re.compile(
+    r"(?<![A-Za-z0-9])(?P<year>\d{4})\.(?P<month>\d{1,2})\.(?P<day>\d{1,2})"
+    r"[-+](?P<sha>[0-9a-fA-F]{7,40})(?![A-Za-z0-9+_.-])"
+)
+_ROLLING_MARKER_RE = re.compile(
+    r"(?<![A-Za-z0-9])\d{4}\.\d{1,2}\.\d{1,2}[-+][0-9a-fA-F]{7,}"
+)
 
 ATTENTION_REASON_LABELS = {
     "checker_error": "Checker error",
@@ -44,6 +52,30 @@ def version_candidates(*values: str | None) -> set[str]:
         for match in _VERSION_RE.finditer(raw):
             candidates.add(canonical_version(match.group(1)))
     return {item for item in candidates if item}
+
+
+def _rolling_version(*values: str | None) -> tuple[date, str] | None:
+    """Read a dated source-commit version without treating its hash as sortable."""
+    for value in values:
+        match = _ROLLING_VERSION_RE.search(str(value or ""))
+        if not match:
+            continue
+        try:
+            committed = date(
+                int(match.group("year")), int(match.group("month")), int(match.group("day")),
+            )
+        except ValueError:
+            continue
+        return committed, match.group("sha").lower()
+    return None
+
+
+def _same_commit(left: str, right: str) -> bool:
+    return len(left) >= 7 and len(right) >= 7 and (left.startswith(right) or right.startswith(left))
+
+
+def _has_rolling_marker(*values: str | None) -> bool:
+    return any(_ROLLING_MARKER_RE.search(str(value or "")) for value in values)
 
 
 def _normalise_core(parts: tuple[int, ...]) -> tuple[int, ...]:
@@ -110,6 +142,10 @@ def _same_release(installed: dict[str, object], upstream: dict[str, object]) -> 
 
 
 def versions_match(installed: str | None, release_name: str | None, release_tag: str | None) -> bool:
+    installed_rolling = _rolling_version(installed)
+    upstream_rolling = _rolling_version(release_tag, release_name)
+    if installed_rolling or upstream_rolling or _has_rolling_marker(installed, release_name, release_tag):
+        return bool(installed_rolling and upstream_rolling and _same_commit(installed_rolling[1], upstream_rolling[1]))
     installed_candidates = version_candidates(installed)
     release_candidates = version_candidates(release_name, release_tag)
     if installed_candidates and release_candidates and installed_candidates.intersection(release_candidates):
@@ -168,6 +204,16 @@ def classify_upgrade(installed: str | None, release_name: str | None, release_ta
         return {"available": False, "level": "unknown", "label": "Installed version unknown", "risk": "unknown", "reason": "installed_version_unavailable"}
     if not ((release_tag or "").strip() or (release_name or "").strip()):
         return {"available": False, "level": "unknown", "label": "Upstream version unavailable", "risk": "unknown", "reason": "upstream_version_unavailable"}
+    installed_rolling = _rolling_version(installed)
+    upstream_rolling = _rolling_version(release_tag, release_name)
+    if installed_rolling or upstream_rolling or _has_rolling_marker(installed, release_name, release_tag):
+        if not (installed_rolling and upstream_rolling):
+            return {"available": False, "level": "unknown", "label": "Version comparison unavailable", "risk": "unknown", "reason": "comparison_unavailable"}
+        if _same_commit(installed_rolling[1], upstream_rolling[1]):
+            return {"available": False, "level": "current", "label": "Installed current", "risk": "none", "reason": "current"}
+        if upstream_rolling[0] > installed_rolling[0]:
+            return {"available": True, "level": "rolling", "label": "Rolling update", "risk": "unknown", "reason": "rolling_update_available"}
+        return {"available": False, "level": "unknown", "label": "Version comparison unavailable", "risk": "unknown", "reason": "comparison_unavailable"}
     if versions_match(installed, release_name, release_tag):
         return {"available": False, "level": "current", "label": "Installed current", "risk": "none", "reason": "current"}
 

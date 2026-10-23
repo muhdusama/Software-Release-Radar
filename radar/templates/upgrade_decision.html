@@ -8,7 +8,7 @@
 </section>
 
 <section class="upgrade-version-hero panel">
-  <div><span>Installed</span><strong>{{ effective_installed_version or 'Unknown' }}</strong></div><span class="version-arrow">→</span><div><span>Current upstream release</span><strong>{{ target_release_name or release_key or 'Not checked' }}</strong>{% if target_release_name and release_key and target_release_name|lower != release_key|lower %}<small>Git tag {{ release_key }}</small>{% endif %}</div><span class="upgrade-chip {{ upgrade['level'] }}">{{ upgrade['label'] }}</span>
+  <div><span>Installed</span><strong>{{ effective_installed_version or 'Unknown' }}</strong></div><span class="version-arrow">→</span><div><span>Current upstream release</span><strong>{{ target_release_name or release_key or 'Not checked' }}</strong>{% if target_release_name and release_key and target_release_name|lower != release_key|lower %}<small>Version {{ release_key }}</small>{% endif %}</div><span class="upgrade-chip {{ upgrade['level'] }}">{{ upgrade['label'] }}</span>
 </section>
 
 {% if historical_release %}<div class="notice-banner warning"><strong>Historical record</strong><span>You are viewing the decision for {{ release_key }}, not the tracker's current upstream release.</span></div>{% endif %}

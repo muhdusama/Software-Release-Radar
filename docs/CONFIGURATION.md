@@ -19,7 +19,7 @@ The recommended `bash scripts/setup.sh` flow creates `.env` for you.
 
 | Variable | Required | Default | Purpose |
 |---|---:|---|---|
-| `RADAR_VERSION` | yes | `2.10.6` | Image and build version label |
+| `RADAR_VERSION` | yes | `2.10.7` | Image and build version label |
 | `RADAR_BIND_ADDRESS` | yes | `0.0.0.0` | Address used to publish the web port on the Docker host |
 | `RADAR_PORT` | yes | `9120` | Host port for the web interface |
 | `RADAR_SCHEDULER_INTERVAL_SECONDS` | yes | `60` | How often the scheduler looks for trackers that are due |
@@ -149,7 +149,7 @@ Each tracker requires a software name, GitHub repository in `owner/repository` f
 
 Tracking methods:
 
-- **Latest GitHub release** follows published GitHub Releases.
+- **Latest upstream release** follows published GitHub Releases, with publisher-specific sources for Organizr v2 and SearXNG as described below.
 - **Latest Git tag** follows the most recent tag.
 
 Prereleases are excluded by default.
@@ -244,3 +244,13 @@ Inventory source labels for `meronx/portfolio-performance` and `Organizr/docker-
 Portfolio Performance images declare `APP_VERSION`; this takes precedence over an inherited legacy base-image version label. Explicit Release Radar and OCI application version labels remain the first choice. Arbitrary image environment values are not stored.
 
 Organizr v2 publishes its version history in [`js/version.json` on `v2-master`](https://github.com/causefx/Organizr/blob/v2-master/js/version.json). Release tracking for `causefx/Organizr` uses this official feed for current versions and history, rather than its legacy v1 GitHub Releases page. Version links point to that source, and notes retain their upstream provenance.
+
+### SearXNG rolling releases
+
+SearXNG [treats each commit to `master` as a rolling release](https://docs.searxng.org/admin/update-searxng.html). Track `searxng/searxng` with **Latest upstream release**; existing trackers using the release method adopt this source automatically. No repository or tracking-method change is required.
+
+The latest version and bounded history come from the official `master` commit history through the same authenticated GitHub client and rate-limit recovery path as other checks. Versions use a UTC commit date and nine-character commit identifier, such as `2026.10.19-81371861f`, and link to the full source commit. SearXNG's application `+hash` and Docker `-hash` forms are recognised, including matching short and full identifiers for the same commit. The prerelease switch does not filter this rolling branch.
+
+Different revisions on the same date cannot be ordered by their hashes, so the comparison remains unknown. Date changes are labelled as rolling updates with unknown risk, rather than semantic major, minor or patch releases. Review the supplied source changes before deciding to update.
+
+Commit messages are source evidence, not curated release notes. They do not confirm that a corresponding image has been published, scanned or tested. History is bounded to 20 commits for Assistant comparisons; a missing installed or cached-target boundary is reported as incomplete.

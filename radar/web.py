@@ -65,7 +65,7 @@ def _release_result_label(result) -> str:
     release_name = str(result.release_name or "").strip()
     version = str(result.version or "").strip()
     if release_name and version and release_name.casefold() != version.casefold():
-        return f"{release_name} (Git tag {version})"
+        return f"{release_name} (Version {version})"
     return release_name or version or "unknown release"
 
 

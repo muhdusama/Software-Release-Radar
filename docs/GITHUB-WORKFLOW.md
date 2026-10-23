@@ -100,7 +100,7 @@ curl -fsS http://localhost:9120/healthz
 When a build revision was supplied, the health response includes a `commit` field:
 
 ```json
-{"commit":"0123456789abcdef0123456789abcdef01234567","name":"Software Release Radar","status":"ok","version":"2.10.6"}
+{"commit":"0123456789abcdef0123456789abcdef01234567","name":"Software Release Radar","status":"ok","version":"2.10.7"}
 ```
 
 The same revision is stored in the container image label:
@@ -120,10 +120,10 @@ A tag matching `v<VERSION>` runs the container publishing workflow. The workflow
 Example verification:
 
 ```bash
-docker pull ghcr.io/muhdusama/software-release-radar:2.10.6
+docker pull ghcr.io/muhdusama/software-release-radar:2.10.7
 docker image inspect \
   --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' \
-  ghcr.io/muhdusama/software-release-radar:2.10.6
+  ghcr.io/muhdusama/software-release-radar:2.10.7
 ```
 
 Release tags are immutable deployment references. Normal development should use branches and pull requests rather than committing directly on a production host.
