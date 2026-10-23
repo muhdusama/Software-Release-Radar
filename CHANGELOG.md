@@ -8,6 +8,17 @@ Format reference: https://keepachangelog.com/en/1.1.0/
 
 ## [Unreleased]
 
+## [2.10.9] - 2026-10-24
+
+### Fixed
+
+- Dashboard installed-version labels now identify the tracker's recorded inventory provider. Dockhand mappings display Dockhand instead of the legacy internal probe name Portainer.
+- Probe setup guidance now refers to inventory mappings for either provider.
+
+### Compatibility
+
+- Display-only correction. No mapping, configuration, dependency or database schema change.
+
 ## [2.10.8] - 2026-10-24
 
 ### Added
