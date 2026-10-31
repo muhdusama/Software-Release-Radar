@@ -1,5 +1,22 @@
 # Security controls
 
+## MCP trust boundary
+
+The optional SDK service uses separate bearer keys, not browser cookies or
+password exchange. Profile key creation requires current password and CSRF;
+secrets appear once with no-store and are stored only as digests. Current
+account, password binding, expiry, revocation, role and scopes are rechecked
+at request/message/dispatch. Host, Origin, HTTPS, explicit proxy peers and
+actual-byte body bounds also protect native discovery and custom health routes.
+Native connection limits bound long-lived streams. Cached errors and secret
+columns are not exposed; role-filtered unknown-tool denials are identical.
+Data writes/audit, revision checks and queued inventory enqueue are atomic.
+External work retains durable ownership until audited completion, including
+disconnects; audit failure fails closed. Offline recovery requires all old
+workers stopped and an explicit operator assertion, never elapsed time.
+See [MCP connections](MCP.md) for quotas, availability trade-offs, exclusions
+and deployment/restore fences. Existing browser CSRF and quotas are unchanged.
+
 This document describes the application controls added after the 2026-08-12 Codex Security audit.
 
 ## Password reset

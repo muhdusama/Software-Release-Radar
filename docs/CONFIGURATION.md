@@ -1,5 +1,14 @@
 # Configuration
 
+## Optional MCP configuration
+
+MCP is disabled unless the `mcp` Compose profile is selected. Configure exact
+allowed hosts, optional Origins and explicit trusted proxy peers separately
+from browser proxy trust. The MCP host port is loopback-only 9121; the public
+endpoint requires existing HTTPS routing. See [MCP connections](MCP.md) and
+`.env.example` for every setting, scope, numeric bound and local-only exception.
+There is no password-exchange endpoint or credential-setting tool.
+
 This guide covers the configuration that a normal Software Release Radar deployment is expected to use.
 
 Start with [Docker deployment](DOCKER.md) if the application is not installed yet.

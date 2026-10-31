@@ -11,8 +11,8 @@ requires your current password and CSRF protection. Copy the secret once and
 store it securely. Keys expire after 90 days by default (maximum 365), can be
 revoked by their owner, and become invalid after a password change or account
 deactivation. Current account permissions are checked again on each request.
-Read is required; only administrators can grant `operations:run`. Phase 2
-write scopes are not yet enabled. MCP cannot manage users, roles or keys, read
+Read is required; only administrators can grant `operations:run`,
+`trackers:write` or `upgrades:write`. MCP cannot manage users, roles or keys, read
 or replace credentials, change settings, or run deployments or arbitrary commands.
 
 Supply keys only as `Authorization: Bearer <key>` over the MCP connection.
@@ -77,7 +77,7 @@ including authenticated GET/SSE and subscription streams. Saturation returns
 web service. The invalid-authentication limiter is SQLite-backed: it bounds
 stored failures and response quotas, not incoming request/database write rate.
 
-## Phase-1 tools and side effects
+## Read tools and operation side effects
 
 `read` provides cached `radar_status`, `trackers_list`, `tracker_get`,
 `releases_list`, `history_list`, `upgrades_list` and `upgrade_get`. Current
@@ -100,10 +100,91 @@ Current administrators with `operations:run` can use:
 - `inventory_sync()`: enqueue or reuse an inventory job. The existing worker
   contacts the configured provider later; the MCP call does not sync inline.
 
-There are no data-write tools until separately reviewed Phase 2 is authorised.
+## Constrained data writes
+
+Current administrators with `trackers:write` can use `tracker_create(tracker)`,
+`tracker_update(tracker_id, changes)`, `tracker_set_enabled(tracker_id, enabled)`
+and `tracker_delete(tracker_id, confirm=true)`. Allowed fields cover name,
+repository on creation only, release/tag strategy, prereleases, enabled state,
+homepage, notes, tags, refresh interval and manually recorded installed version.
+Unknown fields are rejected. No probe destinations, credentials or arbitrary
+settings can be configured. Saves never check, probe or sync implicitly.
+Ordinary edits retain scheduling state; strategy/prerelease changes clear
+release-check state and become due, retaining event history. Repository is
+immutable after creation. Delete reports removed event and upgrade-decision
+counts and requires explicit confirmation.
+
+`upgrades:write` enables `upgrade_save_review(tracker_id, release_key,
+expected_revision, review)`. First read `upgrade_get` and submit its exact
+release key and integer revision. Review fields are decision status
+(`review`, `update`, `wait`, `ignore`), priority, risk, maintenance date,
+checklist, notes, rollback notes and change-record URL. A stale revision,
+unknown historical release or already-deployed decision conflicts: read again,
+reconcile and resubmit, never blindly retry. Each save increments revision.
+Browser forms use the same atomic helper and revision binding. Marking deployed
+and installed-version deployment assertions remain browser-only.
+
+Writes share a 30-per-key, one-minute quota. Data changes and key-attributed
+audit commit together or roll back together. No MCP tool deploys software.
+
+## Existing operational limitations
+
 Existing event uniqueness and recorded notification delivery suppress ordinary
 retries, but the browser/scheduler can still race a check. Exactly-once external
 effects and new auto-analysis/notification deduplication are not claimed.
+Inventory jobs use the existing worker; stuck-running job recovery is unchanged.
+
+## SDK client and verification
+
+Use the official installed SDK with environment-held values, never a key in a
+committed configuration or command argument:
+
+```python
+import asyncio
+import os
+import httpx2
+from mcp import ClientSession
+from mcp.client.streamable_http import streamable_http_client
+
+async def main():
+    async with httpx2.AsyncClient(trust_env=False, headers={
+        "Authorization": "Bearer " + os.environ["RADAR_MCP_KEY"]
+    }) as http:
+        async with streamable_http_client(os.environ["RADAR_MCP_URL"], http_client=http) as streams:
+            async with ClientSession(*streams) as client:
+                await client.initialize()
+                print(await client.call_tool("radar_status", {}))
+
+asyncio.run(main())
+```
+
+The transport uses stateless HTTP and JSON POST responses. Authenticated
+GET/SSE is SDK-native and shares the process connection cap. Inaccessible
+tools are absent from discovery and behave like unknown names at dispatch.
+API keys are revalidated on each request/message and mutation; last-used
+metadata is updated at most once a minute, not an activity ledger.
+
+Run `python scripts/mcp_acceptance.py --project srr01-4-acceptance` for isolated
+local acceptance. It refuses an existing project, generates dummy secrets,
+uses loopback ports and temporary SSH/configuration/backup paths, checks labels
+before mutations, then removes only its own labelled project/volumes/images.
+It never loads the deployment `.env`. Backup/restore and archived-baseline
+rollback run only inside that disposable project.
+
+`python scripts/mcp_deploy_verify.py --record-dir "$RADAR_VERIFY_DIR"` is
+read-only and refuses missing protected evidence. The existing private record
+directory must contain `baseline.json` mode 0600 with `approved_sha`,
+`head_before`, `image_ids_before` (list of SHA256 image IDs),
+`backup_integrity: "ok"`, `backup_mode: "0600"` and true booleans
+`maintenance_authorised`, `git_workflow_verified`, `route_verified`, recorded
+from real preflight, not inferred. Supply HTTPS `RADAR_PUBLIC_URL`,
+`RADAR_MCP_URL`, `RADAR_MCP_KEY` and an owner-created already-revoked
+`RADAR_MCP_REVOKED_KEY` through protected environment. Default expected tool
+set is all 18 admin tools; `RADAR_MCP_EXPECTED_TOOLS` can explicitly provide the
+exact JSON name list for a reduced-scope key. The verifier checks checkout,
+service labels/health, live revision, SDK read/scopes and missing/revoked-key
+401, creating only mode 0600 sanitised `verification.json` (refuses overwrite).
+It never creates/revokes keys, deploys, pulls or performs operations/writes.
 
 ## Durable operation ownership and offline recovery
 

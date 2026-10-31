@@ -61,7 +61,10 @@ jobs:
       - name: Run Bandit and enforce reviewed high-confidence findings
         run: |
           set -Eeuo pipefail
-          bandit -r radar -q -ll -f json -o /tmp/bandit.json || true
+          scan_exit=0
+          bandit -r radar -q -ll -f json -o /tmp/bandit.json || scan_exit=$?
+          echo "Bandit exit: $scan_exit"
+          test "$scan_exit" -le 1
           python scripts/check_bandit.py /tmp/bandit.json
 
   docker-acceptance:
@@ -133,6 +136,17 @@ jobs:
           done
           curl -fsS http://127.0.0.1:9120/healthz >/dev/null
           docker compose ps
+
+      - name: Set up Python 3.13 for MCP acceptance
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.13"
+
+      - name: Install MCP acceptance dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Run isolated MCP profile, protocol and recovery acceptance
+        run: python scripts/mcp_acceptance.py --project srr01-4-acceptance
 
       - name: Upload container logs on failure
         if: failure()

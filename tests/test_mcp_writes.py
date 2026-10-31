@@ -72,7 +72,7 @@ class MCPWriteTests(unittest.IsolatedAsyncioTestCase):
     async def test_upgrade_review_release_revision_and_prohibited_deployment(self):
         async with self.session(self.write_key()) as s:
             current = await self.call(s, 'upgrade_get', {'tracker_id': self.tracker})
-            args = {'tracker_id': self.tracker, 'release_key': current['release_key'],
+            args = {'tracker_id': self.tracker, 'release_key': ' ' + current['release_key'] + ' ',
                     'expected_revision': current['revision'], 'review': {'decision_status': 'wait'}}
             first = await self.call(s, 'upgrade_save_review', args)
             self.assertEqual(first['revision'], current['revision'] + 1)

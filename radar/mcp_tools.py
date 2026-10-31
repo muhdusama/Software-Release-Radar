@@ -471,9 +471,9 @@ def tracker_delete(tracker_id: Id, confirm: Bool) -> dict[str, object]:
 def upgrade_save_review(tracker_id: Id, release_key: ReleaseKey,
                         expected_revision: Annotated[int, Field(strict=True, ge=0)], review: UpgradeReview) -> dict[str, object]:
     def work(conn, principal):
-        save_upgrade_review(tracker_id, release_key, expected_revision, review.model_dump(), user_id=principal.user_id, conn=conn)
+        saved = save_upgrade_review(tracker_id, release_key, expected_revision, review.model_dump(), user_id=principal.user_id, conn=conn)
         row = conn.execute(f'SELECT {UPGRADE_FIELDS},{UPGRADE_DETAIL} FROM upgrade_decisions d JOIN trackers t ON t.id=d.tracker_id '
-                           'WHERE d.tracker_id=? AND d.release_version=?', (tracker_id, release_key)).fetchone()
+                           'WHERE d.tracker_id=? AND d.release_version=?', (tracker_id, saved['release_version'])).fetchone()
         tracker = _need_tracker(conn, tracker_id)
         return _upgrade(dict(row), detail=True, current=current_release_key(tracker))
     return _write('upgrade_save_review', work)

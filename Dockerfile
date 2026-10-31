@@ -27,6 +27,7 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 COPY --chown=radar:radar radar ./radar
 COPY --chown=radar:radar CONTRIBUTORS.md ./
+COPY --chown=radar:radar scripts/mcp_recover_leases.py ./scripts/mcp_recover_leases.py
 
 USER radar
 

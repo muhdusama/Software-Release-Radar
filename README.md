@@ -174,6 +174,9 @@ The maintainer directs the work, reviews changes, verifies behaviour and decides
 
 ## Documentation
 
+- [Built-in MCP connections](docs/MCP.md): optional authenticated read, tracker,
+  upgrade-review and constrained operation tools; browser-only API-key lifecycle.
+
 | Guide | Purpose |
 |---|---|
 | [Docker deployment](docs/DOCKER.md) | Install, upgrade, back up, restore and troubleshoot |

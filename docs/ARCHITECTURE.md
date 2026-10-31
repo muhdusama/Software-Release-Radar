@@ -1,5 +1,16 @@
 # Architecture
 
+## Optional MCP service
+
+The optional `mcp` Compose profile runs the official SDK in a separate, single
+ASGI process on 8081, sharing existing SQLite state and inventory jobs. The
+default Flask/Gunicorn, scheduler and worker remain independent. Browser Profile
+issues digest-only scoped keys; native bearer verification and fresh database
+authority checks protect allowlisted tools. Mutations/audit and inventory
+enqueue are atomic; operation ownership is durable through worker completion,
+never time-expired. Browser/MCP upgrade reviews share integer revision checks.
+See [MCP connections](MCP.md) for boundaries and offline recovery limitations.
+
 Software Release Radar is a Python 3.13 Flask application packaged for Docker Compose.
 
 Its core release-monitoring path is deterministic. AI integration is optional and sits outside the basic checking, scheduling and version-comparison path.
