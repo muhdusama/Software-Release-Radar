@@ -221,3 +221,8 @@ requires separate, target-specific authorisation.
 
 Keep additive tables on rollback. Disabling the optional profile stops new
 MCP calls; it is not permission to clear a still-running operation lease.
+The restore helper refuses a locally running/paused/restarting MCP container;
+operators must still verify workers outside that Compose project have stopped.
+Baseline images predating revision binding do not increment review revisions.
+If reviews were edited while rolled back, discard every cached review/form and
+re-read before saving after rolling forward; old snapshots are not trustworthy.

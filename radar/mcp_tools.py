@@ -389,12 +389,14 @@ def job_get(job_id: Id) -> dict[str, object]:
 
 
 def _write(name, work):
+    rate_denied = False
     try:
         with transaction(immediate=True) as conn:
             principal = _tool_principal(conn=conn)
             if not _allowed(name, principal):
                 raise PermissionError
             if not _take_counter(conn, 'write:' + principal.key_id, 30, 60, datetime.now(timezone.utc)):
+                rate_denied = True
                 raise ToolError('Data write rate limit exceeded. Retry after the current minute window.')
             result = work(conn, principal)
             audit(principal.user_id, 'mcp_write', 'tracker', result['tracker_id'], name,
@@ -403,6 +405,10 @@ def _write(name, work):
     except PermissionError:
         raise
     except ToolError:
+        try:
+            _denial(principal, 'write_rate' if rate_denied else 'write_denied')
+        except Exception:
+            raise ToolError('Data write temporarily unavailable.') from None
         raise
     except LookupError:
         raise ToolError('Not found.') from None
@@ -429,22 +435,25 @@ def tracker_create(tracker: TrackerCreate) -> dict[str, object]:
         placeholders = ','.join('?' for _ in values)
         cursor = conn.execute(f"INSERT INTO trackers({columns},probe_mode,created_at,updated_at) VALUES({placeholders},'manual',?,?)",
                               [*values.values(), now, now])
-        return {'tracker_id': int(cursor.lastrowid), 'status': 'created', 'check_state': 'due' if values['enabled'] else 'disabled'}
+        tracker_id = int(cursor.lastrowid)
+        projected = _tracker(_need_tracker(conn, tracker_id), True, detail=True, cooldown=_cooldown())
+        return {'tracker_id': tracker_id, 'status': 'created', 'check_state': projected['check_state'], 'tracker': projected}
     return _write('tracker_create', work)
 
 
 def tracker_update(tracker_id: Id, changes: TrackerPatch) -> dict[str, object]:
     values = changes.model_dump(exclude_unset=True)
-    if not values or any(values.get(k, True) is None for k in ('name', 'strategy', 'include_prereleases', 'enabled', 'tags')):
-        raise ToolError('Invalid arguments.')
     def work(conn, principal):
+        if not values or any(values.get(k, True) is None for k in ('name', 'strategy', 'include_prereleases', 'enabled', 'tags')):
+            raise ToolError('Invalid arguments.')
         existing = _need_tracker(conn, tracker_id)
         normalised = _tracker_values(conn, values)
         assignments = ','.join(f'{key}=?' for key in normalised)
         conn.execute(f'UPDATE trackers SET {assignments},updated_at=? WHERE id=?', [*normalised.values(), utcnow(), tracker_id])
         if any(key in normalised and normalised[key] != existing[key] for key in ('strategy', 'include_prereleases')):
             reset_release_state(conn, tracker_id, clear_last_checked=True)
-        return {'tracker_id': tracker_id, 'status': 'updated'}
+        projected = _tracker(_need_tracker(conn, tracker_id), True, detail=True, cooldown=_cooldown())
+        return {'tracker_id': tracker_id, 'status': 'updated', 'check_state': projected['check_state'], 'tracker': projected}
     return _write('tracker_update', work)
 
 
@@ -457,9 +466,9 @@ def tracker_set_enabled(tracker_id: Id, enabled: Bool) -> dict[str, object]:
 
 
 def tracker_delete(tracker_id: Id, confirm: Bool) -> dict[str, object]:
-    if confirm is not True:
-        raise ToolError('Explicit confirmation is required.')
     def work(conn, principal):
+        if confirm is not True:
+            raise ToolError('Explicit confirmation is required.')
         _need_tracker(conn, tracker_id)
         events = conn.execute('SELECT COUNT(*) FROM events WHERE tracker_id=?', (tracker_id,)).fetchone()[0]
         decisions = conn.execute('SELECT COUNT(*) FROM upgrade_decisions WHERE tracker_id=?', (tracker_id,)).fetchone()[0]
@@ -479,7 +488,7 @@ def upgrade_save_review(tracker_id: Id, release_key: ReleaseKey,
     return _write('upgrade_save_review', work)
 
 
-def acquire_operation(principal, tool: str, tracker_id: int | None) -> str:
+def acquire_operation(principal, tool: str, tracker_id: int | None, *, confirm: bool = True) -> str:
     from .mcp_server import limit_config
     limits = limit_config()
     try:
@@ -488,6 +497,8 @@ def acquire_operation(principal, tool: str, tracker_id: int | None) -> str:
             if (fresh.key_id != principal.key_id or tool not in OPERATION_NAMES
                     or not _allowed(tool, fresh)):
                 raise PermissionError
+            if confirm is not True:
+                raise ToolError('Explicit confirmation is required.')
             if tracker_id is not None:
                 _need_tracker(conn, tracker_id)
             key_count = conn.execute('SELECT COUNT(*) FROM mcp_operation_leases WHERE key_id=?', (fresh.key_id,)).fetchone()[0]
@@ -531,10 +542,10 @@ def release_operation(lease_id: str, outcome: str) -> None:
         conn.execute('DELETE FROM mcp_operation_leases WHERE id=?', (lease_id,))
 
 
-def _operation(tool, tracker_id, work):
+def _operation(tool, tracker_id, work, *, confirm=True):
     try:
         principal = _tool_principal()
-        lease_id = acquire_operation(principal, tool, tracker_id)
+        lease_id = acquire_operation(principal, tool, tracker_id, confirm=confirm)
         outcome = 'unknown'
         try:
             result = work(principal)
@@ -555,8 +566,6 @@ def _operation(tool, tracker_id, work):
 
 
 def tracker_check(tracker_id: Id, confirm: Bool) -> dict[str, object]:
-    if confirm is not True:
-        raise ToolError('Explicit confirmation is required.')
     def work(principal):
         result = check_tracker(tracker_id, run_probe=False)
         counts = {'sent': 0, 'failed': 0, 'skipped': 0}
@@ -568,12 +577,10 @@ def tracker_check(tracker_id: Id, confirm: Bool) -> dict[str, object]:
             'event_id': result.event_id, 'notifications': counts,
             'deferred_until': _cooldown() if result.status == 'deferred' else None,
             'error': 'Release check failed.' if result.status == 'error' else None})
-    return _operation('tracker_check', tracker_id, work)
+    return _operation('tracker_check', tracker_id, work, confirm=confirm)
 
 
 def tracker_probe(tracker_id: Id, confirm: Bool) -> dict[str, object]:
-    if confirm is not True:
-        raise ToolError('Explicit confirmation is required.')
     def work(principal):
         with connect() as conn:
             tracker = _need_tracker(conn, tracker_id)
@@ -595,7 +602,7 @@ def tracker_probe(tracker_id: Id, confirm: Bool) -> dict[str, object]:
         if cached:
             response['inventory_synced_at'] = synced_at
         return _bounded(response)
-    return _operation('tracker_probe', tracker_id, work)
+    return _operation('tracker_probe', tracker_id, work, confirm=confirm)
 
 
 def inventory_sync() -> dict[str, object]:

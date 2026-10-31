@@ -24,6 +24,8 @@ class MCPWriteTests(unittest.IsolatedAsyncioTestCase):
             async with self.session(key) as s:
                 created = await self.call(s, 'tracker_create', {'tracker': {'name': ' New ', 'repository': 'https://github.com/example/demo', 'tags': ['One', 'TWO']}})
                 tracker_id = created['tracker_id']
+                self.assertEqual(created['tracker']['repository'], 'example/demo')
+                self.assertEqual(created['check_state'], created['tracker']['check_state'])
                 with connect() as conn:
                     row = dict(conn.execute('SELECT * FROM trackers WHERE id=?', (tracker_id,)).fetchone())
                     self.assertEqual(row['repository'], 'example/demo')
@@ -33,7 +35,9 @@ class MCPWriteTests(unittest.IsolatedAsyncioTestCase):
                 with transaction() as conn:
                     conn.execute("UPDATE trackers SET current_version='v2',last_checked_at='2026-01-01T00:00:00+00:00',last_error='old',github_retry_at='2099-01-01' WHERE id=?", (tracker_id,))
                     conn.execute("INSERT INTO events(tracker_id,version,detected_at) VALUES(?,'v2','2026-01-01')", (tracker_id,))
-                await self.call(s, 'tracker_update', {'tracker_id': tracker_id, 'changes': {'notes': 'reviewed'}})
+                updated = await self.call(s, 'tracker_update', {'tracker_id': tracker_id, 'changes': {'notes': 'reviewed'}})
+                self.assertEqual(updated['tracker']['notes'], 'reviewed')
+                self.assertEqual(updated['check_state'], updated['tracker']['check_state'])
                 await self.call(s, 'tracker_set_enabled', {'tracker_id': tracker_id, 'enabled': False})
                 with connect() as conn:
                     self.assertEqual(conn.execute('SELECT last_checked_at FROM trackers WHERE id=?', (tracker_id,)).fetchone()[0], row['last_checked_at'] or '2026-01-01T00:00:00+00:00')
@@ -64,6 +68,8 @@ class MCPWriteTests(unittest.IsolatedAsyncioTestCase):
             for _ in range(30):
                 await self.call(s, 'tracker_set_enabled', {'tracker_id': self.tracker, 'enabled': True})
             self.assertTrue((await s.call_tool('tracker_set_enabled', {'tracker_id': self.tracker, 'enabled': False})).is_error)
+            with connect() as conn:
+                self.assertEqual(conn.execute("SELECT COUNT(*) FROM audit_log WHERE action='mcp_denied' AND details='write_rate'").fetchone()[0], 1)
         _, read_key = create_key(1, 'test-password', 'read', ['read'])
         async with self.session(read_key) as s:
             unknown = await s.call_tool('does_not_exist', {})

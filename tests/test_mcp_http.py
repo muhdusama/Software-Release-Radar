@@ -134,6 +134,39 @@ class MCPHTTPTests(unittest.IsolatedAsyncioTestCase):
         fixture = Acceptance(self.tmp.name)
         self.assertTrue(verify_password(fixture.password, fixture.env['ADMIN_PASSWORD_HASH']))
 
+    async def test_ci_checkout_contains_archived_rollback_baseline(self):
+        import tempfile
+        root = Path(__file__).resolve().parents[1]
+        workflow = (root / '.github/workflows/ci.yml').read_text().split('  docker-acceptance:', 1)[1]
+        checkout = workflow.split('- name: Run the real public first-run setup', 1)[0]
+        with tempfile.TemporaryDirectory() as directory:
+            command = ['git', 'clone', '--quiet']
+            if 'fetch-depth: 0' not in checkout:
+                command += ['--depth', '1']
+            command += [root.as_uri(), directory + '/checkout']
+            await asyncio.to_thread(subprocess.run, command, check=True, capture_output=True, timeout=30)
+            result = await asyncio.to_thread(subprocess.run, ['git', '-C', directory + '/checkout', 'archive',
+                '--format=tar', '-o', os.devnull, '6624d4d2a2f03956a0cfc2397e064f461aaef6a1'], capture_output=True, timeout=30)
+            self.assertEqual(result.returncode, 0, 'CI checkout must contain the explicit rollback baseline')
+
+    async def test_restore_refuses_live_optional_mcp_before_any_mutation(self):
+        directory = Path(self.tmp.name)
+        docker = directory / 'docker'
+        docker.write_text('#!' + sys.executable + '\nimport sys\na=sys.argv[1:]\n'
+            'if a in (["info"], ["compose","version"]): pass\n'
+            'elif "config" in a: print("radar\\nmcp")\n'
+            'elif "ps" in a: print("fixture-mcp")\n'
+            'elif "inspect" in a: print("running")\n'
+            'else: sys.exit(99)\n')
+        docker.chmod(0o700)
+        backup = directory / 'fixture.db'
+        backup.write_bytes(b'not read: restore must refuse first')
+        env = {**os.environ, 'PATH': str(directory) + os.pathsep + os.environ['PATH']}
+        result = await asyncio.to_thread(subprocess.run, ['bash', 'scripts/restore.sh', str(backup), '--confirm'],
+            env=env, capture_output=True, text=True, timeout=10)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('MCP', result.stderr)
+
 
 if __name__ == '__main__':
     unittest.main()
