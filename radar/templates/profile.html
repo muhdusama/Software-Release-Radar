@@ -19,4 +19,35 @@
   {% if has_pushover_key %}<label class="inline-check"><input type="checkbox" name="clear_pushover_key"> Remove saved Pushover key</label>{% endif %}
   <div class="form-actions"><a class="button secondary" href="{{ url_for('dashboard') }}">Cancel</a><button class="button primary" type="submit">Save profile</button></div>
 </form>
+<section class="panel narrow-form" aria-labelledby="mcp-heading">
+  <h2 id="mcp-heading">MCP API keys</h2>
+  <p>Use a scoped key to connect an agent. Your account permissions still apply. Changing your password invalidates existing keys.</p>
+  {% if mcp_error %}<p role="alert">{{ mcp_error }}</p>{% endif %}
+  {% if mcp_secret %}
+  <div role="status"><p>Copy this key now. It will not be displayed again. Store it securely and do not share it in chat or logs.</p><code>{{ mcp_secret }}</code></div>
+  {% endif %}
+  <form method="post" action="{{ url_for('create_mcp_key') }}" class="tracker-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-grid two-col">
+      <div class="form-field"><label for="mcp-label">Key label</label><input id="mcp-label" name="label" maxlength="80" required></div>
+      <div class="form-field"><label for="mcp-expiry">Expires in days</label><input id="mcp-expiry" name="expires_days" type="number" min="1" max="365" value="90" required></div>
+      <div class="form-field"><label for="mcp-password">Current password</label><input id="mcp-password" name="current_password" type="password" autocomplete="current-password" required></div>
+    </div>
+    <fieldset><legend>Scopes</legend>
+      <label class="inline-check"><input type="checkbox" name="scopes" value="read" checked required> Read stored data (required)</label>
+      {% if current_user['role'] == 'admin' %}<label class="inline-check"><input type="checkbox" name="scopes" value="operations:run"> Run confirmed checks, probes and inventory synchronisation</label>{% endif %}
+      {% if current_user['role'] == 'admin' and 'trackers:write' in mcp_scopes %}<label class="inline-check"><input type="checkbox" name="scopes" value="trackers:write"> Edit tracker data (no probe configuration)</label>{% endif %}
+      {% if current_user['role'] == 'admin' and 'upgrades:write' in mcp_scopes %}<label class="inline-check"><input type="checkbox" name="scopes" value="upgrades:write"> Save upgrade reviews (cannot mark deployed)</label>{% endif %}
+    </fieldset>
+    <button class="button primary" type="submit">Create API key</button>
+  </form>
+  {% for key in mcp_keys %}
+  <div class="form-actions">
+    <div><strong>{{ key.label }}</strong> <code>{{ key.id }}</code><p>{{ key.scopes | join(', ') }} · Expires {{ key.expires_at }}{% if key.revoked_at %} · Revoked {{ key.revoked_at }}{% endif %}</p></div>
+    {% if not key.revoked_at %}<form method="post" action="{{ url_for('revoke_mcp_key', key_id=key.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button secondary" type="submit">Revoke {{ key.label }}</button>
+    </form>{% endif %}
+  </div>
+  {% endfor %}
+</section>
 {% endblock %}

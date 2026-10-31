@@ -91,5 +91,41 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
+  mcp:
+    profiles: [mcp]
+    image: "ghcr.io/muhdusama/software-release-radar:${RADAR_VERSION:-2.10.9}"
+    build:
+      context: .
+      args:
+        APP_VERSION: "${RADAR_VERSION:-2.10.9}"
+        VCS_REF: "${RADAR_BUILD_COMMIT:-}"
+    restart: unless-stopped
+    command: ["python", "-m", "radar.mcp_server"]
+    environment:
+      <<: *radar-environment
+      RADAR_MCP_ALLOWED_HOSTS: "${RADAR_MCP_ALLOWED_HOSTS:-}"
+      RADAR_MCP_ALLOWED_ORIGINS: "${RADAR_MCP_ALLOWED_ORIGINS:-}"
+      RADAR_MCP_FORWARDED_ALLOW_IPS: "${RADAR_MCP_FORWARDED_ALLOW_IPS:-}"
+      RADAR_MCP_ALLOW_HTTP: "${RADAR_MCP_ALLOW_HTTP:-false}"
+      RADAR_MCP_PUBLIC_URL: "${RADAR_MCP_PUBLIC_URL:-}"
+      MCP_KEY_MINUTE_LIMIT: "${MCP_KEY_MINUTE_LIMIT:-120}"
+      MCP_OPERATION_HOURLY_LIMIT: "${MCP_OPERATION_HOURLY_LIMIT:-20}"
+      MCP_OPERATION_KEY_CONCURRENCY: "${MCP_OPERATION_KEY_CONCURRENCY:-1}"
+      MCP_OPERATION_GLOBAL_CONCURRENCY: "${MCP_OPERATION_GLOBAL_CONCURRENCY:-2}"
+      MCP_AUTH_FAILURE_LIMIT: "${MCP_AUTH_FAILURE_LIMIT:-20}"
+    ports:
+      - "127.0.0.1:${RADAR_MCP_PORT:-9121}:8081"
+    volumes:
+      - radar-data:/data
+      - ./ssh:/ssh:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import json,os,urllib.request; host=os.environ['RADAR_MCP_ALLOWED_HOSTS'].split(',')[0].strip(); req=urllib.request.Request('http://127.0.0.1:8081/healthz',headers={'Host':host}); assert json.load(urllib.request.urlopen(req,timeout=5)) == {'status':'ok'}"]
+      interval: 30s
+      timeout: 8s
+      retries: 3
+      start_period: 20s
+
 volumes:
   radar-data:

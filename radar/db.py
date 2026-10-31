@@ -41,9 +41,11 @@ def connect() -> sqlite3.Connection:
 
 
 @contextmanager
-def transaction() -> Iterator[sqlite3.Connection]:
+def transaction(immediate: bool = False) -> Iterator[sqlite3.Connection]:
     conn = connect()
     try:
+        if immediate:
+            conn.execute("BEGIN IMMEDIATE")
         yield conn
         conn.commit()
     except Exception:
@@ -171,6 +173,45 @@ def init_db() -> None:
                 updated_at TEXT NOT NULL,
                 last_login_at TEXT
             );
+
+            CREATE TABLE IF NOT EXISTS mcp_keys (
+                id TEXT PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                label TEXT NOT NULL,
+                secret_digest TEXT NOT NULL,
+                password_stamp TEXT NOT NULL,
+                scopes_json TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                expires_at TEXT NOT NULL,
+                revoked_at TEXT,
+                last_used_at TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_mcp_keys_owner ON mcp_keys(user_id);
+
+            CREATE TABLE IF NOT EXISTS mcp_auth_failures (
+                id INTEGER PRIMARY KEY,
+                source_hash TEXT NOT NULL,
+                occurred_at REAL NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS mcp_rate_counters (
+                key TEXT PRIMARY KEY,
+                requests INTEGER NOT NULL,
+                expires_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_mcp_rate_expiry ON mcp_rate_counters(expires_at);
+            CREATE TABLE IF NOT EXISTS mcp_operation_leases (
+                id TEXT PRIMARY KEY,
+                key_id TEXT NOT NULL,
+                user_id INTEGER NOT NULL,
+                tool TEXT NOT NULL,
+                tracker_id INTEGER,
+                created_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_mcp_operation_key ON mcp_operation_leases(key_id);
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_mcp_operation_tracker ON mcp_operation_leases(tracker_id)
+                WHERE tracker_id IS NOT NULL;
+            CREATE INDEX IF NOT EXISTS idx_mcp_auth_failure_time ON mcp_auth_failures(occurred_at);
 
             CREATE TABLE IF NOT EXISTS password_reset_tokens (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -396,6 +437,9 @@ def init_db() -> None:
         ]
         for definition in tracker_columns:
             _add_column(conn, "trackers", definition)
+
+        _add_column(conn, "audit_log", "api_key_id TEXT")
+        _add_column(conn, "upgrade_decisions", "revision INTEGER NOT NULL DEFAULT 0")
         for definition in [
             "previous_version TEXT",
             "previous_release_name TEXT",
@@ -519,12 +563,17 @@ def set_settings(values: dict[str, str]) -> None:
 
 
 def audit(user_id: int | None, action: str, target_type: str | None = None,
-          target_id: str | int | None = None, details: str | None = None) -> None:
-    with transaction() as conn:
-        conn.execute(
-            """
-            INSERT INTO audit_log (user_id, action, target_type, target_id, details, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-            """,
-            (user_id, action, target_type, str(target_id) if target_id is not None else None, details, utcnow()),
-        )
+          target_id: str | int | None = None, details: str | None = None, *,
+          conn: sqlite3.Connection | None = None, api_key_id: str | None = None) -> None:
+    if conn is None:
+        with transaction() as owned:
+            audit(user_id, action, target_type, target_id, details, conn=owned, api_key_id=api_key_id)
+        return
+    conn.execute(
+        """
+        INSERT INTO audit_log (user_id, action, target_type, target_id, details, created_at, api_key_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (user_id, action, target_type, str(target_id) if target_id is not None else None,
+         details, utcnow(), api_key_id),
+    )

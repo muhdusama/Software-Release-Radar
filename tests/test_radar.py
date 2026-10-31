@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import io
 import json
+import re
 import os
 import sqlite3
 import tempfile
@@ -1033,10 +1034,14 @@ class RadarTests(unittest.TestCase):
         self.assertEqual(queue.status_code, 200)
         self.assertIn("Release Radar v2.0.0", queue.get_data(as_text=True))
 
+        form = client.get(f'/upgrades/{tracker_id}').get_data(as_text=True)
+        bindings = dict(re.findall(r'name="(release_key|revision)" value="([^"]*)"', form))
+        self.assertEqual(set(bindings), {'release_key', 'revision'})
         saved = client.post(
             f"/upgrades/{tracker_id}",
             data={
                 "csrf_token": "upgrade-csrf", "action": "save",
+                **bindings,
                 "decision_status": "update", "priority": "high", "risk": "medium",
                 "maintenance_date": "2026-08-15",
                 "decision_notes": "Schedule after the database backup.",
@@ -1056,6 +1061,10 @@ class RadarTests(unittest.TestCase):
         checklist = json.loads(decision["checklist_json"])
         self.assertEqual(checklist[0], {"text": "Back up application data", "done": True})
         self.assertFalse(checklist[1]["done"])
+        client.post(f'/upgrades/{tracker_id}', data={'csrf_token': 'upgrade-csrf', **bindings,
+                    'decision_status': 'ignore'})
+        with connect() as conn:
+            self.assertEqual(conn.execute('SELECT revision FROM upgrade_decisions WHERE tracker_id=?', (tracker_id,)).fetchone()[0], 1)
 
         with transaction() as conn:
             conn.execute(
@@ -1063,10 +1072,13 @@ class RadarTests(unittest.TestCase):
                 (utcnow(), tracker_id),
             )
 
+        form = client.get(f'/upgrades/{tracker_id}').get_data(as_text=True)
+        bindings = dict(re.findall(r'name="(release_key|revision)" value="([^"]*)"', form))
         deployed = client.post(
             f"/upgrades/{tracker_id}",
             data={
                 "csrf_token": "upgrade-csrf", "action": "mark_deployed",
+                **bindings,
                 "decision_status": "update", "priority": "high", "risk": "medium",
                 "maintenance_date": "2026-08-15",
                 "decision_notes": "Validated after deployment.",

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sqlite3
 from typing import Any
 
 from .db import connect, transaction, utcnow
@@ -7,18 +8,23 @@ from .db import connect, transaction, utcnow
 ACTIVE = ("queued", "running")
 
 
-def enqueue_sync(requested_by: int | None = None) -> tuple[int, bool]:
-    with transaction() as conn:
-        active = conn.execute(
-            "SELECT id FROM portainer_sync_jobs WHERE status IN ('queued','running') ORDER BY id DESC LIMIT 1"
-        ).fetchone()
-        if active:
-            return int(active["id"]), False
-        cur = conn.execute(
-            "INSERT INTO portainer_sync_jobs(status,requested_by,requested_at,message) VALUES('queued',?,?,?)",
-            (requested_by, utcnow(), "Waiting for worker"),
-        )
-        return int(cur.lastrowid), True
+def enqueue_sync(requested_by: int | None = None, *,
+                 conn: sqlite3.Connection | None = None) -> tuple[int, bool]:
+    if conn is None:
+        with transaction(immediate=True) as owned:
+            return enqueue_sync(requested_by, conn=owned)
+    if not conn.in_transaction:
+        raise ValueError("Inventory enqueue requires an active transaction")
+    active = conn.execute(
+        "SELECT id FROM portainer_sync_jobs WHERE status IN ('queued','running') ORDER BY id DESC LIMIT 1"
+    ).fetchone()
+    if active:
+        return int(active["id"]), False
+    cur = conn.execute(
+        "INSERT INTO portainer_sync_jobs(status,requested_by,requested_at,message) VALUES('queued',?,?,?)",
+        (requested_by, utcnow(), "Waiting for worker"),
+    )
+    return int(cur.lastrowid), True
 
 
 def latest_job() -> dict[str, Any] | None:

@@ -22,6 +22,19 @@ command -v docker >/dev/null 2>&1 || fail "Docker is required."
 docker info >/dev/null 2>&1 || fail "Docker is installed but the Docker daemon is not available."
 docker compose version >/dev/null 2>&1 || fail "Docker Compose v2 is required."
 
+# An optional MCP worker can retain SQLite handles or finish external work.
+# Refuse before backup/restore mutations; this cannot verify remote workers.
+compose_services="$(docker compose --profile mcp config --services)"
+if printf '%s\n' "$compose_services" | grep -qx 'mcp'; then
+  for mcp_id in $(docker compose --profile mcp ps -a -q mcp); do
+    mcp_state="$(docker inspect --format '{{.State.Status}}' "$mcp_id")"
+    case "$mcp_state" in
+      exited|dead|created) ;;
+      *) fail "Stop and verify every MCP worker before restoring the database." ;;
+    esac
+  done
+fi
+
 ABS_BACKUP="$(cd "$(dirname "$BACKUP")" && pwd)/$(basename "$BACKUP")"
 STAMP="$(date +%Y%m%d-%H%M%S)"
 SAFETY_STAMP="pre-restore-${STAMP}"

@@ -1,11 +1,55 @@
 from __future__ import annotations
 
 import re
+from urllib.parse import urlparse
 from datetime import datetime, timedelta, timezone
 
 from .db import ALLOWED_REFRESH_HOURS, DEFAULT_REFRESH_HOURS
+from .github import normalise_repository
 
 TAG_RE = re.compile(r"[^a-z0-9._-]+")
+
+
+def safe_optional_url(value: str | None, label: str = 'URL') -> str | None:
+    value = (value or '').strip()
+    if not value:
+        return None
+    parsed = urlparse(value)
+    if parsed.scheme not in {'http', 'https'} or not parsed.netloc:
+        raise ValueError(f'{label} must be a complete http:// or https:// URL.')
+    return value
+
+
+def validate_tracker_core(values: dict[str, object], *, existing=None) -> dict[str, object]:
+    result = dict(values)
+    if 'repository' in result:
+        result['repository'] = normalise_repository(result['repository'])
+    if 'homepage_url' in result:
+        result['homepage_url'] = safe_optional_url(result['homepage_url'], 'Homepage')
+    if 'refresh_hours' in result:
+        result['refresh_hours'] = validate_refresh_hours(result['refresh_hours'])
+    if 'name' in result:
+        result['name'] = str(result['name'] or '').strip()
+        if not result['name']:
+            raise ValueError('Software name is required.')
+        if len(result['name']) > 120:
+            raise ValueError('Software name must be 120 characters or fewer.')
+    if 'strategy' in result and result['strategy'] not in {'release', 'tag'}:
+        raise ValueError('Invalid tracking strategy.')
+    if 'tags' in result:
+        result['tags'] = normalise_tags(result['tags'])
+    for key in ('notes', 'installed_version'):
+        if key in result:
+            result[key] = (result[key] or '').strip() or None
+    return result
+
+
+def reset_release_state(conn, tracker_id: int, *, clear_last_checked: bool) -> None:
+    conn.execute('''UPDATE trackers SET current_version=NULL,current_release_name=NULL,
+        current_release_url=NULL,current_release_body=NULL,current_published_at=NULL,
+        last_status=NULL,last_error=NULL,github_retry_at=NULL,
+        last_checked_at=CASE WHEN ? THEN NULL ELSE last_checked_at END WHERE id=?''',
+        (clear_last_checked, tracker_id))
 
 
 def normalise_tags(value: str | list[str] | tuple[str, ...] | None) -> str:

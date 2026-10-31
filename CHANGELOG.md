@@ -8,6 +8,20 @@ Format reference: https://keepachangelog.com/en/1.1.0/
 
 ## [Unreleased]
 
+### Added
+
+- Optional built-in MCP HTTP service with browser-managed scoped API keys,
+  bounded cached reads, tracker and upgrade-review writes, constrained checks,
+  probes and queued inventory sync, audited durable operation ownership and
+  explicitly confirmed offline recovery.
+- Isolated SDK/container, backup/restore, restart and additive rollback acceptance.
+
+### Fixed
+
+- Inventory sync enqueue is atomic across workers.
+- Browser and MCP upgrade decisions use release-bound integer revisions, preventing
+  stale reviews from overwriting a concurrent save or deployed decision.
+
 ## [2.10.9] - 2026-10-24
 
 ### Fixed

@@ -37,7 +37,9 @@ from .portainer import (PortainerError, ignore_service, inventory_summary,
 from .portainer_jobs import enqueue_import, enqueue_sync, latest_import_job, latest_job
 from .secrets_store import decrypt_secret, encrypt_secret, validate_encryption_key
 from .security_controls import handle_forgot_password_request, install_security_controls
-from .tracker_utils import next_due_at, normalise_tags, parse_utc, split_tags, validate_refresh_hours
+from .tracker_utils import (next_due_at, normalise_tags, parse_utc, split_tags, validate_refresh_hours,
+                            safe_optional_url, validate_tracker_core, reset_release_state)
+from .upgrade_workflow import save_upgrade_review
 from .upgrade_workflow import (
     DECISION_CHOICES, DECISION_VALUES, PRIORITY_CHOICES, PRIORITY_VALUES,
     RISK_CHOICES, RISK_VALUES, checklist_from_form, checklist_json,
@@ -85,13 +87,7 @@ def _flash_check_summary(results) -> None:
 
 
 def _safe_optional_url(value: str, label: str = "URL") -> str | None:
-    value = (value or "").strip()
-    if not value:
-        return None
-    parsed = urlparse(value)
-    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-        raise ValueError(f"{label} must be a complete http:// or https:// URL.")
-    return value
+    return safe_optional_url(value, label)
 
 
 def _optional(value: str | None) -> str | None:
@@ -648,53 +644,15 @@ def create_app() -> Flask:
                 if rollback_notes and len(rollback_notes) > 10_000:
                     raise ValueError("Rollback notes must be 10,000 characters or fewer.")
                 checklist = checklist_from_form(request.form.get("checklist_items"), request.form.getlist("checklist_done"))
-                now_value = utcnow()
                 deployed = action == "mark_deployed"
-                if deployed and historical_release:
-                    raise ValueError("Historical decisions cannot be marked as a new deployment.")
-                if deployed:
-                    status = "deployed"
-                with transaction() as conn:
-                    existing = conn.execute(
-                        "SELECT id, created_at FROM upgrade_decisions WHERE tracker_id = ? AND release_version = ?",
-                        (tracker_id, target_release_key),
-                    ).fetchone()
-                    values = (
-                        target_release_name, installed_for_comparison or None, status, priority, risk,
-                        maintenance_date, checklist_json(checklist), rollback_notes, change_record_url,
-                        decision_notes, installed_for_comparison if deployed else None,
-                        target_release_key if deployed else None, now_value if deployed else None,
-                        now_value, int(g.user["id"]),
-                    )
-                    if existing:
-                        conn.execute(
-                            """
-                            UPDATE upgrade_decisions
-                               SET release_name = ?, installed_version_at_decision = ?, decision_status = ?,
-                                   priority = ?, risk = ?, maintenance_date = ?, checklist_json = ?,
-                                   rollback_notes = ?, change_record_url = ?, decision_notes = ?,
-                                   previous_version = COALESCE(?, previous_version),
-                                   deployed_version = COALESCE(?, deployed_version),
-                                   deployed_at = COALESCE(?, deployed_at), updated_at = ?, updated_by = ?
-                             WHERE id = ?
-                            """,
-                            (*values, int(existing["id"])),
-                        )
-                        decision_id = int(existing["id"])
-                    else:
-                        cursor = conn.execute(
-                            """
-                            INSERT INTO upgrade_decisions
-                                (tracker_id, release_version, release_name, installed_version_at_decision,
-                                 decision_status, priority, risk, maintenance_date, checklist_json,
-                                 rollback_notes, change_record_url, decision_notes, previous_version,
-                                 deployed_version, deployed_at, created_at, updated_at, updated_by)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                            """,
-                            (tracker_id, target_release_key, *values[:13], now_value, now_value, int(g.user["id"])),
-                        )
-                        decision_id = int(cursor.lastrowid)
-                audit(int(g.user["id"]), "upgrade_deployed" if deployed else "upgrade_decision_saved", "upgrade_decision", decision_id, f"{tracker['name']} {target_release_key}: {status}")
+                revision = request.form.get('revision', '')
+                submitted = request.form.get('release_key', '')
+                if not revision.isascii() or not revision.isdecimal() or len(revision) > 12 or submitted != target_release_key:
+                    raise ValueError('Release and revision changed or are missing; reload the decision.')
+                save_upgrade_review(tracker_id, submitted, int(revision), {
+                    'decision_status': status, 'priority': priority, 'risk': risk, 'maintenance_date': maintenance_date,
+                    'checklist': checklist, 'rollback_notes': rollback_notes, 'change_record_url': change_record_url,
+                    'decision_notes': decision_notes}, user_id=int(g.user['id']), mark_deployed=deployed)
                 flash(f"Recorded {tracker['name']} {target_release_key} as deployed." if deployed else f"Saved the {status} decision for {tracker['name']}.", "success")
                 return redirect(decision_redirect)
             except ValueError as exc:
@@ -703,6 +661,7 @@ def create_app() -> Flask:
         checklist = load_checklist(decision.get("checklist_json"))
         return render_template(
             "upgrade_decision.html", tracker=tracker, decision=decision, checklist=checklist,
+            revision=decision.get('revision', 0),
             checklist_summary=checklist_summary(checklist), upgrade=upgrade,
             effective_installed_version=installed_for_comparison or None, release_key=target_release_key,
             target_release_name=target_release_name, historical_release=historical_release,
@@ -720,15 +679,10 @@ def create_app() -> Flask:
             notes = _optional(request.form.get("notes"))
             tags = normalise_tags(request.form.get("tags", ""))
             try:
-                repository = normalise_repository(request.form.get("repository", ""))
-                homepage_url = _safe_optional_url(request.form.get("homepage_url", ""), "Homepage")
-                refresh_hours = validate_refresh_hours(request.form.get("refresh_hours", default_refresh))
-                if not name:
-                    raise ValueError("Software name is required.")
-                if len(name) > 120:
-                    raise ValueError("Software name must be 120 characters or fewer.")
-                if strategy not in {"release", "tag"}:
-                    raise ValueError("Invalid tracking strategy.")
+                core = validate_tracker_core({'repository': request.form.get('repository', ''),
+                    'homepage_url': request.form.get('homepage_url', ''),
+                    'refresh_hours': request.form.get('refresh_hours', default_refresh), 'name': name, 'strategy': strategy})
+                repository, homepage_url, refresh_hours = core['repository'], core['homepage_url'], core['refresh_hours']
                 install_host = _optional(request.form.get("install_host"))
                 if install_host and not _HOST_RE.fullmatch(install_host):
                     raise ValueError("Machine IP/hostname is invalid.")
@@ -792,16 +746,7 @@ def create_app() -> Flask:
                         assignments = ", ".join(f"{key} = ?" for key in values)
                         conn.execute(f"UPDATE trackers SET {assignments}, updated_at = ? WHERE id = ?", [*values.values(), now_value, tracker["id"]])
                         if source_changed:
-                            conn.execute(
-                                """
-                                UPDATE trackers SET current_version = NULL, current_release_name = NULL,
-                                current_release_url = NULL, current_release_body = NULL,
-                                current_published_at = NULL, last_status = NULL, last_error = NULL,
-                                github_retry_at = NULL
-                                WHERE id = ?
-                                """,
-                                (tracker["id"],),
-                            )
+                            reset_release_state(conn, tracker['id'], clear_last_checked=False)
                             if repository.lower() != str(tracker["repository"]).lower():
                                 conn.execute("DELETE FROM events WHERE tracker_id = ?", (tracker["id"],))
                         tracker_id = int(tracker["id"])
@@ -990,6 +935,43 @@ def create_app() -> Flask:
         flash(f"Probed {len(results)} configured services: {sum(i.status == 'ok' for i in results)} online.", "success")
         return redirect(url_for("dashboard"))
 
+    def render_profile(**kwargs):
+        from .mcp_auth import list_keys, available_scopes
+        return render_template('profile.html', mcp_keys=list_keys(int(g.user['id'])), mcp_scopes=available_scopes(),
+                               has_pushover_key=bool(g.user['pushover_user_key_enc']), **kwargs)
+
+    @app.after_request
+    def profile_no_store(response):
+        if request.path == '/profile' or request.path.startswith('/profile/mcp-keys'):
+            response.headers['Cache-Control'] = 'no-store'
+        return response
+
+    @app.post('/profile/mcp-keys')
+    @login_required
+    def create_mcp_key():
+        from .mcp_auth import create_key
+        require_csrf()
+        try:
+            days = request.form.get('expires_days', '90')
+            if not days.isascii() or not days.isdecimal():
+                raise ValueError('Key expiry must be 1 to 365 days.')
+            _, secret = create_key(int(g.user['id']), request.form.get('current_password', ''),
+                                   request.form.get('label', ''), request.form.getlist('scopes'), int(days))
+        except ValueError as exc:
+            return render_profile(mcp_error=str(exc)), 400
+        return render_profile(mcp_secret=secret)
+
+    @app.post('/profile/mcp-keys/<key_id>/revoke')
+    @login_required
+    def revoke_mcp_key(key_id):
+        from .mcp_auth import revoke_key
+        require_csrf()
+        try:
+            revoke_key(int(g.user['id']), key_id)
+        except ValueError:
+            abort(404)
+        return redirect(url_for('profile'))
+
     @app.route("/profile", methods=["GET", "POST"])
     @login_required
     def profile():
@@ -998,7 +980,7 @@ def create_app() -> Flask:
             current_password = request.form.get("current_password", "")
             if not verify_password(current_password, g.user["password_hash"]):
                 flash("Current password is incorrect.", "error")
-                return render_template("profile.html"), 400
+                return render_profile(), 400
             username = request.form.get("username", "").strip()
             email = _optional_email(request.form.get("email"))
             new_password = request.form.get("new_password", "")
@@ -1034,12 +1016,12 @@ def create_app() -> Flask:
             except Exception as exc:
                 message = "Username or email is already in use." if "UNIQUE constraint" in str(exc) else str(exc)
                 flash(message, "error")
-                return render_template("profile.html"), 400
+                return render_profile(), 400
             session["password_stamp"] = token_digest(str(password_hash))
             audit(int(g.user["id"]), "profile_updated", "user", g.user["id"])
             flash("Profile and sign-in settings updated.", "success")
             return redirect(url_for("profile"))
-        return render_template("profile.html", has_pushover_key=bool(g.user["pushover_user_key_enc"]))
+        return render_profile()
 
     @app.get("/users")
     @admin_required

@@ -1,5 +1,11 @@
 # Docker deployment
 
+For the optional built-in MCP profile, independent 8081 liveness, loopback 9121
+binding, existing-proxy requirements and isolated recovery acceptance, see
+[MCP connections](MCP.md). Stop and verify every MCP worker before restoring a
+database or invoking offline lease recovery; existing restore procedures do
+not establish that external workers have stopped. Never clear leases by age.
+
 Docker Compose is the primary supported deployment method for Software Release Radar.
 
 The public stack is designed so a self-hoster needs Docker and Docker Compose, not a separately managed Python environment.

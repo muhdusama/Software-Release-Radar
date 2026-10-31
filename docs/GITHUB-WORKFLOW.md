@@ -1,5 +1,13 @@
 # GitHub development and deployment workflow
 
+For the optional MCP profile, the same reviewed branch/PR/CI/merge workflow
+applies. CI includes an isolated generated-configuration acceptance project,
+SDK read/write and key lifecycle, restart, backup/restore and archived-baseline
+rollback. See [MCP connections](MCP.md) for explicit HTTPS/proxy prerequisites,
+protected read-only deployment verifier and recovery limits. Enabling MCP does
+not authorise DNS/proxy changes, credential provisioning, lease recovery or live
+restore. Stop every MCP worker before replacing its shared database.
+
 GitHub is the source of truth for Software Release Radar. Development changes should move from a writable development checkout into a branch and pull request, pass GitHub Actions, and reach production only after review and merge.
 
 ## Separation of responsibilities
