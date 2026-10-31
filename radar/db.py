@@ -41,9 +41,11 @@ def connect() -> sqlite3.Connection:
 
 
 @contextmanager
-def transaction() -> Iterator[sqlite3.Connection]:
+def transaction(immediate: bool = False) -> Iterator[sqlite3.Connection]:
     conn = connect()
     try:
+        if immediate:
+            conn.execute("BEGIN IMMEDIATE")
         yield conn
         conn.commit()
     except Exception:
@@ -396,6 +398,8 @@ def init_db() -> None:
         ]
         for definition in tracker_columns:
             _add_column(conn, "trackers", definition)
+
+        _add_column(conn, "audit_log", "api_key_id TEXT")
         for definition in [
             "previous_version TEXT",
             "previous_release_name TEXT",
@@ -519,12 +523,17 @@ def set_settings(values: dict[str, str]) -> None:
 
 
 def audit(user_id: int | None, action: str, target_type: str | None = None,
-          target_id: str | int | None = None, details: str | None = None) -> None:
-    with transaction() as conn:
-        conn.execute(
-            """
-            INSERT INTO audit_log (user_id, action, target_type, target_id, details, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-            """,
-            (user_id, action, target_type, str(target_id) if target_id is not None else None, details, utcnow()),
-        )
+          target_id: str | int | None = None, details: str | None = None, *,
+          conn: sqlite3.Connection | None = None, api_key_id: str | None = None) -> None:
+    if conn is None:
+        with transaction() as owned:
+            audit(user_id, action, target_type, target_id, details, conn=owned, api_key_id=api_key_id)
+        return
+    conn.execute(
+        """
+        INSERT INTO audit_log (user_id, action, target_type, target_id, details, created_at, api_key_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+        (user_id, action, target_type, str(target_id) if target_id is not None else None,
+         details, utcnow(), api_key_id),
+    )
