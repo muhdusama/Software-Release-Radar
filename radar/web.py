@@ -990,6 +990,43 @@ def create_app() -> Flask:
         flash(f"Probed {len(results)} configured services: {sum(i.status == 'ok' for i in results)} online.", "success")
         return redirect(url_for("dashboard"))
 
+    def render_profile(**kwargs):
+        from .mcp_auth import list_keys
+        return render_template('profile.html', mcp_keys=list_keys(int(g.user['id'])),
+                               has_pushover_key=bool(g.user['pushover_user_key_enc']), **kwargs)
+
+    @app.after_request
+    def profile_no_store(response):
+        if request.path == '/profile' or request.path.startswith('/profile/mcp-keys'):
+            response.headers['Cache-Control'] = 'no-store'
+        return response
+
+    @app.post('/profile/mcp-keys')
+    @login_required
+    def create_mcp_key():
+        from .mcp_auth import create_key
+        require_csrf()
+        try:
+            days = request.form.get('expires_days', '90')
+            if not days.isascii() or not days.isdecimal():
+                raise ValueError('Key expiry must be 1 to 365 days.')
+            _, secret = create_key(int(g.user['id']), request.form.get('current_password', ''),
+                                   request.form.get('label', ''), request.form.getlist('scopes'), int(days))
+        except ValueError as exc:
+            return render_profile(mcp_error=str(exc)), 400
+        return render_profile(mcp_secret=secret)
+
+    @app.post('/profile/mcp-keys/<key_id>/revoke')
+    @login_required
+    def revoke_mcp_key(key_id):
+        from .mcp_auth import revoke_key
+        require_csrf()
+        try:
+            revoke_key(int(g.user['id']), key_id)
+        except ValueError:
+            abort(404)
+        return redirect(url_for('profile'))
+
     @app.route("/profile", methods=["GET", "POST"])
     @login_required
     def profile():
@@ -998,7 +1035,7 @@ def create_app() -> Flask:
             current_password = request.form.get("current_password", "")
             if not verify_password(current_password, g.user["password_hash"]):
                 flash("Current password is incorrect.", "error")
-                return render_template("profile.html"), 400
+                return render_profile(), 400
             username = request.form.get("username", "").strip()
             email = _optional_email(request.form.get("email"))
             new_password = request.form.get("new_password", "")
@@ -1034,12 +1071,12 @@ def create_app() -> Flask:
             except Exception as exc:
                 message = "Username or email is already in use." if "UNIQUE constraint" in str(exc) else str(exc)
                 flash(message, "error")
-                return render_template("profile.html"), 400
+                return render_profile(), 400
             session["password_stamp"] = token_digest(str(password_hash))
             audit(int(g.user["id"]), "profile_updated", "user", g.user["id"])
             flash("Profile and sign-in settings updated.", "success")
             return redirect(url_for("profile"))
-        return render_template("profile.html", has_pushover_key=bool(g.user["pushover_user_key_enc"]))
+        return render_profile()
 
     @app.get("/users")
     @admin_required

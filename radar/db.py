@@ -174,6 +174,20 @@ def init_db() -> None:
                 last_login_at TEXT
             );
 
+            CREATE TABLE IF NOT EXISTS mcp_keys (
+                id TEXT PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                label TEXT NOT NULL,
+                secret_digest TEXT NOT NULL,
+                password_stamp TEXT NOT NULL,
+                scopes_json TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                expires_at TEXT NOT NULL,
+                revoked_at TEXT,
+                last_used_at TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_mcp_keys_owner ON mcp_keys(user_id);
+
             CREATE TABLE IF NOT EXISTS password_reset_tokens (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER NOT NULL,
