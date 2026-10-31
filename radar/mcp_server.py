@@ -66,9 +66,12 @@ def _transport_config():
 
 def build_server() -> MCPServer:
     _, _, _, public = _transport_config()
-    return MCPServer('Software Release Radar', token_verifier=RadarTokenVerifier(),
+    server = MCPServer('Software Release Radar', token_verifier=RadarTokenVerifier(),
                      auth=AuthSettings(issuer_url=public.removesuffix('/mcp'), resource_server_url=public,
-                                       required_scopes=['read'], validate_token_resource=False))
+                                        required_scopes=['read'], validate_token_resource=False))
+    from .mcp_tools import register_tools
+    register_tools(server)
+    return server
 
 
 def _auth_failure(source: str, secret: str, limit: int) -> bool:
@@ -96,8 +99,7 @@ def build_app() -> ASGIApp:
     async def health(request):
         return JSONResponse({'status': 'ok'})
 
-    # Tool registration is added at the next implementation task. The SDK owns
-    # JSON-RPC, HTTP authentication and transport lifecycles, not this guard.
+    # The SDK owns JSON-RPC, HTTP authentication and transport lifecycles.
     sdk = server.streamable_http_app(stateless_http=True, json_response=True, max_request_body_size=BODY_LIMIT,
         transport_security=TransportSecuritySettings(allowed_hosts=hosts, allowed_origins=origins))
 

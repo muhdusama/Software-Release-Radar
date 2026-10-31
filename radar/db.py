@@ -193,6 +193,13 @@ def init_db() -> None:
                 source_hash TEXT NOT NULL,
                 occurred_at REAL NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS mcp_rate_counters (
+                key TEXT PRIMARY KEY,
+                requests INTEGER NOT NULL,
+                expires_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_mcp_rate_expiry ON mcp_rate_counters(expires_at);
             CREATE INDEX IF NOT EXISTS idx_mcp_auth_failure_time ON mcp_auth_failures(occurred_at);
 
             CREATE TABLE IF NOT EXISTS password_reset_tokens (
