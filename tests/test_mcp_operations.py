@@ -285,6 +285,31 @@ class MCPOperationTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(conn.execute('SELECT COUNT(*) FROM portainer_sync_jobs').fetchone()[0], 1)
             self.assertEqual(conn.execute("SELECT COUNT(*) FROM audit_log WHERE action='mcp_operation_recovery'").fetchone()[0], 1)
 
+    async def test_dispatch_authority_races_match_unknown_and_audit(self):
+        from radar import mcp_tools
+        from radar.mcp_auth import current_principal
+        key_id, key = self.ops_key()
+        async with self.session(key) as s:
+            unknown = await s.call_tool('nonexistent_tool', {})
+            for tool, arguments in (('inventory_list', {}), ('tracker_check', {'tracker_id': self.tracker, 'confirm': True})):
+                for revoked in (False, True):
+                    calls = 0
+                    def changed(*args, **kwargs):
+                        nonlocal calls
+                        calls += 1
+                        principal = current_principal(*args, **kwargs)
+                        if calls >= 3:
+                            if revoked:
+                                raise ValueError('API key unavailable')
+                            return Principal(principal.key_id, principal.user_id, False, frozenset({'read'}))
+                        return principal
+                    with patch.object(mcp_tools, 'current_principal', side_effect=changed), patch('radar.mcp_tools.check_tracker') as check:
+                        result = await s.call_tool(tool, arguments)
+                        self.assertEqual(result.model_dump(), unknown.model_dump())
+                        check.assert_not_called()
+        with connect() as conn:
+            self.assertEqual(conn.execute("SELECT COUNT(*) FROM audit_log WHERE action='mcp_denied' AND details='dispatch_authority' AND api_key_id=?", (key_id,)).fetchone()[0], 4)
+
 
 if __name__ == '__main__':
     unittest.main()

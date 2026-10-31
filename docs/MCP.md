@@ -71,6 +71,11 @@ a fixed global limit of 200 per ten-minute window; valid keys are not blocked
 by the invalid-authentication bucket.
 Browser and scheduler quotas are unchanged. Schema changes are additive and
 idempotent; disabling the profile does not remove keys or other stored data.
+The MCP uvicorn process also limits concurrent connections/tasks to 32,
+including authenticated GET/SSE and subscription streams. Saturation returns
+503 and can temporarily affect MCP liveness; it does not affect the separate
+web service. The invalid-authentication limiter is SQLite-backed: it bounds
+stored failures and response quotas, not incoming request/database write rate.
 
 ## Phase-1 tools and side effects
 

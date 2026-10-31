@@ -156,7 +156,8 @@ def main() -> None:
     app = build_app()
     if os.environ.get('RADAR_MCP_ALLOW_HTTP', 'false').lower() == 'true':
         logging.getLogger(__name__).warning('MCP plain HTTP explicitly enabled; use only a local development route.')
-    uvicorn.run(app, host='0.0.0.0', port=8081, workers=1, access_log=False, **proxy_config())
+    uvicorn.run(app, host='0.0.0.0', port=8081, workers=1, access_log=False,
+                limit_concurrency=32, **proxy_config())
 
 
 if __name__ == '__main__':

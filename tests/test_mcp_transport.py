@@ -7,6 +7,7 @@ import socket
 import subprocess
 import sys
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -20,6 +21,46 @@ from radar import mcp_server
 
 
 class MCPTransportTests(unittest.IsolatedAsyncioTestCase):
+    async def test_server_bounds_connections_and_long_lived_streams(self):
+        import uvicorn
+        with patch.dict(os.environ, {'RADAR_MCP_ALLOW_HTTP': 'true'}), patch('radar.mcp_server.uvicorn.run') as run:
+            mcp_server.main()
+        config = uvicorn.Config(*run.call_args.args, **run.call_args.kwargs)
+        self.assertEqual(config.limit_concurrency, 32)
+        sock = socket.socket()
+        sock.bind(('127.0.0.1', 0))
+        sock.listen(128)
+        port = sock.getsockname()[1]
+        config.timeout_graceful_shutdown = 1
+        server = uvicorn.Server(config)
+        thread = threading.Thread(target=lambda: server.run(sockets=[sock]), daemon=True)
+        thread.start()
+        responses = []
+        try:
+            for _ in range(100):
+                if server.started:
+                    break
+                await asyncio.sleep(.02)
+            self.assertTrue(server.started)
+            async with httpx2.AsyncClient(trust_env=False, timeout=2,
+                    limits=httpx2.Limits(max_connections=40, max_keepalive_connections=0),
+                    headers={'Host': 'radar.example.invalid', 'Authorization': 'Bearer ' + self.key,
+                             'Accept': 'text/event-stream'}) as client:
+                try:
+                    for _ in range(32):
+                        response = await client.send(client.build_request('GET', f'http://127.0.0.1:{port}/mcp'), stream=True)
+                        responses.append(response)
+                    self.assertIn(200, [r.status_code for r in responses])
+                    self.assertIn(503, [r.status_code for r in responses])
+                finally:
+                    for response in responses:
+                        await response.aclose()
+        finally:
+            server.should_exit = True
+            await asyncio.to_thread(thread.join, 5)
+            sock.close()
+            self.assertFalse(thread.is_alive())
+
     async def asyncSetUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
