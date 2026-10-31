@@ -24,7 +24,7 @@ from .inventory_jobs import enqueue_sync
 from .github import shared_rate_limit_until
 from .mcp_auth import current_principal
 from .tracker_utils import (is_due, next_due_at, parse_utc, split_tags, validate_tracker_core, reset_release_state)
-from .upgrade_workflow import load_checklist, release_key as current_release_key
+from .upgrade_workflow import load_checklist, release_key as current_release_key, save_upgrade_review
 from .version import APP_VERSION
 
 Id = Annotated[int, Field(strict=True, gt=0)]
@@ -65,6 +65,24 @@ class TrackerPatch(BaseModel):
     tags: Annotated[list[TrackerTag], Field(max_length=12)] | None = None
     refresh_hours: int | None = None
     installed_version: Version | None = None
+
+
+class ChecklistItem(BaseModel):
+    model_config = ConfigDict(extra='forbid', strict=True)
+    text: Annotated[str, Field(min_length=1, max_length=240)]
+    done: bool
+
+
+class UpgradeReview(BaseModel):
+    model_config = ConfigDict(extra='forbid', strict=True)
+    decision_status: Literal['review', 'update', 'wait', 'ignore'] = 'review'
+    priority: Literal['low', 'normal', 'high', 'urgent'] = 'normal'
+    risk: Literal['unknown', 'low', 'medium', 'high', 'critical'] = 'unknown'
+    maintenance_date: Annotated[str, Field(max_length=10)] | None = None
+    checklist: Annotated[list[ChecklistItem], Field(max_length=30)] = Field(default_factory=list)
+    rollback_notes: Annotated[str, Field(max_length=10000)] | None = None
+    change_record_url: ShortURL | None = None
+    decision_notes: Annotated[str, Field(max_length=10000)] | None = None
 Decision = Literal['review', 'update', 'wait', 'ignore', 'deployed']
 MAX_RESULT_BYTES = 262144
 ADMIN_READS = {'inventory_list', 'inventory_summary', 'job_get'}
@@ -72,6 +90,7 @@ READ_NAMES = {'radar_status', 'trackers_list', 'tracker_get', 'releases_list', '
               'upgrades_list', 'upgrade_get'} | ADMIN_READS
 OPERATION_NAMES = {'tracker_check', 'tracker_probe', 'inventory_sync'}
 WRITE_SCOPES = {name: 'trackers:write' for name in ('tracker_create', 'tracker_update', 'tracker_set_enabled', 'tracker_delete')}
+WRITE_SCOPES['upgrade_save_review'] = 'upgrades:write'
 BUSY_MESSAGE = ('Operation already running or awaiting operator recovery. '
                 'Inspect current tracker state before retrying.')
 
@@ -83,7 +102,7 @@ PROBE_FIELDS = ('machine_name,install_host,install_port,install_scheme,probe_mod
 DETAIL_FIELDS = 'notes,current_release_url,current_release_body'
 RELEASE_FIELDS = 'id,version,release_name,previous_version,release_url,published_at,detected_at,notified_at,release_body'
 UPGRADE_FIELDS = ('d.id,d.tracker_id,t.name AS tracker_name,d.release_version AS release_key,d.release_name,'
-    '0 AS revision,d.decision_status,d.priority,d.risk,d.maintenance_date,d.updated_at')
+    'd.revision,d.decision_status,d.priority,d.risk,d.maintenance_date,d.updated_at')
 UPGRADE_DETAIL = ('d.checklist_json,d.rollback_notes,d.change_record_url,d.decision_notes,'
     'd.installed_version_at_decision,d.previous_version,d.deployed_version,d.deployed_at')
 
@@ -449,6 +468,17 @@ def tracker_delete(tracker_id: Id, confirm: Bool) -> dict[str, object]:
     return _write('tracker_delete', work)
 
 
+def upgrade_save_review(tracker_id: Id, release_key: ReleaseKey,
+                        expected_revision: Annotated[int, Field(strict=True, ge=0)], review: UpgradeReview) -> dict[str, object]:
+    def work(conn, principal):
+        save_upgrade_review(tracker_id, release_key, expected_revision, review.model_dump(), user_id=principal.user_id, conn=conn)
+        row = conn.execute(f'SELECT {UPGRADE_FIELDS},{UPGRADE_DETAIL} FROM upgrade_decisions d JOIN trackers t ON t.id=d.tracker_id '
+                           'WHERE d.tracker_id=? AND d.release_version=?', (tracker_id, release_key)).fetchone()
+        tracker = _need_tracker(conn, tracker_id)
+        return _upgrade(dict(row), detail=True, current=current_release_key(tracker))
+    return _write('upgrade_save_review', work)
+
+
 def acquire_operation(principal, tool: str, tracker_id: int | None) -> str:
     from .mcp_server import limit_config
     limits = limit_config()
@@ -648,7 +678,7 @@ def register_tools(server, *, phase=2):
     functions = [radar_status, trackers_list, tracker_get, releases_list, history_list, upgrades_list,
                  upgrade_get, inventory_list, inventory_summary, job_get, tracker_check, tracker_probe, inventory_sync]
     if phase == 2:
-        functions += [tracker_create, tracker_update, tracker_set_enabled, tracker_delete]
+        functions += [tracker_create, tracker_update, tracker_set_enabled, tracker_delete, upgrade_save_review]
     models = {}
     for function in functions:
         signature, hints = inspect.signature(function), get_type_hints(function, include_extras=True)

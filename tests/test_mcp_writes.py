@@ -68,3 +68,16 @@ class MCPWriteTests(unittest.IsolatedAsyncioTestCase):
         async with self.session(read_key) as s:
             unknown = await s.call_tool('does_not_exist', {})
             self.assertEqual((await s.call_tool('tracker_create', {'tracker': {'name': 'no', 'repository': 'example/no'}})).model_dump(), unknown.model_dump())
+
+    async def test_upgrade_review_release_revision_and_prohibited_deployment(self):
+        async with self.session(self.write_key()) as s:
+            current = await self.call(s, 'upgrade_get', {'tracker_id': self.tracker})
+            args = {'tracker_id': self.tracker, 'release_key': current['release_key'],
+                    'expected_revision': current['revision'], 'review': {'decision_status': 'wait'}}
+            first = await self.call(s, 'upgrade_save_review', args)
+            self.assertEqual(first['revision'], current['revision'] + 1)
+            self.assertTrue((await s.call_tool('upgrade_save_review', args)).is_error)
+            for bad in ({'decision_status': 'deployed'}, {'mark_deployed': True}, {'action': 'mark_deployed'}, {'installed_version': 'v9'}):
+                self.assertTrue((await s.call_tool('upgrade_save_review', args | {'expected_revision': first['revision'], 'review': bad})).is_error)
+            saved = await self.call(s, 'upgrade_get', {'tracker_id': self.tracker})
+            self.assertEqual(saved['revision'], first['revision'])

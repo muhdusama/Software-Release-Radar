@@ -39,6 +39,7 @@ from .secrets_store import decrypt_secret, encrypt_secret, validate_encryption_k
 from .security_controls import handle_forgot_password_request, install_security_controls
 from .tracker_utils import (next_due_at, normalise_tags, parse_utc, split_tags, validate_refresh_hours,
                             safe_optional_url, validate_tracker_core, reset_release_state)
+from .upgrade_workflow import save_upgrade_review
 from .upgrade_workflow import (
     DECISION_CHOICES, DECISION_VALUES, PRIORITY_CHOICES, PRIORITY_VALUES,
     RISK_CHOICES, RISK_VALUES, checklist_from_form, checklist_json,
@@ -643,53 +644,15 @@ def create_app() -> Flask:
                 if rollback_notes and len(rollback_notes) > 10_000:
                     raise ValueError("Rollback notes must be 10,000 characters or fewer.")
                 checklist = checklist_from_form(request.form.get("checklist_items"), request.form.getlist("checklist_done"))
-                now_value = utcnow()
                 deployed = action == "mark_deployed"
-                if deployed and historical_release:
-                    raise ValueError("Historical decisions cannot be marked as a new deployment.")
-                if deployed:
-                    status = "deployed"
-                with transaction() as conn:
-                    existing = conn.execute(
-                        "SELECT id, created_at FROM upgrade_decisions WHERE tracker_id = ? AND release_version = ?",
-                        (tracker_id, target_release_key),
-                    ).fetchone()
-                    values = (
-                        target_release_name, installed_for_comparison or None, status, priority, risk,
-                        maintenance_date, checklist_json(checklist), rollback_notes, change_record_url,
-                        decision_notes, installed_for_comparison if deployed else None,
-                        target_release_key if deployed else None, now_value if deployed else None,
-                        now_value, int(g.user["id"]),
-                    )
-                    if existing:
-                        conn.execute(
-                            """
-                            UPDATE upgrade_decisions
-                               SET release_name = ?, installed_version_at_decision = ?, decision_status = ?,
-                                   priority = ?, risk = ?, maintenance_date = ?, checklist_json = ?,
-                                   rollback_notes = ?, change_record_url = ?, decision_notes = ?,
-                                   previous_version = COALESCE(?, previous_version),
-                                   deployed_version = COALESCE(?, deployed_version),
-                                   deployed_at = COALESCE(?, deployed_at), updated_at = ?, updated_by = ?
-                             WHERE id = ?
-                            """,
-                            (*values, int(existing["id"])),
-                        )
-                        decision_id = int(existing["id"])
-                    else:
-                        cursor = conn.execute(
-                            """
-                            INSERT INTO upgrade_decisions
-                                (tracker_id, release_version, release_name, installed_version_at_decision,
-                                 decision_status, priority, risk, maintenance_date, checklist_json,
-                                 rollback_notes, change_record_url, decision_notes, previous_version,
-                                 deployed_version, deployed_at, created_at, updated_at, updated_by)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                            """,
-                            (tracker_id, target_release_key, *values[:13], now_value, now_value, int(g.user["id"])),
-                        )
-                        decision_id = int(cursor.lastrowid)
-                audit(int(g.user["id"]), "upgrade_deployed" if deployed else "upgrade_decision_saved", "upgrade_decision", decision_id, f"{tracker['name']} {target_release_key}: {status}")
+                revision = request.form.get('revision', '')
+                submitted = request.form.get('release_key', '')
+                if not revision.isascii() or not revision.isdecimal() or len(revision) > 12 or submitted != target_release_key:
+                    raise ValueError('Release and revision changed or are missing; reload the decision.')
+                save_upgrade_review(tracker_id, submitted, int(revision), {
+                    'decision_status': status, 'priority': priority, 'risk': risk, 'maintenance_date': maintenance_date,
+                    'checklist': checklist, 'rollback_notes': rollback_notes, 'change_record_url': change_record_url,
+                    'decision_notes': decision_notes}, user_id=int(g.user['id']), mark_deployed=deployed)
                 flash(f"Recorded {tracker['name']} {target_release_key} as deployed." if deployed else f"Saved the {status} decision for {tracker['name']}.", "success")
                 return redirect(decision_redirect)
             except ValueError as exc:
@@ -698,6 +661,7 @@ def create_app() -> Flask:
         checklist = load_checklist(decision.get("checklist_json"))
         return render_template(
             "upgrade_decision.html", tracker=tracker, decision=decision, checklist=checklist,
+            revision=decision.get('revision', 0),
             checklist_summary=checklist_summary(checklist), upgrade=upgrade,
             effective_installed_version=installed_for_comparison or None, release_key=target_release_key,
             target_release_name=target_release_name, historical_release=historical_release,

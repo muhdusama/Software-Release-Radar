@@ -439,6 +439,7 @@ def init_db() -> None:
             _add_column(conn, "trackers", definition)
 
         _add_column(conn, "audit_log", "api_key_id TEXT")
+        _add_column(conn, "upgrade_decisions", "revision INTEGER NOT NULL DEFAULT 0")
         for definition in [
             "previous_version TEXT",
             "previous_release_name TEXT",
