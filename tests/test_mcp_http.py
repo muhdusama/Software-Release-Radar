@@ -137,7 +137,10 @@ class MCPHTTPTests(unittest.IsolatedAsyncioTestCase):
     async def test_ci_checkout_contains_archived_rollback_baseline(self):
         import tempfile
         root = Path(__file__).resolve().parents[1]
-        workflow = (root / '.github/workflows/ci.yml').read_text().split('  docker-acceptance:', 1)[1]
+        source = (root / '.github/workflows/ci.yml').read_text()
+        unit_checkout = source.split('  python-tests:', 1)[1].split('- name: Set up Python 3.13', 1)[0]
+        self.assertIn('fetch-depth: 0', unit_checkout, 'Unit-test archive fixture also requires complete history')
+        workflow = source.split('  docker-acceptance:', 1)[1]
         checkout = workflow.split('- name: Run the real public first-run setup', 1)[0]
         with tempfile.TemporaryDirectory() as directory:
             command = ['git', 'clone', '--quiet']
