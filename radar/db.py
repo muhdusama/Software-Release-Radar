@@ -188,6 +188,13 @@ def init_db() -> None:
             );
             CREATE INDEX IF NOT EXISTS idx_mcp_keys_owner ON mcp_keys(user_id);
 
+            CREATE TABLE IF NOT EXISTS mcp_auth_failures (
+                id INTEGER PRIMARY KEY,
+                source_hash TEXT NOT NULL,
+                occurred_at REAL NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_mcp_auth_failure_time ON mcp_auth_failures(occurred_at);
+
             CREATE TABLE IF NOT EXISTS password_reset_tokens (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER NOT NULL,
