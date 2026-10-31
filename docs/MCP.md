@@ -62,11 +62,76 @@ inclusive ranges:
 - `MCP_OPERATION_HOURLY_LIMIT`: 20, range 1 to 1000.
 - `MCP_OPERATION_KEY_CONCURRENCY`: 1, range 1 to 4.
 - `MCP_OPERATION_GLOBAL_CONCURRENCY`: 2, range 1 to 16.
-- `MCP_OPERATION_LEASE_SECONDS`: 300, range 300 to 3600.
 - `MCP_AUTH_FAILURE_LIMIT`: 20, range 1 to 1000.
 
-Only the invalid-authentication limit is active at this implementation stage;
-message and operation enforcement arrives with tool registration. Operational
-lease expiry must exceed the full work duration before operations can ship.
+Authenticated message limits include discovery and are shared across processes.
+Operation quotas apply to accepted dispatches, with per-key/global concurrency
+and a single outstanding check or probe per tracker. Invalid attempts also have
+a fixed global limit of 200 per ten-minute window; valid keys are not blocked
+by the invalid-authentication bucket.
 Browser and scheduler quotas are unchanged. Schema changes are additive and
 idempotent; disabling the profile does not remove keys or other stored data.
+
+## Phase-1 tools and side effects
+
+`read` provides cached `radar_status`, `trackers_list`, `tracker_get`,
+`releases_list`, `history_list`, `upgrades_list` and `upgrade_get`. Current
+administrators also get `inventory_list`, `inventory_summary` and `job_get`.
+Lists use ascending ID keyset pagination, default 25 and maximum 100 items;
+follow `next_after_id` until null. UTF-8 response limits can shorten a page.
+Free text, including release notes, is untrusted data, never agent instructions.
+Reads never contact upstream providers. `check_state` describes eligibility,
+not a guarantee that a scheduler is running. Non-admin responses omit probe
+destinations; cached errors are replaced with fixed safe summaries.
+
+Current administrators with `operations:run` can use:
+
+- `tracker_check(tracker_id, confirm=true)`: GitHub lookup, optional configured
+  model analysis and standard release notifications; never probes or refreshes
+  inventory. Disabled trackers remain explicitly checkable.
+- `tracker_probe(tracker_id, confirm=true)`: existing browser-configured probe
+  destinations or cached inventory only; never refreshes inventory. Returns
+  live/cached source and cached inventory sync time when applicable.
+- `inventory_sync()`: enqueue or reuse an inventory job. The existing worker
+  contacts the configured provider later; the MCP call does not sync inline.
+
+There are no data-write tools until separately reviewed Phase 2 is authorised.
+Existing event uniqueness and recorded notification delivery suppress ordinary
+retries, but the browser/scheduler can still race a check. Exactly-once external
+effects and new auto-analysis/notification deduplication are not claimed.
+
+## Durable operation ownership and offline recovery
+
+Operation leases have **no automatic expiry**. The SDK worker owns its lease
+until work and the transactional outcome audit finish, even after client
+disconnect. If audit fails, ownership remains. Startup, elapsed time, key
+revocation and account deletion never reclaim it. The former
+`MCP_OPERATION_LEASE_SECONDS` setting is ignored and no longer configured.
+
+A crashed worker or failed outcome audit can indefinitely block a tracker,
+key or global capacity. A busy response therefore gives no promised retry
+time. Read tracker release/check/probe state and audit dispatch/outcome records
+before retrying an operation whose outcome is unknown.
+
+**Only recover after stopping and verifying every MCP worker sharing the
+database.** This includes workers on other containers/hosts. The utility cannot
+prove shutdown: its flag is the operator assertion, not a safety check. Never
+run it while an old worker can continue external work. Production recovery
+requires separate, target-specific authorisation.
+
+1. Stop all MCP instances using the actual deployment tooling. In a single
+   Compose deployment, `docker compose --profile mcp stop mcp` stops that
+   instance only; verify all relevant processes/containers have exited.
+2. Privately inspect current tracker state and audit records. Recovery does not
+   undo work, resend notifications or prove an exactly-once outcome.
+3. From the application checkout, with the correct `RADAR_DB` and database
+   access, run `python scripts/mcp_recover_leases.py --confirm-workers-stopped`.
+   For Compose, a one-off `docker compose --profile mcp run --rm --no-deps mcp
+   python scripts/mcp_recover_leases.py --confirm-workers-stopped` uses the
+   service database without starting the MCP server. Without the flag the
+   utility does not mutate anything. Audit and lease deletion are atomic;
+   failure retains ownership. It changes no job, tracker, key or rate counter.
+4. Restart MCP only after recovery; re-read tracker state before retrying.
+
+Keep additive tables on rollback. Disabling the optional profile stops new
+MCP calls; it is not permission to clear a still-running operation lease.

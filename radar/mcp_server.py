@@ -31,7 +31,6 @@ def limit_config() -> dict[str, int]:
         'MCP_OPERATION_HOURLY_LIMIT': (20, 1, 1000),
         'MCP_OPERATION_KEY_CONCURRENCY': (1, 1, 4),
         'MCP_OPERATION_GLOBAL_CONCURRENCY': (2, 1, 16),
-        'MCP_OPERATION_LEASE_SECONDS': (300, 300, 3600),
         'MCP_AUTH_FAILURE_LIMIT': (20, 1, 1000),
     }
     return {name: _int_env(name, default, minimum=low, maximum=high)

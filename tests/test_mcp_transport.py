@@ -130,7 +130,7 @@ class MCPTransportTests(unittest.IsolatedAsyncioTestCase):
         expected = {
             'MCP_KEY_MINUTE_LIMIT': (1, 10000), 'MCP_OPERATION_HOURLY_LIMIT': (1, 1000),
             'MCP_OPERATION_KEY_CONCURRENCY': (1, 4), 'MCP_OPERATION_GLOBAL_CONCURRENCY': (1, 16),
-            'MCP_OPERATION_LEASE_SECONDS': (300, 3600), 'MCP_AUTH_FAILURE_LIMIT': (1, 1000),
+            'MCP_AUTH_FAILURE_LIMIT': (1, 1000),
         }
         for name, (low, high) in expected.items():
             with patch.dict(os.environ, {name: '-1'}):

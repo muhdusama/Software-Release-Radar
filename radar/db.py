@@ -200,6 +200,17 @@ def init_db() -> None:
                 updated_at TEXT NOT NULL
             );
             CREATE INDEX IF NOT EXISTS idx_mcp_rate_expiry ON mcp_rate_counters(expires_at);
+            CREATE TABLE IF NOT EXISTS mcp_operation_leases (
+                id TEXT PRIMARY KEY,
+                key_id TEXT NOT NULL,
+                user_id INTEGER NOT NULL,
+                tool TEXT NOT NULL,
+                tracker_id INTEGER,
+                created_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_mcp_operation_key ON mcp_operation_leases(key_id);
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_mcp_operation_tracker ON mcp_operation_leases(tracker_id)
+                WHERE tracker_id IS NOT NULL;
             CREATE INDEX IF NOT EXISTS idx_mcp_auth_failure_time ON mcp_auth_failures(occurred_at);
 
             CREATE TABLE IF NOT EXISTS password_reset_tokens (
