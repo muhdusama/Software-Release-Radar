@@ -37,7 +37,8 @@ from .portainer import (PortainerError, ignore_service, inventory_summary,
 from .portainer_jobs import enqueue_import, enqueue_sync, latest_import_job, latest_job
 from .secrets_store import decrypt_secret, encrypt_secret, validate_encryption_key
 from .security_controls import handle_forgot_password_request, install_security_controls
-from .tracker_utils import next_due_at, normalise_tags, parse_utc, split_tags, validate_refresh_hours
+from .tracker_utils import (next_due_at, normalise_tags, parse_utc, split_tags, validate_refresh_hours,
+                            safe_optional_url, validate_tracker_core, reset_release_state)
 from .upgrade_workflow import (
     DECISION_CHOICES, DECISION_VALUES, PRIORITY_CHOICES, PRIORITY_VALUES,
     RISK_CHOICES, RISK_VALUES, checklist_from_form, checklist_json,
@@ -85,13 +86,7 @@ def _flash_check_summary(results) -> None:
 
 
 def _safe_optional_url(value: str, label: str = "URL") -> str | None:
-    value = (value or "").strip()
-    if not value:
-        return None
-    parsed = urlparse(value)
-    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
-        raise ValueError(f"{label} must be a complete http:// or https:// URL.")
-    return value
+    return safe_optional_url(value, label)
 
 
 def _optional(value: str | None) -> str | None:
@@ -720,15 +715,10 @@ def create_app() -> Flask:
             notes = _optional(request.form.get("notes"))
             tags = normalise_tags(request.form.get("tags", ""))
             try:
-                repository = normalise_repository(request.form.get("repository", ""))
-                homepage_url = _safe_optional_url(request.form.get("homepage_url", ""), "Homepage")
-                refresh_hours = validate_refresh_hours(request.form.get("refresh_hours", default_refresh))
-                if not name:
-                    raise ValueError("Software name is required.")
-                if len(name) > 120:
-                    raise ValueError("Software name must be 120 characters or fewer.")
-                if strategy not in {"release", "tag"}:
-                    raise ValueError("Invalid tracking strategy.")
+                core = validate_tracker_core({'repository': request.form.get('repository', ''),
+                    'homepage_url': request.form.get('homepage_url', ''),
+                    'refresh_hours': request.form.get('refresh_hours', default_refresh), 'name': name, 'strategy': strategy})
+                repository, homepage_url, refresh_hours = core['repository'], core['homepage_url'], core['refresh_hours']
                 install_host = _optional(request.form.get("install_host"))
                 if install_host and not _HOST_RE.fullmatch(install_host):
                     raise ValueError("Machine IP/hostname is invalid.")
@@ -792,16 +782,7 @@ def create_app() -> Flask:
                         assignments = ", ".join(f"{key} = ?" for key in values)
                         conn.execute(f"UPDATE trackers SET {assignments}, updated_at = ? WHERE id = ?", [*values.values(), now_value, tracker["id"]])
                         if source_changed:
-                            conn.execute(
-                                """
-                                UPDATE trackers SET current_version = NULL, current_release_name = NULL,
-                                current_release_url = NULL, current_release_body = NULL,
-                                current_published_at = NULL, last_status = NULL, last_error = NULL,
-                                github_retry_at = NULL
-                                WHERE id = ?
-                                """,
-                                (tracker["id"],),
-                            )
+                            reset_release_state(conn, tracker['id'], clear_last_checked=False)
                             if repository.lower() != str(tracker["repository"]).lower():
                                 conn.execute("DELETE FROM events WHERE tracker_id = ?", (tracker["id"],))
                         tracker_id = int(tracker["id"])
@@ -991,8 +972,8 @@ def create_app() -> Flask:
         return redirect(url_for("dashboard"))
 
     def render_profile(**kwargs):
-        from .mcp_auth import list_keys
-        return render_template('profile.html', mcp_keys=list_keys(int(g.user['id'])),
+        from .mcp_auth import list_keys, available_scopes
+        return render_template('profile.html', mcp_keys=list_keys(int(g.user['id'])), mcp_scopes=available_scopes(),
                                has_pushover_key=bool(g.user['pushover_user_key_enc']), **kwargs)
 
     @app.after_request

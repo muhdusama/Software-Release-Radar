@@ -36,6 +36,8 @@
     <fieldset><legend>Scopes</legend>
       <label class="inline-check"><input type="checkbox" name="scopes" value="read" checked required> Read stored data (required)</label>
       {% if current_user['role'] == 'admin' %}<label class="inline-check"><input type="checkbox" name="scopes" value="operations:run"> Run confirmed checks, probes and inventory synchronisation</label>{% endif %}
+      {% if current_user['role'] == 'admin' and 'trackers:write' in mcp_scopes %}<label class="inline-check"><input type="checkbox" name="scopes" value="trackers:write"> Edit tracker data (no probe configuration)</label>{% endif %}
+      {% if current_user['role'] == 'admin' and 'upgrades:write' in mcp_scopes %}<label class="inline-check"><input type="checkbox" name="scopes" value="upgrades:write"> Save upgrade reviews (cannot mark deployed)</label>{% endif %}
     </fieldset>
     <button class="button primary" type="submit">Create API key</button>
   </form>

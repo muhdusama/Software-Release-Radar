@@ -76,6 +76,7 @@ class MCPAuthTests(unittest.TestCase):
         self.assertIsNone(self.verify(token))
         self.assertIsNotNone(mcp_auth.list_keys(self.admin)[0]['revoked_at'])
 
+    @patch('radar.mcp_auth.CAPABILITY_PHASE', 1)
     def test_validation_and_phase_one_scopes(self):
         for scopes in ([], ['operations:run'], ['read', 'trackers:write'], ['read', 'upgrades:write'], ['read', 'unknown']):
             with self.subTest(scopes=scopes), self.assertRaises(ValueError):
@@ -111,6 +112,7 @@ class MCPAuthTests(unittest.TestCase):
         with patch('radar.mcp_auth.get_access_token', return_value=access), self.assertRaises(ValueError):
             mcp_auth.current_principal()
 
+    @patch('radar.mcp_auth.CAPABILITY_PHASE', 1)
     def test_fresh_authority_and_throttled_last_used(self):
         key_id, token = self.key(scopes=['read', 'operations:run'])
         self.verify(token)

@@ -69,7 +69,7 @@ def build_server() -> MCPServer:
                      auth=AuthSettings(issuer_url=public.removesuffix('/mcp'), resource_server_url=public,
                                         required_scopes=['read'], validate_token_resource=False))
     from .mcp_tools import register_tools
-    register_tools(server)
+    register_tools(server, phase=2)
     return server
 
 

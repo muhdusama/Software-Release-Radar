@@ -17,6 +17,12 @@ from .auth import token_digest, verify_password
 from .db import audit, connect, transaction, utcnow
 
 PHASE_ONE_SCOPES = frozenset({'read', 'operations:run'})
+CAPABILITY_PHASE = 2
+
+
+def available_scopes():
+    return PHASE_ONE_SCOPES | ({'trackers:write', 'upgrades:write'} if CAPABILITY_PHASE == 2 else set())
+
 _KEY_PATTERN = re.compile(r'srr_([a-f0-9]{16})_([A-Za-z0-9_-]{43})', re.ASCII)
 
 
@@ -37,7 +43,7 @@ def create_key(user_id: int, current_password: str, label: str, scopes: list[str
     if not isinstance(scopes, list) or not all(isinstance(s, str) for s in scopes):
         raise ValueError('Invalid key scopes.')
     selected = frozenset(scopes)
-    if 'read' not in selected or not selected <= PHASE_ONE_SCOPES:
+    if 'read' not in selected or not selected <= available_scopes():
         raise ValueError('Read scope is required; only current phase scopes are available.')
     with transaction(immediate=True) as conn:
         owner = conn.execute('SELECT * FROM users WHERE id=?', (user_id,)).fetchone()
@@ -82,7 +88,7 @@ def _stored_scopes(raw: str) -> frozenset[str]:
     try:
         values = json.loads(raw)
         if isinstance(values, list) and all(isinstance(s, str) for s in values):
-            return frozenset(values) & PHASE_ONE_SCOPES
+            return frozenset(values) & available_scopes()
     except (ValueError, TypeError):
         pass
     return frozenset()
