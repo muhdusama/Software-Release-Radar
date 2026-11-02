@@ -8,6 +8,8 @@ Format reference: https://keepachangelog.com/en/1.1.0/
 
 ## [Unreleased]
 
+## [2.11.0] - 2026-11-02
+
 ### Added
 
 - Optional built-in MCP HTTP service with browser-managed scoped API keys,
@@ -21,6 +23,21 @@ Format reference: https://keepachangelog.com/en/1.1.0/
 - Inventory sync enqueue is atomic across workers.
 - Browser and MCP upgrade decisions use release-bound integer revisions, preventing
   stale reviews from overwriting a concurrent save or deployed decision.
+- The `decide` and `mark-deployed` commands now join the same revision contract.
+  Each reads, validates, saves and audits in one immediate transaction, so a CLI
+  change invalidates an earlier browser or MCP read, cannot overwrite a deployed
+  decision, and is never saved without its audit entry.
+
+### Compatibility
+
+- Adds the `mcp` Python dependency to the image. The MCP service is a separate,
+  opt-in Compose profile; existing deployments run unchanged until it is enabled.
+- Applies additive startup migrations: MCP key, lease and rate tables, an audit
+  `api_key_id` column and an upgrade-decision `revision` column. Version 2.10.9
+  ignores these additions, so its image remains a valid rollback.
+- Deployments that override the data mount must give the `mcp` service the same
+  `/data` and `/ssh` mounts as the other services. Stop every writer, including
+  `mcp`, before restoring a database backup.
 
 ## [2.10.9] - 2026-10-24
 
