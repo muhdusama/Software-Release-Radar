@@ -17,9 +17,7 @@ from .portainer import (
 from .notifications import notification_smoke_test
 from .tracker_utils import normalise_tags, parse_utc, split_tags, validate_refresh_hours
 from .upgrade_workflow import (
-    DECISION_VALUES, PRIORITY_VALUES, RISK_VALUES, checklist_json,
-    checklist_summary, load_checklist, release_key, validate_change_record_url,
-    validate_choice, validate_maintenance_date,
+    checklist_summary, load_checklist, release_key, save_upgrade_review,
 )
 from .version import APP_VERSION
 from .versioning import classify_tracker_state, summarise_tracker_states
@@ -44,17 +42,18 @@ def _row_dict(row) -> dict:
     return result
 
 
-def _tracker(*, repository: str | None = None, tracker_id: int | None = None):
+def _tracker(*, repository: str | None = None, tracker_id: int | None = None, conn=None):
     if repository is None and tracker_id is None:
         raise ValueError("A repository or tracker ID is required.")
-    with connect() as conn:
-        if tracker_id is not None:
-            row = conn.execute("SELECT * FROM trackers WHERE id = ?", (tracker_id,)).fetchone()
-        else:
-            repo = normalise_repository(repository or "")
-            row = conn.execute(
-                "SELECT * FROM trackers WHERE repository = ? COLLATE NOCASE", (repo,)
-            ).fetchone()
+    if conn is None:
+        with connect() as own:
+            return _tracker(repository=repository, tracker_id=tracker_id, conn=own)
+    if tracker_id is not None:
+        row = conn.execute("SELECT * FROM trackers WHERE id = ?", (tracker_id,)).fetchone()
+    else:
+        row = conn.execute(
+            "SELECT * FROM trackers WHERE repository = ? COLLATE NOCASE", (normalise_repository(repository or ""),)
+        ).fetchone()
     if row is None:
         raise ValueError("The requested software is not being tracked.")
     return row
@@ -534,76 +533,71 @@ def upgrades(_: argparse.Namespace) -> int:
     return 0
 
 
+def _review_from(existing) -> dict[str, object]:
+    return {
+        "decision_status": existing["decision_status"], "priority": existing["priority"], "risk": existing["risk"],
+        "maintenance_date": existing["maintenance_date"], "checklist": load_checklist(existing["checklist_json"]),
+        "rollback_notes": existing["rollback_notes"], "change_record_url": existing["change_record_url"],
+        "decision_notes": existing["decision_notes"],
+    }
+
+
+def _save_cli_review(args: argparse.Namespace, build) -> tuple[dict, dict, dict, bool]:
+    """Read, validate, mutate and audit in one immediate transaction; build(existing) returns (review, deployed)."""
+    with transaction(immediate=True) as conn:
+        tracker = dict(_tracker(repository=args.repository, tracker_id=args.tracker_id, conn=conn))
+        target_release = release_key(tracker)
+        if not target_release:
+            raise ValueError("Check this tracker upstream before changing an upgrade decision.")
+        existing = conn.execute(
+            "SELECT * FROM upgrade_decisions WHERE tracker_id = ? AND release_version = ?", (tracker["id"], target_release)
+        ).fetchone()
+        review, deployed = build(existing, tracker)
+        if review is None:
+            audit(None, "cli_upgrade_deployed", "upgrade_decision", existing["id"], f"{tracker['name']} {target_release}", conn=conn)
+            return tracker, dict(existing), {}, False
+        saved = save_upgrade_review(tracker["id"], target_release, existing["revision"] if existing else 0, review,
+                                    user_id=None, mark_deployed=deployed, conn=conn, cli=True)
+    return tracker, dict(existing) if existing else {}, saved, True
+
+
 def decide_upgrade(args: argparse.Namespace) -> int:
     if not args.confirm:
         raise ValueError("Use --confirm after the user approves changing this upgrade decision.")
-    row = _tracker(repository=args.repository, tracker_id=args.tracker_id)
-    tracker = dict(row)
-    target_release = release_key(tracker)
-    if not target_release:
-        raise ValueError("Check this tracker upstream before creating an upgrade decision.")
-    with connect() as conn:
-        existing_row = conn.execute(
-            "SELECT * FROM upgrade_decisions WHERE tracker_id = ? AND release_version = ?",
-            (tracker["id"], target_release),
-        ).fetchone()
-    existing = dict(existing_row) if existing_row else {}
-    if existing.get("decision_status") == "deployed":
-        raise ValueError("A deployed release record is immutable.")
-    status_value = validate_choice(args.decision, DECISION_VALUES - {"deployed"}, "Decision")
-    priority_value = validate_choice(args.priority or existing.get("priority") or "normal", PRIORITY_VALUES, "Priority")
-    risk_value = validate_choice(args.risk or existing.get("risk") or "unknown", RISK_VALUES, "Risk")
-    maintenance_value = validate_maintenance_date(args.maintenance_date if args.maintenance_date is not None else existing.get("maintenance_date"))
-    change_record_value = validate_change_record_url(args.change_record_url if args.change_record_url is not None else existing.get("change_record_url"))
-    if args.checklist_item is None:
-        checklist = load_checklist(existing.get("checklist_json"))
-    else:
-        done = set(args.checklist_done or [])
-        checklist = []
-        for index, text in enumerate(args.checklist_item[:30]):
-            text = str(text).strip()
-            if not text:
-                continue
-            if len(text) > 240:
-                raise ValueError("Checklist items must be 240 characters or fewer.")
-            checklist.append({"text": text, "done": index in done})
-    installed = tracker.get("detected_installed_version") or tracker.get("installed_version")
-    now = utcnow()
-    installed_at_decision = existing.get("installed_version_at_decision") or installed
-    values = (
-        tracker.get("current_release_name") or target_release, installed_at_decision, status_value,
-        priority_value, risk_value, maintenance_value, checklist_json(checklist),
-        args.rollback_notes if args.rollback_notes is not None else existing.get("rollback_notes"),
-        change_record_value, args.notes if args.notes is not None else existing.get("decision_notes"),
-        now, None,
-    )
-    with transaction() as conn:
-        if existing:
-            conn.execute(
-                """UPDATE upgrade_decisions SET release_name=?, installed_version_at_decision=?,
-                   decision_status=?, priority=?, risk=?, maintenance_date=?, checklist_json=?,
-                   rollback_notes=?, change_record_url=?, decision_notes=?, updated_at=?, updated_by=?
-                   WHERE id=?""",
-                (*values, existing["id"]),
-            )
-            decision_id = int(existing["id"])
+
+    def build(existing, tracker):
+        old = dict(existing) if existing else {}
+        if old.get("decision_status") == "deployed":
+            raise ValueError("A deployed release record is immutable.")
+        if args.checklist_item is None:
+            checklist = load_checklist(old.get("checklist_json"))
         else:
-            cursor = conn.execute(
-                """INSERT INTO upgrade_decisions
-                   (tracker_id, release_version, release_name, installed_version_at_decision,
-                    decision_status, priority, risk, maintenance_date, checklist_json,
-                    rollback_notes, change_record_url, decision_notes, created_at, updated_at, updated_by)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (tracker["id"], target_release, *values[:10], now, now, None),
-            )
-            decision_id = int(cursor.lastrowid)
-    audit(None, "cli_upgrade_decision_saved", "upgrade_decision", decision_id, f"{tracker['name']} {target_release}: {status_value}")
+            done = set(args.checklist_done or [])
+            checklist = []
+            for index, text in enumerate(args.checklist_item[:30]):
+                text = str(text).strip()
+                if not text:
+                    continue
+                if len(text) > 240:
+                    raise ValueError("Checklist items must be 240 characters or fewer.")
+                checklist.append({"text": text, "done": index in done})
+        return {
+            "decision_status": args.decision, "priority": args.priority or old.get("priority") or "normal",
+            "risk": args.risk or old.get("risk") or "unknown",
+            "maintenance_date": args.maintenance_date if args.maintenance_date is not None else old.get("maintenance_date"),
+            "checklist": checklist,
+            "rollback_notes": args.rollback_notes if args.rollback_notes is not None else old.get("rollback_notes"),
+            "change_record_url": args.change_record_url if args.change_record_url is not None else old.get("change_record_url"),
+            "decision_notes": args.notes if args.notes is not None else old.get("decision_notes"),
+        }, False
+
+    tracker, _, saved, _ = _save_cli_review(args, build)
     print(json.dumps({
-        "ok": True, "action": "decision_saved", "decision_id": decision_id,
+        "ok": True, "action": "decision_saved", "decision_id": int(saved["id"]),
         "tracker_id": int(tracker["id"]), "name": tracker["name"],
-        "release_version": target_release, "decision_status": status_value,
-        "priority": priority_value, "risk": risk_value,
-        "maintenance_date": maintenance_value, "checklist_summary": checklist_summary(checklist),
+        "release_version": saved["release_version"], "decision_status": saved["decision_status"],
+        "priority": saved["priority"], "risk": saved["risk"],
+        "maintenance_date": saved["maintenance_date"], "checklist_summary": checklist_summary(load_checklist(saved["checklist_json"])),
     }, indent=2))
     return 0
 
@@ -611,46 +605,19 @@ def decide_upgrade(args: argparse.Namespace) -> int:
 def mark_upgrade_deployed(args: argparse.Namespace) -> int:
     if not args.confirm:
         raise ValueError("Use --confirm only after the user confirms that this release was deployed.")
-    row = _tracker(repository=args.repository, tracker_id=args.tracker_id)
-    tracker = dict(row)
-    target_release = release_key(tracker)
-    if not target_release:
-        raise ValueError("Check this tracker upstream before recording a deployment.")
-    installed = tracker.get("detected_installed_version") or tracker.get("installed_version")
-    now = utcnow()
-    with transaction() as conn:
-        existing = conn.execute(
-            "SELECT * FROM upgrade_decisions WHERE tracker_id = ? AND release_version = ?",
-            (tracker["id"], target_release),
-        ).fetchone()
+
+    def build(existing, tracker):
         if existing and existing["decision_status"] == "deployed":
-            previous_version = existing["previous_version"] or existing["installed_version_at_decision"] or installed
-            decision_id = int(existing["id"])
-        elif existing:
-            previous_version = existing["installed_version_at_decision"] or installed
-            conn.execute(
-                """UPDATE upgrade_decisions SET decision_status='deployed', previous_version=?,
-                   deployed_version=?, deployed_at=?, updated_at=?, updated_by=NULL WHERE id=?""",
-                (previous_version, target_release, now, now, existing["id"]),
-            )
-            decision_id = int(existing["id"])
-        else:
-            previous_version = installed
-            cursor = conn.execute(
-                """INSERT INTO upgrade_decisions
-                   (tracker_id, release_version, release_name, installed_version_at_decision,
-                    decision_status, priority, risk, maintenance_date, checklist_json, rollback_notes,
-                    change_record_url, decision_notes, previous_version, deployed_version, deployed_at,
-                    created_at, updated_at, updated_by)
-                   VALUES (?, ?, ?, ?, 'deployed', 'normal', 'unknown', NULL, '[]', NULL, NULL, ?, ?, ?, ?, ?, ?, NULL)""",
-                (tracker["id"], target_release, tracker.get("current_release_name") or target_release, installed, args.notes, previous_version, target_release, now, now, now),
-            )
-            decision_id = int(cursor.lastrowid)
-    audit(None, "cli_upgrade_deployed", "upgrade_decision", decision_id, f"{tracker['name']} {target_release}")
+            return None, False  # already recorded: report it without changing the record
+        return (_review_from(existing) if existing else {"decision_notes": args.notes}), True
+
+    tracker, old, saved, mutated = _save_cli_review(args, build)
+    row = saved if mutated else old
     print(json.dumps({
-        "ok": True, "action": "deployed", "decision_id": decision_id,
+        "ok": True, "action": "deployed", "decision_id": int(row["id"]),
         "tracker_id": int(tracker["id"]), "name": tracker["name"],
-        "previous_version": previous_version, "deployed_version": target_release, "deployed_at": now,
+        "previous_version": row["previous_version"] or row["installed_version_at_decision"] or tracker.get("detected_installed_version") or tracker.get("installed_version"),
+        "deployed_version": row["deployed_version"], "deployed_at": row["deployed_at"],
     }, indent=2))
     return 0
 
