@@ -108,15 +108,15 @@ def checklist_summary(items: list[dict[str, object]]) -> dict[str, int]:
 
 
 def save_upgrade_review(tracker_id: int, submitted_release_key: str, expected_revision: int,
-                        review: dict[str, object], *, user_id: int, mark_deployed: bool = False,
-                        conn=None) -> dict[str, object]:
+                        review: dict[str, object], *, user_id: int | None, mark_deployed: bool = False,
+                        conn=None, cli: bool = False) -> dict[str, object]:
     if (type(expected_revision) is not int or expected_revision < 0 or not isinstance(submitted_release_key, str)
             or not 1 <= len(submitted_release_key.strip()) <= 240):
         raise ValueError('Release and revision are required; reload the decision.')
     if conn is None:
         with transaction(immediate=True) as own:
             return save_upgrade_review(tracker_id, submitted_release_key, expected_revision, review,
-                                       user_id=user_id, mark_deployed=mark_deployed, conn=own)
+                                       user_id=user_id, mark_deployed=mark_deployed, conn=own, cli=cli)
     if not conn.in_transaction:
         raise ValueError('An active transaction is required.')
     allowed = {'decision_status', 'priority', 'risk', 'maintenance_date', 'checklist', 'rollback_notes', 'change_record_url', 'decision_notes'}
@@ -142,9 +142,13 @@ def save_upgrade_review(tracker_id: int, submitted_release_key: str, expected_re
         if (not isinstance(item, dict) or set(item) != {'text', 'done'} or not isinstance(item['text'], str)
                 or not 1 <= len(item['text'].strip()) <= 240 or type(item['done']) is not bool):
             raise ValueError('Invalid checklist item.')
-    owner = conn.execute('SELECT role,active FROM users WHERE id=?', (user_id,)).fetchone()
-    if not owner or not owner['active'] or owner['role'] != 'admin':
-        raise ValueError('Administrator access is required.')
+    if cli:
+        if user_id is not None:
+            raise ValueError('The trusted local CLI path has no user identity.')
+    else:
+        owner = conn.execute('SELECT role,active FROM users WHERE id=?', (user_id,)).fetchone() if user_id is not None else None
+        if not owner or not owner['active'] or owner['role'] != 'admin':
+            raise ValueError('Administrator access is required.')
     row = conn.execute('SELECT * FROM trackers WHERE id=?', (tracker_id,)).fetchone()
     if row is None:
         raise ValueError('Tracker is unavailable.')
@@ -178,6 +182,6 @@ def save_upgrade_review(tracker_id: int, submitted_release_key: str, expected_re
         cursor = conn.execute(f'INSERT INTO upgrade_decisions({columns},tracker_id,release_version,created_at,revision) VALUES({placeholders},?,?,?,1)',
                               [*values.values(), tracker_id, key, now])
         decision_id = int(cursor.lastrowid)
-    audit(user_id, 'upgrade_deployed' if mark_deployed else 'upgrade_decision_saved', 'upgrade_decision',
+    audit(user_id, ('cli_' if cli else '') + ('upgrade_deployed' if mark_deployed else 'upgrade_decision_saved'), 'upgrade_decision',
           decision_id, f"{tracker['name']} {key}: {values['decision_status']}", conn=conn)
     return dict(conn.execute('SELECT * FROM upgrade_decisions WHERE id=?', (decision_id,)).fetchone())
