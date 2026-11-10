@@ -1,4 +1,4 @@
-FROM python:3.13-slim
+FROM python:3.15-slim
 
 ARG APP_VERSION=2.10.9
 ARG VCS_REF=""
