@@ -24,6 +24,7 @@ from .analysis_service import analyse_messages, chat_messages, release_history_c
 from .auth import hash_password, setup_token, token_digest, verify_password
 from .auth_rate_limit import install_auth_rate_limits
 from .rest_api import CALENDAR_TOKEN_PREFIX, install_api
+from .release_digest import digest as release_digest
 from .build_info import build_commit
 from .checker import check_all, check_tracker
 from .db import (
@@ -845,9 +846,12 @@ def create_app() -> Flask:
             ).fetchone()
         evidence = _evidence_releases(tracker, event_rows, target_release_key, installed_for_comparison or None, historical_release)
         target_record = evidence[0] if evidence else {}
+        changes = release_digest(evidence)
+        changes["installed_found"] = bool(installed_for_comparison) and any(
+            versions_match(installed_for_comparison, row["release_name"], row["version"]) for row in event_rows)
         return render_template(
             "upgrade_decision.html", tracker=tracker, decision=decision, checklist=checklist,
-            evidence=evidence, analysis=analysis, target_published_at=target_record.get("published_at") or (None if historical_release else tracker.get("current_published_at")),
+            evidence=evidence, changes=changes, analysis=analysis, target_published_at=target_record.get("published_at") or (None if historical_release else tracker.get("current_published_at")),
             revision=decision.get('revision', 0),
             checklist_summary=checklist_summary(checklist), upgrade=upgrade,
             effective_installed_version=installed_for_comparison or None, release_key=target_release_key,

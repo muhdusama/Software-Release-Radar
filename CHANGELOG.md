@@ -8,8 +8,21 @@ Format reference: https://keepachangelog.com/en/1.1.0/
 
 ## [Unreleased]
 
+### Added
+
+- Changes since your version: the upgrade plan lists every stored release
+  between the installed version and the target, newest first, with the
+  release notes. Each release is flagged for breaking changes, migration
+  steps, security fixes and deprecations using headings, keywords and
+  Conventional Commit `!` markers, never an LLM, and quotes the matching
+  lines. CVE and GHSA identifiers in the notes link to OSV. A note says when
+  the installed version is older than the stored history. Release notes are
+  shown as escaped plain text.
+
 ### Changed
 
+- New trackers now record up to 30 recent releases on their first check
+  (was 10), so the changes list covers a longer upgrade gap.
 - The container image now runs Python 3.15 (`python:3.15-slim`). CI runs the
   tests and the dependency and Bandit audits on both Python 3.13 and 3.15.
 
