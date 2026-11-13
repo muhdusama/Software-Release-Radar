@@ -7,6 +7,7 @@ import json
 import re
 import secrets
 import sqlite3
+from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
@@ -151,7 +152,23 @@ def _principal(row, conn: sqlite3.Connection) -> Principal:
     return Principal(row['id'], int(row['user_id']), admin, scopes if admin else scopes & {'read'})
 
 
+# Set by the read-only REST API for the duration of one request. A key-backed
+# principal is re-validated against the key row on every use, exactly like MCP;
+# a browser-session principal (empty key_id) carries only the read scope.
+request_principal: ContextVar[Principal | None] = ContextVar('srr_request_principal', default=None)
+
+
+def principal_for_key(key_id: str, conn: sqlite3.Connection | None = None) -> Principal:
+    if conn is None:
+        with connect() as own:
+            return principal_for_key(key_id, own)
+    return _principal(_key_row(conn, key_id), conn)
+
+
 def current_principal(*, conn: sqlite3.Connection | None = None) -> Principal:
+    override = request_principal.get()
+    if override is not None:
+        return principal_for_key(override.key_id, conn) if override.key_id else override
     access = get_access_token()
     if access is None:
         raise ValueError('Authentication required.')

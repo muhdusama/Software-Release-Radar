@@ -20,8 +20,8 @@
   <div class="form-actions"><a class="button secondary" href="{{ url_for('dashboard') }}">Cancel</a><button class="button primary" type="submit">Save profile</button></div>
 </form>
 <section class="panel narrow-form" aria-labelledby="mcp-heading">
-  <h2 id="mcp-heading">MCP API keys</h2>
-  <p>Use a scoped key to connect an agent. Your account permissions still apply. Changing your password invalidates existing keys.</p>
+  <h2 id="mcp-heading">API keys</h2>
+  <p>Use a scoped key to connect an agent over MCP, read the REST API at <code>/api/v1</code> or scrape <code>/metrics</code> with Prometheus. Send it as <code>Authorization: Bearer &lt;key&gt;</code>. Your account permissions still apply. Changing your password invalidates existing keys.</p>
   {% if not mcp_enabled %}<p role="status">An administrator has turned MCP access off. Existing keys are kept but do not work.</p>{% endif %}
   {% if mcp_error %}<p role="alert">{{ mcp_error }}</p>{% endif %}
   {% if mcp_secret %}
@@ -52,5 +52,17 @@
     </form>{% endif %}
   </div>
   {% endfor %}
+</section>
+<section class="panel narrow-form" aria-labelledby="calendar-heading">
+  <h2 id="calendar-heading">Maintenance calendar</h2>
+  <p>Subscribe to planned upgrade dates in a calendar app. The link is private: anyone with it can see planned upgrade names, dates and machine names, so treat it like a password.</p>
+  {% if calendar_url %}
+  <div role="status"><p>Copy this calendar link now. It will not be displayed again.</p><code>{{ calendar_url }}</code></div>
+  {% endif %}
+  <form method="post" action="{{ url_for('calendar_link') }}" class="form-actions">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button class="button {{ 'secondary' if has_calendar_feed else 'primary' }}" type="submit" name="action" value="create">{{ 'Replace calendar link' if has_calendar_feed else 'Create calendar link' }}</button>
+    {% if has_calendar_feed %}<button class="button ghost" type="submit" name="action" value="revoke" data-confirm="Revoke the calendar link? Subscribed calendars will stop updating.">Revoke calendar link</button>{% endif %}
+  </form>
 </section>
 {% endblock %}

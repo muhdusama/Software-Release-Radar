@@ -291,14 +291,90 @@ def _searxng_rolling_releases(limit: int) -> list[ReleaseInfo]:
     return [_searxng_rolling_release(candidate) for candidate in payload[:limit]]
 
 
+# Hosted forges recognised from a plain URL or host/path reference. A self-hosted
+# instance elsewhere is named explicitly with a "gitlab:" or "gitea:" prefix
+# (Forgejo uses the Gitea API, so "forgejo:" is accepted as an alias).
+FORGE_HOSTS = {"gitlab.com": "gitlab", "codeberg.org": "gitea", "gitea.com": "gitea"}
+_FORGE_PREFIXES = {"gitlab": "gitlab", "gitea": "gitea", "forgejo": "gitea"}
+_FORGE_HOST_RE = re.compile(r"^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+(?::[0-9]{1,5})?$")
+_FORGE_SEGMENT_RE = re.compile(r"^[A-Za-z0-9_.-]{1,100}$")
+
+
+@dataclass(frozen=True)
+class Forge:
+    kind: str
+    host: str
+    path: str
+
+    @property
+    def web_url(self) -> str:
+        return f"https://{self.host}/{self.path}"
+
+
+def _split_forge(value: str) -> Forge | None:
+    """Parse a non-GitHub reference into a Forge, or return None for GitHub."""
+    kind = None
+    prefix, separator, rest = value.partition(":")
+    if separator and prefix.lower() in _FORGE_PREFIXES and not rest.startswith("//"):
+        kind, value = _FORGE_PREFIXES[prefix.lower()], rest
+    if value.startswith("http://") or value.startswith("https://"):
+        parsed = urllib.parse.urlparse(value)
+        host, path = parsed.netloc.lower(), parsed.path
+    elif "/" in value and "." in value.split("/", 1)[0]:
+        host, _, path = value.partition("/")
+        host = host.lower()
+    elif kind:
+        raise ValueError("A self-hosted forge reference must use gitlab:host/group/project or gitea:host/owner/repository.")
+    else:
+        return None
+    host = host.removeprefix("www.")
+    if host == "github.com":
+        return None
+    if "@" in host or not _FORGE_HOST_RE.fullmatch(host):
+        raise ValueError("Forge host name is not valid.")
+    kind = kind or FORGE_HOSTS.get(host)
+    if kind is None:
+        raise ValueError(
+            "Only github.com, gitlab.com, codeberg.org and gitea.com are recognised from a URL. "
+            "For a self-hosted forge use gitlab:host/group/project or gitea:host/owner/repository."
+        )
+    path = path.removesuffix(".git").strip("/")
+    for marker in ("/-/", "/releases", "/tags"):
+        path = path.split(marker, 1)[0]
+    parts = [part for part in path.split("/") if part]
+    if kind == "gitea":
+        parts = parts[:2]
+    if len(parts) < 2 or len(parts) > 20 or not all(_FORGE_SEGMENT_RE.fullmatch(part) and part not in {".", ".."} for part in parts):
+        raise ValueError("Forge repository must use host/owner/repository format (GitLab may include subgroups).")
+    return Forge(kind, host, "/".join(parts))
+
+
+def forge_for(repository: str) -> Forge | None:
+    """Return the forge for a stored repository reference, or None for GitHub."""
+    try:
+        return _split_forge(str(repository or "").strip())
+    except ValueError:
+        return None
+
+
+def repository_web_url(repository: str) -> str:
+    forge = forge_for(repository)
+    return forge.web_url if forge else f"https://github.com/{repository}"
+
+
 def normalise_repository(value: str) -> str:
     value = (value or "").strip()
+    forge = _split_forge(value)
+    if forge is not None:
+        if FORGE_HOSTS.get(forge.host) == forge.kind:
+            return f"{forge.host}/{forge.path}"
+        return f"{forge.kind}:{forge.host}/{forge.path}"
     if value.startswith("git@github.com:"):
         value = value.removeprefix("git@github.com:")
     if value.startswith("http://") or value.startswith("https://"):
         parsed = urllib.parse.urlparse(value)
         if parsed.netloc.lower() not in {"github.com", "www.github.com"}:
-            raise ValueError("Repository URL must be hosted on github.com.")
+            raise ValueError("Repository URL must be hosted on github.com, gitlab.com, codeberg.org or gitea.com.")
         value = parsed.path.strip("/")
     value = value.removesuffix(".git").strip("/")
     parts = value.split("/")
@@ -307,6 +383,126 @@ def normalise_repository(value: str) -> str:
     if not _REPOSITORY_RE.fullmatch(value):
         raise ValueError("GitHub repository must use owner/repository format.")
     return value
+
+
+_FORGE_RESPONSE_LIMIT = 10 * 1024 * 1024
+_PRERELEASE_TAG_RE = re.compile(r"[-_.]?(alpha|beta|rc|pre|preview|dev|nightly)[-_.]?\d*$", re.IGNORECASE)
+
+
+def _forge_get(forge: Forge, path: str):
+    url = f"https://{forge.host}{path}"
+    request = urllib.request.Request(url, headers={
+        "Accept": "application/json", "User-Agent": f"Software-Release-Radar/{APP_VERSION}"})
+    try:
+        with open_http(request, timeout=20) as response:
+            raw = response.read(_FORGE_RESPONSE_LIMIT + 1)
+        if len(raw) > _FORGE_RESPONSE_LIMIT:
+            raise GitHubError(f"{forge.host} returned a response larger than the safety limit.")
+        return json.loads(raw.decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        if exc.code == 404:
+            raise GitHubError(f"Repository or release endpoint was not found on {forge.host}.") from exc
+        if exc.code == 429:
+            raise GitHubError(f"{forge.host} rate limit was reached. The next scheduled check will retry.") from exc
+        raise GitHubError(f"{forge.host} returned HTTP {exc.code}.") from exc
+    except urllib.error.URLError as exc:
+        raise GitHubError(f"Could not reach {forge.host}: {exc.reason}") from exc
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+        raise GitHubError(f"{forge.host} returned an unreadable response.") from exc
+
+
+def _forge_release(forge: Forge, payload: dict) -> ReleaseInfo:
+    tag = str(payload.get("tag_name") or "").strip()
+    if not tag:
+        raise GitHubError("Forge release did not include a tag name.")
+    body_key = "description" if forge.kind == "gitlab" else "body"
+    body = str(payload.get(body_key) or "").strip() or None
+    if body and len(body) > 120_000:
+        body = body[:120_000] + "\n\n[Release notes truncated by Software Release Radar.]"
+    if forge.kind == "gitlab":
+        url = str((payload.get("_links") or {}).get("self") or "").strip() or None
+        published = payload.get("released_at") or payload.get("created_at")
+    else:
+        url = str(payload.get("html_url") or "").strip() or None
+        published = payload.get("published_at") or payload.get("created_at")
+    return ReleaseInfo(version=tag, name=str(payload.get("name") or "").strip() or tag,
+                       url=url, published_at=str(published or "").strip() or None, body=body)
+
+
+def _forge_is_prerelease(forge: Forge, payload: dict) -> bool:
+    if payload.get("draft"):
+        return True
+    if forge.kind == "gitlab":
+        # GitLab has no pre-release flag; upcoming releases and pre-release tags are treated as such.
+        return bool(payload.get("upcoming_release")) or bool(_PRERELEASE_TAG_RE.search(str(payload.get("tag_name") or "")))
+    return bool(payload.get("prerelease"))
+
+
+def _forge_releases(forge: Forge, include_prereleases: bool, limit: int, stop_when=None) -> list[ReleaseInfo]:
+    quoted = urllib.parse.quote(forge.path, safe="")
+    releases: list[ReleaseInfo] = []
+    page = 1
+    while len(releases) < limit and page <= RELEASE_PAGE_LIMIT:
+        if forge.kind == "gitlab":
+            payload = _forge_get(forge, f"/api/v4/projects/{quoted}/releases?per_page={RELEASE_PAGE_SIZE}&page={page}")
+        else:
+            payload = _forge_get(forge, f"/api/v1/repos/{forge.path}/releases?limit=50&page={page}")
+        if not isinstance(payload, list):
+            raise GitHubError(f"{forge.host} returned an unexpected release response.")
+        for candidate in payload:
+            if not isinstance(candidate, dict) or candidate.get("draft"):
+                continue
+            if not include_prereleases and _forge_is_prerelease(forge, candidate):
+                continue
+            try:
+                releases.append(_forge_release(forge, candidate))
+            except GitHubError:
+                continue
+        if len(payload) < (RELEASE_PAGE_SIZE if forge.kind == "gitlab" else 50) or (stop_when and any(stop_when(item) for item in releases)):
+            break
+        page += 1
+    return releases[:limit]
+
+
+def _forge_latest(forge: Forge, strategy: str, include_prereleases: bool) -> ReleaseInfo:
+    if strategy == "tag":
+        if forge.kind == "gitlab":
+            payload = _forge_get(forge, f"/api/v4/projects/{urllib.parse.quote(forge.path, safe='')}/repository/tags?per_page=1")
+        else:
+            payload = _forge_get(forge, f"/api/v1/repos/{forge.path}/tags?limit=1")
+        if not isinstance(payload, list) or not payload or not isinstance(payload[0], dict):
+            raise GitHubError("Repository does not have any tags.")
+        tag = str(payload[0].get("name") or "").strip()
+        if not tag:
+            raise GitHubError("Forge tag response did not include a name.")
+        return ReleaseInfo(version=tag, name=tag, url=f"{forge.web_url}/-/tags/{urllib.parse.quote(tag, safe='')}"
+                           if forge.kind == "gitlab" else f"{forge.web_url}/releases/tag/{urllib.parse.quote(tag, safe='')}",
+                           published_at=None, body=None)
+    if strategy != "release":
+        raise ValueError("Unknown release tracking strategy.")
+    releases = _forge_releases(forge, include_prereleases, 50)
+    if not releases:
+        raise GitHubError("Repository has no published releases.")
+    return _highest_release(releases)
+
+
+def _highest_release(releases: list[ReleaseInfo]) -> ReleaseInfo:
+    """Pick the highest version, not the most recently published one.
+
+    GitLab and Gitea list releases by date, so a backport such as 1.2.9 published
+    after 1.3.0 would otherwise be reported as the latest release.
+    """
+    from .versioning import _pad_core, _structured_version
+
+    best, best_key = releases[0], None
+    for release in releases:
+        parsed = _structured_version(release.version, release.name)
+        if parsed is None:
+            continue
+        key = _pad_core(parsed["core"])
+        if best_key is None or key > best_key:
+            best, best_key = release, key
+    return best
 
 
 def _github_get(path: str):
@@ -369,6 +565,9 @@ def _release_from_payload(payload: dict) -> ReleaseInfo:
 
 def get_latest(repository: str, strategy: str = "release", include_prereleases: bool = False) -> ReleaseInfo:
     repository = normalise_repository(repository)
+    forge = forge_for(repository)
+    if forge is not None:
+        return _forge_latest(forge, strategy, include_prereleases)
     if repository.casefold() == _ORGANIZR_REPOSITORY and strategy == "release":
         releases = _organizr_v2_releases(include_prereleases, 1)
         if not releases:
@@ -410,27 +609,46 @@ def get_latest(repository: str, strategy: str = "release", include_prereleases: 
     raise GitHubError("Repository has no published releases.")
 
 
-def get_recent_releases(repository: str, include_prereleases: bool = False, limit: int = 20) -> list[ReleaseInfo]:
-    """Return recent non-draft GitHub releases, newest first."""
+RELEASE_PAGE_SIZE = 100
+RELEASE_PAGE_LIMIT = 3
+MAX_RECENT_RELEASES = RELEASE_PAGE_SIZE * RELEASE_PAGE_LIMIT
+
+
+def get_recent_releases(repository: str, include_prereleases: bool = False, limit: int = 20,
+                        stop_when=None) -> list[ReleaseInfo]:
+    """Return recent non-draft releases, newest first.
+
+    Up to 300 releases are read across pages of 100, so a deployment that is
+    far behind upstream can still be matched in its release history.
+    ``stop_when(release)`` ends paging after the page that contains a match.
+    """
     repository = normalise_repository(repository)
+    limit = max(1, min(int(limit), MAX_RECENT_RELEASES))
+    forge = forge_for(repository)
+    if forge is not None:
+        return _forge_releases(forge, include_prereleases, limit, stop_when)
     if repository.casefold() == _ORGANIZR_REPOSITORY:
-        return _organizr_v2_releases(include_prereleases, limit)
+        return _organizr_v2_releases(include_prereleases, min(limit, 50))
     if repository.casefold() == _SEARXNG_REPOSITORY:
-        return _searxng_rolling_releases(limit)
+        return _searxng_rolling_releases(min(limit, 50))
     owner, repo = repository.split("/", 1)
     encoded = f"/{urllib.parse.quote(owner)}/{urllib.parse.quote(repo)}"
-    limit = max(1, min(int(limit), 50))
-    payload = _github_get(f"/repos{encoded}/releases?per_page={limit}")
-    if not isinstance(payload, list):
-        raise GitHubError("GitHub returned an unexpected release-history response.")
+    per_page = min(limit, RELEASE_PAGE_SIZE)
     releases: list[ReleaseInfo] = []
-    for candidate in payload:
-        if candidate.get("draft"):
-            continue
-        if candidate.get("prerelease") and not include_prereleases:
-            continue
-        try:
-            releases.append(_release_from_payload(candidate))
-        except GitHubError:
-            continue
-    return releases
+    for page in range(1, RELEASE_PAGE_LIMIT + 1):
+        suffix = f"&page={page}" if page > 1 else ""
+        payload = _github_get(f"/repos{encoded}/releases?per_page={per_page}{suffix}")
+        if not isinstance(payload, list):
+            raise GitHubError("GitHub returned an unexpected release-history response.")
+        for candidate in payload:
+            if candidate.get("draft"):
+                continue
+            if candidate.get("prerelease") and not include_prereleases:
+                continue
+            try:
+                releases.append(_release_from_payload(candidate))
+            except GitHubError:
+                continue
+        if len(payload) < per_page or len(releases) >= limit or (stop_when and any(stop_when(item) for item in releases)):
+            break
+    return releases[:limit]

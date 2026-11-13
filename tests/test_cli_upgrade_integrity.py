@@ -86,7 +86,7 @@ class CliUpgradeIntegrityTests(unittest.TestCase):
         run(manage.decide_upgrade, decide_args(decision='wait'))
         row = self.row()
         self.assertEqual((row['priority'], row['risk'], row['decision_notes']), ('high', 'low', 'keep'))
-        self.assertEqual(json.loads(row['checklist_json']), [{'text': 'a', 'done': False}, {'text': 'b', 'done': True}])
+        self.assertEqual([(item['text'], item['done']) for item in json.loads(row['checklist_json'])], [('a', False), ('b', True)])
 
     def test_deployment_advances_revision_and_is_idempotent_and_immutable(self):
         run(manage.decide_upgrade, decide_args())

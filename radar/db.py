@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 import sqlite3
+import time
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
@@ -40,9 +41,31 @@ def connect() -> sqlite3.Connection:
     conn = sqlite3.connect(path, timeout=30, factory=ClosingConnection)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
-    conn.execute("PRAGMA journal_mode = WAL")
     conn.execute("PRAGMA busy_timeout = 30000")
+    _ensure_wal(conn)
     return conn
+
+
+def _ensure_wal(conn: sqlite3.Connection) -> None:
+    """Switch to WAL once. WAL persists in the file, so later connections only read the mode.
+
+    Changing the journal mode can fail with "database is locked" without waiting
+    on the busy timeout when several processes open a brand-new database at once
+    (two web workers, the scheduler and the worker), so retry briefly.
+    """
+    if str(conn.execute("PRAGMA journal_mode").fetchone()[0]).lower() == "wal":
+        return
+    deadline = time.monotonic() + 30
+    delay = 0.02
+    while True:
+        try:
+            conn.execute("PRAGMA journal_mode = WAL")
+            return
+        except sqlite3.OperationalError as exc:
+            if "locked" not in str(exc).lower() or time.monotonic() >= deadline:
+                raise
+            time.sleep(delay)
+            delay = min(delay * 2, 0.5)
 
 
 @contextmanager
@@ -430,6 +453,11 @@ def init_db() -> None:
             CREATE INDEX IF NOT EXISTS idx_upgrade_decisions_tracker ON upgrade_decisions(tracker_id, updated_at DESC);
             """
         )
+        # executescript runs in autocommit mode. Take the write lock before the
+        # check-then-ALTER migrations so concurrent starts (two gunicorn workers,
+        # the scheduler and the worker on a fresh database) run them one at a time;
+        # the next process waits, then finds the columns already present.
+        conn.execute("BEGIN IMMEDIATE")
 
         # Idempotent migrations from 1.x.
         tracker_columns = [
@@ -467,6 +495,9 @@ def init_db() -> None:
         _add_column(conn, "notification_deliveries", "attempts INTEGER NOT NULL DEFAULT 0")
         _add_column(conn, "notification_deliveries", "last_attempt_at TEXT")
         _add_column(conn, "upgrade_decisions", "revision INTEGER NOT NULL DEFAULT 0")
+        _add_column(conn, "users", "calendar_token_digest TEXT")
+        conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_calendar_token ON users(calendar_token_digest) "
+                     "WHERE calendar_token_digest IS NOT NULL")
         for definition in [
             "previous_version TEXT",
             "previous_release_name TEXT",

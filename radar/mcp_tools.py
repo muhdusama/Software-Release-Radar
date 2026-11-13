@@ -69,6 +69,7 @@ class TrackerPatch(BaseModel):
 
 class ChecklistItem(BaseModel):
     model_config = ConfigDict(extra='forbid', strict=True)
+    id: Annotated[str, Field(pattern=r'^[A-Za-z0-9_-]{1,32}$')] | None = None
     text: Annotated[str, Field(min_length=1, max_length=240)]
     done: bool
 
@@ -233,7 +234,9 @@ def _read(name, query):
             result = query(conn, principal)
             if _size(result) > MAX_RESULT_BYTES:
                 raise ValueError
-            audit(principal.user_id, 'mcp_read', details=name, conn=conn, api_key_id=principal.key_id)
+            if principal.key_id:
+                # Browser-session API reads are not audited, like ordinary page views.
+                audit(principal.user_id, 'mcp_read', details=name, conn=conn, api_key_id=principal.key_id)
             return result
     except LookupError:
         raise ToolError('Not found.') from None
