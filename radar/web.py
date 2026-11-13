@@ -940,7 +940,7 @@ def create_app() -> Flask:
         policy = mcp_policy()
         return render_template('profile.html', mcp_keys=list_keys(int(g.user['id'])), mcp_scopes=policy['scopes'],
                                mcp_can_create=g.user['role'] == 'admin' or policy['user_keys'],
-                               mcp_enabled=policy['enabled'],
+                               mcp_enabled=policy['enabled'], mcp_never_expiring=policy['never_expiring'],
                                has_pushover_key=bool(g.user['pushover_user_key_enc']), **kwargs)
 
     @app.after_request
@@ -956,10 +956,13 @@ def create_app() -> Flask:
         require_csrf()
         try:
             days = request.form.get('expires_days', '90')
-            if not days.isascii() or not days.isdecimal():
+            if request.form.get('never_expires'):
+                days = None
+            elif not days.isascii() or not days.isdecimal():
                 raise ValueError('Key expiry must be 1 to 365 days.')
             _, secret = create_key(int(g.user['id']), request.form.get('current_password', ''),
-                                   request.form.get('label', ''), request.form.getlist('scopes'), int(days))
+                                   request.form.get('label', ''), request.form.getlist('scopes'),
+                                   None if days is None else int(days))
         except ValueError as exc:
             return render_profile(mcp_error=str(exc)), 400
         return render_profile(mcp_secret=secret)
@@ -1205,6 +1208,7 @@ def create_app() -> Flask:
                     values = {
                         "mcp_enabled": "1" if request.form.get("mcp_enabled") else "0",
                         "mcp_user_keys": "1" if request.form.get("mcp_user_keys") else "0",
+                        "mcp_never_expiring_keys": "1" if request.form.get("mcp_never_expiring_keys") else "0",
                         "mcp_allowed_scopes": ",".join(sorted(scopes)),
                     }
                     for name, (_, low, high) in ADMIN_LIMITS.items():

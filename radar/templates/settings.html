@@ -110,6 +110,7 @@
         <div class="toggle-grid">
           <label class="toggle-card"><input type="checkbox" name="mcp_enabled" {{ 'checked' if mcp_policy.enabled else '' }}><span><strong>Allow MCP access</strong><small>When off, every MCP request is refused. Keys are kept.</small></span></label>
           <label class="toggle-card"><input type="checkbox" name="mcp_user_keys" {{ 'checked' if mcp_policy.user_keys else '' }}><span><strong>Standard users can use keys</strong><small>When off, only administrator keys work. Standard users are always read-only.</small></span></label>
+          <label class="toggle-card"><input type="checkbox" name="mcp_never_expiring_keys" {{ 'checked' if mcp_policy.never_expiring else '' }}><span><strong>Allow keys that never expire</strong><small>Such keys still stop working when revoked, after a password change or when the account is deactivated. Existing keys keep working if this is turned off.</small></span></label>
         </div>
         <fieldset><legend>Scopes that keys may use</legend>
           {% for scope in mcp_available_scopes %}<label class="inline-check"><input type="checkbox" name="mcp_scopes" value="{{ scope }}" {{ 'checked' if scope in mcp_policy.scopes else '' }} {{ 'disabled' if scope == 'read' else '' }}> {{ scope_labels.get(scope, scope) }}</label>{% endfor %}
@@ -124,7 +125,7 @@
         <div class="section-heading"><h2 id="mcp-keys-heading">All MCP keys</h2><p>Every user's keys. Users create keys in their Profile. Revoking takes effect immediately.</p></div>
         {% for key in mcp_all_keys %}
         <div class="form-actions">
-          <div><strong>{{ key.label }}</strong> <code>{{ key.id }}</code><p>{{ key.owner or 'Deleted user' }} · {{ key.scopes | join(', ') }} · Last used {{ key.last_used_at or 'never' }} · Expires {{ key.expires_at }}{% if key.revoked_at %} · Revoked {{ key.revoked_at }}{% endif %}</p></div>
+          <div><strong>{{ key.label }}</strong> <code>{{ key.id }}</code><p>{{ key.owner or 'Deleted user' }} · {{ key.scopes | join(', ') }} · Last used {{ key.last_used_at or 'never' }} · {{ 'Never expires' if key.expires_at == 'never' else 'Expires ' ~ key.expires_at }}{% if key.revoked_at %} · Revoked {{ key.revoked_at }}{% endif %}</p></div>
           {% if not key.revoked_at %}<form method="post" action="{{ url_for('admin_revoke_mcp_key', key_id=key.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button secondary" type="submit">Revoke {{ key.label }}</button></form>{% endif %}
         </div>
         {% else %}<p>No MCP keys have been created.</p>{% endfor %}

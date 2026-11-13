@@ -8,7 +8,8 @@ do not depend on it. `/healthz` reports only `{"status":"ok"}`.
 
 Sign in to the browser and open Profile to create a scoped API key. Creation
 requires your current password and CSRF protection. Copy the secret once and
-store it securely. Keys expire after 90 days by default (maximum 365), can be
+store it securely. Keys expire after 90 days by default (maximum 365). When an
+administrator allows it, a key can instead be created to never expire. Keys can be
 revoked by their owner, and become invalid after a password change or account
 deactivation. Current account permissions are checked again on each request.
 Read is required; only administrators can grant `operations:run`,
@@ -30,6 +31,8 @@ Administrators can open Settings, then MCP server, to:
   also removes it from existing keys until it is allowed again;
 - allow or stop standard users using keys. When stopped, only administrator
   keys authenticate;
+- allow keys that never expire (off by default). Turning this off stops new
+  keys without expiry but keeps existing ones, which can be revoked here;
 - override `MCP_KEY_MINUTE_LIMIT`, `MCP_OPERATION_HOURLY_LIMIT`,
   `MCP_OPERATION_KEY_CONCURRENCY` and `MCP_OPERATION_GLOBAL_CONCURRENCY` within
   the ranges below. A blank field uses the environment value; and

@@ -30,12 +30,16 @@ def mcp_policy(conn: sqlite3.Connection | None = None) -> dict[str, object]:
         with connect() as own:
             return mcp_policy(own)
     rows = conn.execute("SELECT key,value FROM settings WHERE key IN "
-                        "('mcp_enabled','mcp_user_keys','mcp_allowed_scopes')").fetchall()
+                        "('mcp_enabled','mcp_user_keys','mcp_allowed_scopes','mcp_never_expiring_keys')").fetchall()
     stored = {row['key']: row['value'] for row in rows}
     raw = stored.get('mcp_allowed_scopes')
     scopes = available_scopes() if raw is None else (frozenset(raw.split(',')) & available_scopes()) | {'read'}
     return {'enabled': stored.get('mcp_enabled') != '0', 'user_keys': stored.get('mcp_user_keys') != '0',
-            'scopes': frozenset(scopes)}
+            'scopes': frozenset(scopes), 'never_expiring': stored.get('mcp_never_expiring_keys') == '1'}
+
+# Stored in the NOT NULL expires_at column for keys without expiry. Older versions
+# cannot parse it as a date and therefore reject these keys after a rollback.
+NEVER_EXPIRES = 'never'
 
 _KEY_PATTERN = re.compile(r'srr_([a-f0-9]{16})_([A-Za-z0-9_-]{43})', re.ASCII)
 
@@ -49,10 +53,11 @@ class Principal:
 
 
 def create_key(user_id: int, current_password: str, label: str, scopes: list[str],
-               expires_days: int = 90) -> tuple[str, str]:
+               expires_days: int | None = 90) -> tuple[str, str]:
+    """Create a key. expires_days=None creates a key without expiry when policy allows it."""
     if not isinstance(label, str) or not 1 <= len(label.strip()) <= 80:
         raise ValueError('Key label must contain 1 to 80 characters.')
-    if type(expires_days) is not int or not 1 <= expires_days <= 365:
+    if expires_days is not None and (type(expires_days) is not int or not 1 <= expires_days <= 365):
         raise ValueError('Key expiry must be 1 to 365 days.')
     if not isinstance(scopes, list) or not all(isinstance(s, str) for s in scopes):
         raise ValueError('Invalid key scopes.')
@@ -70,13 +75,16 @@ def create_key(user_id: int, current_password: str, label: str, scopes: list[str
             raise ValueError('An administrator has limited MCP keys to administrators.')
         if not selected <= policy['scopes']:
             raise ValueError('An administrator has not allowed one or more of the selected scopes.')
+        if expires_days is None and not policy['never_expiring']:
+            raise ValueError('An administrator has not allowed keys that never expire.')
         key_id, secret = secrets.token_hex(8), secrets.token_urlsafe(32)
         now = datetime.now(timezone.utc).replace(microsecond=0)
         conn.execute('''INSERT INTO mcp_keys
             (id,user_id,label,secret_digest,password_stamp,scopes_json,created_at,expires_at)
             VALUES(?,?,?,?,?,?,?,?)''',
             (key_id, user_id, label.strip(), token_digest(secret), token_digest(owner['password_hash']),
-             json.dumps(sorted(selected)), now.isoformat(), (now + timedelta(days=expires_days)).isoformat()))
+             json.dumps(sorted(selected)), now.isoformat(),
+             NEVER_EXPIRES if expires_days is None else (now + timedelta(days=expires_days)).isoformat()))
         audit(user_id, 'mcp_key_created', 'mcp_key', key_id, conn=conn, api_key_id=key_id)
     return key_id, f'srr_{key_id}_{secret}'
 
@@ -126,7 +134,8 @@ def _principal(row, conn: sqlite3.Connection) -> Principal:
     if not row or not row['active'] or row['revoked_at']:
         raise ValueError('Key is unavailable.')
     try:
-        expired = datetime.fromisoformat(row['expires_at']) <= datetime.now(timezone.utc)
+        expired = (row['expires_at'] != NEVER_EXPIRES
+                   and datetime.fromisoformat(row['expires_at']) <= datetime.now(timezone.utc))
     except (ValueError, TypeError):
         expired = True
     if expired or not hmac.compare_digest(row['password_stamp'], token_digest(row['password_hash'])):
@@ -176,4 +185,5 @@ class RadarTokenVerifier:
             if row['last_used_at'] is None or row['last_used_at'] <= cutoff:
                 conn.execute('UPDATE mcp_keys SET last_used_at=? WHERE id=?', (now.isoformat(), key_id))
             return AccessToken(token=key_id, client_id=key_id, scopes=sorted(principal.scopes),
-                               expires_at=int(datetime.fromisoformat(row['expires_at']).timestamp()))
+                               expires_at=None if row['expires_at'] == NEVER_EXPIRES
+                               else int(datetime.fromisoformat(row['expires_at']).timestamp()))

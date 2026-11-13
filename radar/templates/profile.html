@@ -32,7 +32,7 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="form-grid two-col">
       <div class="form-field"><label for="mcp-label">Key label</label><input id="mcp-label" name="label" maxlength="80" required></div>
-      <div class="form-field"><label for="mcp-expiry">Expires in days</label><input id="mcp-expiry" name="expires_days" type="number" min="1" max="365" value="90" required></div>
+      <div class="form-field"><label for="mcp-expiry">Expires in days</label><input id="mcp-expiry" name="expires_days" type="number" min="1" max="365" value="90" required>{% if mcp_never_expiring %}<label class="inline-check"><input type="checkbox" name="never_expires"> Never expires (keep it secret and revoke it when no longer needed)</label>{% endif %}</div>
       <div class="form-field"><label for="mcp-password">Current password</label><input id="mcp-password" name="current_password" type="password" autocomplete="current-password" required></div>
     </div>
     <fieldset><legend>Scopes</legend>
@@ -46,7 +46,7 @@
   {% else %}<p>An administrator has limited MCP keys to administrators.</p>{% endif %}
   {% for key in mcp_keys %}
   <div class="form-actions">
-    <div><strong>{{ key.label }}</strong> <code>{{ key.id }}</code><p>{{ key.scopes | join(', ') }} · Expires {{ key.expires_at }}{% if key.revoked_at %} · Revoked {{ key.revoked_at }}{% endif %}</p></div>
+    <div><strong>{{ key.label }}</strong> <code>{{ key.id }}</code><p>{{ key.scopes | join(', ') }} · {{ 'Never expires' if key.expires_at == 'never' else 'Expires ' ~ key.expires_at }}{% if key.revoked_at %} · Revoked {{ key.revoked_at }}{% endif %}</p></div>
     {% if not key.revoked_at %}<form method="post" action="{{ url_for('revoke_mcp_key', key_id=key.id) }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button secondary" type="submit">Revoke {{ key.label }}</button>
     </form>{% endif %}

@@ -93,6 +93,28 @@ class MCPAdminSettingsTests(unittest.TestCase):
         self.assertIn(b'All MCP keys', page.data)
         self.assertEqual(page.headers['Cache-Control'], 'no-store')
 
+    def test_never_expiring_keys_need_policy_and_still_revoke(self):
+        with self.assertRaisesRegex(ValueError, 'never expire'):
+            mcp_auth.create_key(self.admin, 'correct-horse-battery', 'Agent', ['read'], None)
+        set_settings({'mcp_never_expiring_keys': '1'})
+        key_id, token = mcp_auth.create_key(self.admin, 'correct-horse-battery', 'Agent', ['read'], None)
+        self.assertEqual(mcp_auth.list_keys(self.admin)[0]['expires_at'], mcp_auth.NEVER_EXPIRES)
+        self.assertIsNone(self.verify(token).expires_at)
+        set_settings({'mcp_never_expiring_keys': '0'})
+        self.assertIsNotNone(self.verify(token))  # turning the policy off does not cut existing keys
+        mcp_auth.revoke_key(self.admin, key_id)
+        self.assertIsNone(self.verify(token))
+
+    def test_never_expiring_key_from_profile_form(self):
+        csrf = self.login()
+        form = {'csrf_token': csrf, 'label': 'Agent', 'expires_days': '90', 'never_expires': 'on',
+                'current_password': 'correct-horse-battery', 'scopes': ['read']}
+        self.assertEqual(self.client.post('/profile/mcp-keys', data=form).status_code, 400)
+        set_settings({'mcp_never_expiring_keys': '1'})
+        page = self.client.post('/profile/mcp-keys', data=form)
+        self.assertEqual(page.status_code, 200)
+        self.assertIn(b'Never expires', page.data)
+
     def test_admin_revokes_any_key_and_standard_user_cannot(self):
         key_id, token = self.key(owner=self.user)
         csrf = self.login_reader()
