@@ -97,6 +97,11 @@ Format reference: https://keepachangelog.com/en/1.1.0/
 
 ### Fixed
 
+- A fresh installation could fail to start: the two web workers, scheduler
+  and worker opened the new database together, and one could exit with
+  "database is locked" while switching to WAL or "duplicate column name"
+  during migrations. The WAL switch now retries briefly and migrations run
+  under a write lock.
 - An `ADMIN_PASSWORD_HASH` that is not a valid `pbkdf2_sha256` hash no longer
   creates an administrator who can never sign in. The error is logged and the
   application falls back to `/setup`.
