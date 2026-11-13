@@ -20,6 +20,26 @@ Passwords, browser cookies and query parameters are not credentials for MCP.
 OAuth-only clients are not supported: metadata identifies the protected resource
 but there is no OAuth login, password exchange or token issuance endpoint.
 
+## Administrator settings
+
+Administrators can open Settings, then MCP server, to:
+
+- turn all MCP access off or on. When off, `/mcp` returns 503 and keys stop
+  working, but keys are kept and `/healthz` still reports the service;
+- choose which scopes keys may use. Read is always allowed. Clearing a scope
+  also removes it from existing keys until it is allowed again;
+- allow or stop standard users using keys. When stopped, only administrator
+  keys authenticate;
+- override `MCP_KEY_MINUTE_LIMIT`, `MCP_OPERATION_HOURLY_LIMIT`,
+  `MCP_OPERATION_KEY_CONCURRENCY` and `MCP_OPERATION_GLOBAL_CONCURRENCY` within
+  the ranges below. A blank field uses the environment value; and
+- list every user's keys with last use, and revoke any of them.
+
+Policy is checked on every request, so changes apply without restarting the
+MCP service. Allowed hosts, origins, HTTPS, proxy trust and
+`MCP_AUTH_FAILURE_LIMIT` are trust-boundary settings and remain in the
+environment. Every change is audited.
+
 ## Transport and deployment
 
 The host port is always loopback-only: `127.0.0.1:9121`. Enabling the profile

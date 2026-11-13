@@ -9,6 +9,7 @@
     <button type="button" data-settings-target="pushover"><span>Pushover</span><small>Push notifications</small></button>
     <button type="button" data-settings-target="portainer"><span>Inventory</span><small>Portainer or Dockhand</small></button>
     <button type="button" data-settings-target="openai"><span>AI assistant</span><small>LiteLLM analysis and chat</small></button>
+    <button type="button" data-settings-target="mcp"><span>MCP server</span><small>Agent access and permissions</small></button>
   </aside>
 
   <div class="settings-content">
@@ -100,6 +101,34 @@
         <div class="form-actions left-actions"><button class="button primary" type="submit">Save assistant settings</button></div>
       </form>
       <section class="panel settings-card test-card wide-card"><div class="section-heading"><h2>Test assistant</h2><p>Save settings first. The test makes one small Chat Completions request.</p></div><form method="post" action="{{ url_for('test_openai_route') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button secondary" type="submit">Test OpenAI-compatible connection</button></form></section>
+    </section>
+    <section class="settings-section" data-settings-section="mcp" hidden>
+      {% set scope_labels = {'read': 'Read stored data (always allowed)', 'operations:run': 'Run confirmed checks, probes and inventory synchronisation', 'trackers:write': 'Edit tracker data (no probe configuration)', 'upgrades:write': 'Save upgrade reviews (cannot mark deployed)'} %}
+      <form method="post" class="panel settings-card wide-card">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="section" value="mcp">
+        <div class="section-heading"><h2>MCP server</h2><p>Control agent access through the optional MCP service. Changes apply to the next request without a restart. Network addresses and HTTPS rules stay in the server environment.</p></div>
+        <div class="toggle-grid">
+          <label class="toggle-card"><input type="checkbox" name="mcp_enabled" {{ 'checked' if mcp_policy.enabled else '' }}><span><strong>Allow MCP access</strong><small>When off, every MCP request is refused. Keys are kept.</small></span></label>
+          <label class="toggle-card"><input type="checkbox" name="mcp_user_keys" {{ 'checked' if mcp_policy.user_keys else '' }}><span><strong>Standard users can use keys</strong><small>When off, only administrator keys work. Standard users are always read-only.</small></span></label>
+        </div>
+        <fieldset><legend>Scopes that keys may use</legend>
+          {% for scope in mcp_available_scopes %}<label class="inline-check"><input type="checkbox" name="mcp_scopes" value="{{ scope }}" {{ 'checked' if scope in mcp_policy.scopes else '' }} {{ 'disabled' if scope == 'read' else '' }}> {{ scope_labels.get(scope, scope) }}</label>{% endfor %}
+          <small class="field-help">Clearing a scope also removes it from existing keys until it is allowed again.</small>
+        </fieldset>
+        <div class="form-grid two-col aligned-form-grid">
+          {% for limit in mcp_limits %}<div class="form-field"><label for="{{ limit.name }}">{{ limit.name | replace('mcp_', '') | replace('_', ' ') | capitalize }}</label><small class="field-help">{{ limit.low }} to {{ limit.high }}. Blank uses the server default ({{ limit.default }}).</small><input id="{{ limit.name }}" name="{{ limit.name }}" type="number" min="{{ limit.low }}" max="{{ limit.high }}" value="{{ limit.value }}" placeholder="{{ limit.default }}"></div>{% endfor %}
+        </div>
+        <div class="form-actions left-actions"><button class="button primary" type="submit">Save MCP settings</button></div>
+      </form>
+      <section class="panel settings-card wide-card" aria-labelledby="mcp-keys-heading">
+        <div class="section-heading"><h2 id="mcp-keys-heading">All MCP keys</h2><p>Every user's keys. Users create keys in their Profile. Revoking takes effect immediately.</p></div>
+        {% for key in mcp_all_keys %}
+        <div class="form-actions">
+          <div><strong>{{ key.label }}</strong> <code>{{ key.id }}</code><p>{{ key.owner or 'Deleted user' }} · {{ key.scopes | join(', ') }} · Last used {{ key.last_used_at or 'never' }} · Expires {{ key.expires_at }}{% if key.revoked_at %} · Revoked {{ key.revoked_at }}{% endif %}</p></div>
+          {% if not key.revoked_at %}<form method="post" action="{{ url_for('admin_revoke_mcp_key', key_id=key.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button secondary" type="submit">Revoke {{ key.label }}</button></form>{% endif %}
+        </div>
+        {% else %}<p>No MCP keys have been created.</p>{% endfor %}
+      </section>
     </section>
   </div>
 </div>

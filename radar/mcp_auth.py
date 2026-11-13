@@ -23,6 +23,20 @@ CAPABILITY_PHASE = 2
 def available_scopes():
     return PHASE_ONE_SCOPES | ({'trackers:write', 'upgrades:write'} if CAPABILITY_PHASE == 2 else set())
 
+
+def mcp_policy(conn: sqlite3.Connection | None = None) -> dict[str, object]:
+    """Administrator policy from Settings. Unset values keep the pre-2.12 behaviour."""
+    if conn is None:
+        with connect() as own:
+            return mcp_policy(own)
+    rows = conn.execute("SELECT key,value FROM settings WHERE key IN "
+                        "('mcp_enabled','mcp_user_keys','mcp_allowed_scopes')").fetchall()
+    stored = {row['key']: row['value'] for row in rows}
+    raw = stored.get('mcp_allowed_scopes')
+    scopes = available_scopes() if raw is None else (frozenset(raw.split(',')) & available_scopes()) | {'read'}
+    return {'enabled': stored.get('mcp_enabled') != '0', 'user_keys': stored.get('mcp_user_keys') != '0',
+            'scopes': frozenset(scopes)}
+
 _KEY_PATTERN = re.compile(r'srr_([a-f0-9]{16})_([A-Za-z0-9_-]{43})', re.ASCII)
 
 
@@ -51,6 +65,11 @@ def create_key(user_id: int, current_password: str, label: str, scopes: list[str
             raise ValueError('Current password is incorrect or account is unavailable.')
         if owner['role'] != 'admin' and selected != {'read'}:
             raise ValueError('Only administrators can grant operational scopes.')
+        policy = mcp_policy(conn)
+        if owner['role'] != 'admin' and not policy['user_keys']:
+            raise ValueError('An administrator has limited MCP keys to administrators.')
+        if not selected <= policy['scopes']:
+            raise ValueError('An administrator has not allowed one or more of the selected scopes.')
         key_id, secret = secrets.token_hex(8), secrets.token_urlsafe(32)
         now = datetime.now(timezone.utc).replace(microsecond=0)
         conn.execute('''INSERT INTO mcp_keys
@@ -62,9 +81,11 @@ def create_key(user_id: int, current_password: str, label: str, scopes: list[str
     return key_id, f'srr_{key_id}_{secret}'
 
 
-def revoke_key(user_id: int, key_id: str) -> None:
+def revoke_key(user_id: int, key_id: str, *, any_owner: bool = False) -> None:
+    """Revoke a key the user owns, or any key when an administrator route passes any_owner."""
     with transaction(immediate=True) as conn:
-        row = conn.execute('SELECT revoked_at FROM mcp_keys WHERE id=? AND user_id=?', (key_id, user_id)).fetchone()
+        row = conn.execute('SELECT revoked_at FROM mcp_keys WHERE id=? AND (user_id=? OR ?)',
+                           (key_id, user_id, any_owner)).fetchone()
         if row is None:
             raise ValueError('Key not found.')
         if not row['revoked_at']:
@@ -72,10 +93,12 @@ def revoke_key(user_id: int, key_id: str) -> None:
             audit(user_id, 'mcp_key_revoked', 'mcp_key', key_id, conn=conn, api_key_id=key_id)
 
 
-def list_keys(user_id: int) -> list[dict[str, object]]:
+def list_keys(user_id: int | None) -> list[dict[str, object]]:
+    """Keys for one user, or every user's keys (with owner names) when user_id is None."""
     with connect() as conn:
-        rows = conn.execute('''SELECT id,label,scopes_json,created_at,expires_at,revoked_at,last_used_at
-            FROM mcp_keys WHERE user_id=? ORDER BY created_at DESC,id''', (user_id,)).fetchall()
+        rows = conn.execute('''SELECT k.id,k.label,k.scopes_json,k.created_at,k.expires_at,k.revoked_at,
+            k.last_used_at,u.username AS owner FROM mcp_keys k LEFT JOIN users u ON u.id=k.user_id
+            WHERE ? IS NULL OR k.user_id=? ORDER BY k.created_at DESC,k.id''', (user_id, user_id)).fetchall()
     result = []
     for row in rows:
         item = dict(row)
@@ -99,7 +122,7 @@ def _key_row(conn: sqlite3.Connection, key_id: str):
         JOIN users u ON u.id=k.user_id WHERE k.id=?''', (key_id,)).fetchone()
 
 
-def _principal(row) -> Principal:
+def _principal(row, conn: sqlite3.Connection) -> Principal:
     if not row or not row['active'] or row['revoked_at']:
         raise ValueError('Key is unavailable.')
     try:
@@ -112,6 +135,10 @@ def _principal(row) -> Principal:
     if 'read' not in scopes:
         raise ValueError('Key is unavailable.')
     admin = row['role'] == 'admin'
+    policy = mcp_policy(conn)
+    if not policy['enabled'] or (not admin and not policy['user_keys']):
+        raise ValueError('Key is unavailable.')
+    scopes &= policy['scopes']
     return Principal(row['id'], int(row['user_id']), admin, scopes if admin else scopes & {'read'})
 
 
@@ -121,8 +148,8 @@ def current_principal(*, conn: sqlite3.Connection | None = None) -> Principal:
         raise ValueError('Authentication required.')
     if conn is None:
         with connect() as own:
-            return _principal(_key_row(own, access.client_id))
-    return _principal(_key_row(conn, access.client_id))
+            return _principal(_key_row(own, access.client_id), own)
+    return _principal(_key_row(conn, access.client_id), conn)
 
 
 class RadarTokenVerifier:
@@ -141,7 +168,7 @@ class RadarTokenVerifier:
             if not row or not hmac.compare_digest(row['secret_digest'], token_digest(secret)):
                 return None
             try:
-                principal = _principal(row)
+                principal = _principal(row, conn)
             except ValueError:
                 return None
             now = datetime.now(timezone.utc).replace(microsecond=0)

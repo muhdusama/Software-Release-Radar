@@ -66,7 +66,7 @@ class MCPAuthTests(unittest.TestCase):
         self.assertNotIn(token, str(audit))
         self.assertEqual(audit['api_key_id'], key_id)
         self.assertEqual(set(mcp_auth.list_keys(self.admin)[0]),
-                         {'id', 'label', 'scopes', 'created_at', 'expires_at', 'revoked_at', 'last_used_at'})
+                         {'id', 'label', 'scopes', 'created_at', 'expires_at', 'revoked_at', 'last_used_at', 'owner'})
         self.assertNotIn(secret, str(mcp_auth.list_keys(self.admin)))
         self.assertEqual(self.verify(token).client_id, key_id)
         self.assertEqual(self.verify(token).token, key_id)
