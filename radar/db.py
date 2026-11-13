@@ -496,6 +496,23 @@ def init_db() -> None:
         _add_column(conn, "notification_deliveries", "last_attempt_at TEXT")
         _add_column(conn, "upgrade_decisions", "revision INTEGER NOT NULL DEFAULT 0")
         _add_column(conn, "users", "calendar_token_digest TEXT")
+        _add_column(conn, "trackers", "advisories_checked_at TEXT")
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS security_advisories (
+                tracker_id INTEGER NOT NULL REFERENCES trackers(id) ON DELETE CASCADE,
+                ghsa_id TEXT NOT NULL,
+                cve_id TEXT,
+                severity TEXT NOT NULL,
+                summary TEXT NOT NULL,
+                url TEXT NOT NULL,
+                published_at TEXT,
+                vulnerabilities_json TEXT NOT NULL,
+                fetched_at TEXT NOT NULL,
+                PRIMARY KEY (tracker_id, ghsa_id)
+            )
+            """
+        )
         conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_calendar_token ON users(calendar_token_digest) "
                      "WHERE calendar_token_digest IS NOT NULL")
         for definition in [

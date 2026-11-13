@@ -94,6 +94,8 @@ scrape_configs:
 | `srr_tracker_last_checked_timestamp_seconds` | Time of the last upstream check |
 | `srr_tracker_probe_up` | 1 when the last service probe succeeded |
 | `srr_tracker_probe_latency_milliseconds` | Latency of the last service probe |
+| `srr_tracker_security_advisories{worst_severity}` | Published advisories affecting the installed version |
+| `srr_security_advisories_affecting` | Advisories affecting installed versions across all trackers |
 | `srr_updates_available` | Trackers with a confirmed update |
 | `srr_trackers_needing_attention` | Trackers with checker, probe or version-data problems |
 | `srr_upgrade_decisions{status}` | Decisions for each tracker's current release |
@@ -137,3 +139,21 @@ RADAR_FORWARD_AUTH_TRUSTED_PROXIES=192.0.2.10
   publishing this is normally the proxy host's address, but some Docker setups
   show the Docker bridge gateway instead. The web container's request log shows
   the address to use.
+
+## Security advisories
+
+For GitHub trackers the scheduler reads the project's published repository
+security advisories at most once a day per tracker, a few trackers per cycle,
+and pauses during a GitHub rate-limit cooldown.
+
+- An advisory counts against the tracked software only when one of its patched
+  versions or range bounds is a known release of that tracker. Advisories for
+  other components of the same repository are shown as applying to that
+  component.
+- The installed version is compared with each vulnerable range. When a version
+  cannot be compared the status is "Cannot compare versions", never "Not affected".
+- The upgrade plan shows whether upgrading to the target release fixes each
+  advisory. The dashboard and queue show a chip with the count and worst
+  severity.
+- GitLab, Codeberg, Gitea and Forgejo trackers have no advisory source yet.
+

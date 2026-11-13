@@ -7,6 +7,7 @@ import signal
 import time
 from dataclasses import asdict
 
+from .advisories import refresh_due_advisories
 from .checker import check_all
 from .db import init_db
 from .notifications import dispatch_pending_notifications
@@ -31,11 +32,17 @@ def run_once() -> dict[str, object]:
     results = check_all(enabled_only=True, due_only=True)
     # Pending events from earlier cycles are retried alongside new ones.
     notifications = dispatch_pending_notifications()
+    try:
+        advisories = refresh_due_advisories()
+    except Exception as exc:  # never let supplementary data stop release checks
+        LOGGER.warning("Security advisory refresh failed: %s", exc)
+        advisories = {"refreshed": 0, "failed": 0}
     summary = {
         "checked": len(results),
         "changed": sum(1 for item in results if item.changed),
         "errors": sum(1 for item in results if item.status == "error"),
         "notifications": notifications,
+        "advisories": advisories,
     }
     if os.environ.get("RADAR_SCHEDULER_LOG_RESULTS", "false").lower() == "true":
         summary["results"] = [asdict(item) for item in results]

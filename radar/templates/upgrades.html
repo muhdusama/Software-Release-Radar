@@ -35,6 +35,7 @@
       </div>
       <div class="upgrade-queue-meta">
         <span class="priority-chip {{ item['priority'] }}">{{ item['priority']|title }} priority</span>
+        {% if item['advisory_summary'] and item['advisory_summary']['affected'] %}<span class="severity-chip {{ item['advisory_summary']['worst'] }}" title="Published security advisories that affect the installed version">{{ item['advisory_summary']['affected'] }} advisor{{ 'y' if item['advisory_summary']['affected'] == 1 else 'ies' }}</span>{% endif %}
         <span class="risk-chip {{ item['risk'] }}">{{ 'Not assessed' if item['risk'] == 'unknown' else item['risk']|title ~ ' risk' }}</span>
         {% if item['maintenance_date'] %}<span class="maintenance-chip">Planned {{ item['maintenance_date'] }}</span>{% endif %}
         {% if item['checklist_summary']['total'] %}<span class="checklist-chip">{{ item['checklist_summary']['complete'] }}/{{ item['checklist_summary']['total'] }} checks</span>{% endif %}

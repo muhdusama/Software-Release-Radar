@@ -38,6 +38,31 @@
 </section>
 {% endif %}
 
+{% if advisories %}
+{% set affected = advisories|selectattr('status', 'equalto', 'affected')|list %}
+<section class="panel advisory-panel" aria-labelledby="advisory-heading">
+  <div class="panel-header"><div><h2 id="advisory-heading">Security advisories</h2><p>{% if affected %}{{ affected|length }} published advisor{{ 'y affects' if affected|length == 1 else 'ies affect' }} {{ effective_installed_version }}.{% else %}No published advisory is known to affect {{ effective_installed_version or 'the installed version' }}.{% endif %} Matched from the project's GitHub advisories by version range, refreshed daily.</p></div></div>
+  <ul class="advisory-list">
+    {% for advisory in advisories[:25] %}
+    <li class="advisory-item {{ advisory['status'] }}">
+      <div class="advisory-title"><span class="severity-chip {{ advisory['severity'] }}">{{ advisory['severity']|title }}</span><a href="{{ advisory['url'] }}" target="_blank" rel="noreferrer">{{ advisory['summary'] or advisory['ghsa_id'] }}</a></div>
+      <div class="advisory-meta">
+        {% if advisory['status'] == 'affected' %}<span class="advisory-status affected">Affects {{ effective_installed_version }}</span>
+        {% elif advisory['status'] == 'not_affected' %}<span class="advisory-status">Not affected</span>
+        {% elif advisory['status'] == 'other_component' %}<span class="advisory-status">Applies to {{ advisory['packages']|join(', ') or 'another component' }}</span>
+        {% else %}<span class="advisory-status">Cannot compare versions</span>{% endif %}
+        {% if advisory['fixed_in'] %}<span>Fixed in {{ advisory['fixed_in'] }}</span>{% endif %}
+        {% if advisory['status'] == 'affected' and advisory['target_fixes'] %}<span class="advisory-status fixed">Fixed by upgrading to {{ release_key }}</span>{% elif advisory['status'] == 'affected' and advisory['target_fixes'] is sameas false %}<span class="advisory-status affected">Not fixed in {{ release_key }}</span>{% endif %}
+        <span>{{ advisory['ghsa_id'] }}{% if advisory['cve_id'] %} · {{ advisory['cve_id'] }}{% endif %}</span>
+        {% if advisory['published_at'] %}<span>{{ advisory['published_at']|pretty_time }}</span>{% endif %}
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% if advisories|length > 25 %}<p class="changes-note muted">Showing the 25 most relevant of {{ advisories|length }} advisories. Open the project's security advisories on GitHub for the rest.</p>{% endif %}
+</section>
+{% endif %}
+
 {% if historical_release %}<div class="notice-banner warning"><strong>Historical record</strong><span>You are viewing the decision for {{ release_key }}, not the tracker's current upstream release.</span></div>{% endif %}
 
 <form class="upgrade-plan-form" method="post" action="{% if historical_release %}{{ url_for('upgrade_decision', tracker_id=tracker['id'], release=release_key) }}{% else %}{{ url_for('upgrade_decision', tracker_id=tracker['id']) }}{% endif %}">
