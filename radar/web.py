@@ -25,6 +25,7 @@ from .auth import hash_password, setup_token, token_digest, verify_password
 from .auth_rate_limit import install_auth_rate_limits
 from .rest_api import CALENDAR_TOKEN_PREFIX, install_api
 from .release_digest import digest as release_digest
+from .advisories import advisories_for, affected_summary
 from .build_info import build_commit
 from .checker import check_all, check_tracker
 from .db import (
@@ -640,6 +641,10 @@ def create_app() -> Flask:
             tracker["decision_checklist_summary"] = checklist_summary(tracker["decision_checklist"])
             trackers.append(tracker)
 
+        advisory_map = advisories_for(trackers)
+        for tracker in trackers:
+            tracker["advisory_summary"] = affected_summary(advisory_map.get(int(tracker["id"]), []))
+
         decision_labels = dict(DECISION_CHOICES)
         priority_rank = {"urgent": 0, "high": 1, "normal": 2, "low": 3}
         decision_rank = {"update": 0, "review": 1, "wait": 2, "ignore": 3, "deployed": 4, "": 5}
@@ -748,6 +753,9 @@ def create_app() -> Flask:
                 continue
             items.append(item)
         attention_items.sort(key=lambda item: str(item.get("name") or "").casefold())
+        advisory_map = advisories_for(items)
+        for item in items:
+            item["advisory_summary"] = affected_summary(advisory_map.get(int(item["id"]), []))
         decision_rank = {"update": 0, "review": 1, "wait": 2, "ignore": 3, "deployed": 4}
         priority_rank = {"urgent": 0, "high": 1, "normal": 2, "low": 3}
         items.sort(key=lambda item: (decision_rank[item["decision_status"]], priority_rank[item["priority"]], item.get("maintenance_date") or "9999-12-31", item["name"].casefold()))
@@ -846,12 +854,13 @@ def create_app() -> Flask:
             ).fetchone()
         evidence = _evidence_releases(tracker, event_rows, target_release_key, installed_for_comparison or None, historical_release)
         target_record = evidence[0] if evidence else {}
+        advisories = advisories_for([dict(tracker)]).get(int(tracker["id"]), [])
         changes = release_digest(evidence)
         changes["installed_found"] = bool(installed_for_comparison) and any(
             versions_match(installed_for_comparison, row["release_name"], row["version"]) for row in event_rows)
         return render_template(
             "upgrade_decision.html", tracker=tracker, decision=decision, checklist=checklist,
-            evidence=evidence, changes=changes, analysis=analysis, target_published_at=target_record.get("published_at") or (None if historical_release else tracker.get("current_published_at")),
+            evidence=evidence, changes=changes, advisories=advisories, analysis=analysis, target_published_at=target_record.get("published_at") or (None if historical_release else tracker.get("current_published_at")),
             revision=decision.get('revision', 0),
             checklist_summary=checklist_summary(checklist), upgrade=upgrade,
             effective_installed_version=installed_for_comparison or None, release_key=target_release_key,

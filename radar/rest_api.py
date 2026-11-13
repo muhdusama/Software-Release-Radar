@@ -15,6 +15,7 @@ from mcp.server.mcpserver.exceptions import ToolError
 from pydantic import ValidationError, validate_call
 
 from . import mcp_tools
+from .advisories import advisories_for, affected_summary
 from .auth import token_digest
 from .auth_rate_limit import _key, _record_failure, _remaining_seconds
 from .build_info import build_commit
@@ -233,11 +234,23 @@ def render_metrics() -> str:
             if tracker["last_probe_latency_ms"] is not None:
                 latency.append((labels, float(tracker["last_probe_latency_ms"])))
 
+    advisory_map = advisories_for(enabled)
+    advisory_samples = []
+    for tracker in enabled:
+        summary = affected_summary(advisory_map.get(int(tracker["id"]), []))
+        if summary["affected"]:
+            advisory_samples.append(({"tracker_id": tracker["id"], "name": tracker["name"], "repository": tracker["repository"],
+                                      "worst_severity": summary["worst"] or "unknown"}, summary["affected"]))
+
     family("srr_tracker_check_success", "gauge", "1 when the last upstream release check succeeded.", up)
     family("srr_tracker_update_available", "gauge", "1 when a newer upstream release than the installed version exists.", updates)
     family("srr_tracker_last_checked_timestamp_seconds", "gauge", "Unix time of the last upstream release check.", checked)
     family("srr_tracker_probe_up", "gauge", "1 when the last service probe succeeded.", probe_up)
     family("srr_tracker_probe_latency_milliseconds", "gauge", "Latency of the last service probe.", latency)
+    family("srr_tracker_security_advisories", "gauge",
+           "Published advisories that affect the installed version (trackers with none are omitted).", advisory_samples)
+    family("srr_security_advisories_affecting", "gauge", "Advisories affecting installed versions, all trackers.",
+           [({}, sum(value for _, value in advisory_samples))])
     family("srr_updates_available", "gauge", "Enabled trackers with a confirmed update available.", [({}, update_count)])
     family("srr_trackers_needing_attention", "gauge", "Enabled trackers with checker, probe or version-data problems.", [({}, attention_count)])
     family("srr_upgrade_decisions", "gauge", "Decisions for each tracker's current release, by status.",

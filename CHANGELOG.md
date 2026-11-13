@@ -10,6 +10,14 @@ Format reference: https://keepachangelog.com/en/1.1.0/
 
 ### Added
 
+- Security advisories for GitHub trackers. The scheduler reads each project's
+  published GitHub security advisories daily and matches their version ranges
+  to the installed version. The upgrade plan lists them with severity, whether
+  they affect you and whether the target release fixes them; the dashboard and
+  queue show a count chip; `/metrics` adds
+  `srr_tracker_security_advisories` and `srr_security_advisories_affecting`.
+  Advisories for other components of the same repository (for example a
+  separate runner) are never counted against the tracked software.
 - Changes since your version: the upgrade plan lists every stored release
   between the installed version and the target, newest first, with the
   release notes. Each release is flagged for breaking changes, migration
