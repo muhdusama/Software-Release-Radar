@@ -11,7 +11,7 @@ enqueue are atomic; operation ownership is durable through worker completion,
 never time-expired. Browser/MCP upgrade reviews share integer revision checks.
 See [MCP connections](MCP.md) for boundaries and offline recovery limitations.
 
-Software Release Radar is a Python 3.13 Flask application packaged for Docker Compose.
+Software Release Radar is a Python 3.15 Flask application packaged for Docker Compose.
 
 Its core release-monitoring path is deterministic. AI integration is optional and sits outside the basic checking, scheduling and version-comparison path.
 

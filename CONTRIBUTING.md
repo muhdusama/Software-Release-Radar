@@ -34,7 +34,7 @@ Maintainers and operators should also read [GitHub development and deployment wo
 
 ## Python tests
 
-Use Python 3.13.
+Use Python 3.15, which the container image uses. CI also tests Python 3.13.
 
 ```bash
 python -m venv .venv

@@ -16,18 +16,22 @@ concurrency:
 
 jobs:
   python-tests:
-    name: Python 3.13 tests
+    name: Python ${{ matrix.python-version }} tests
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.13", "3.15"]
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
-      - name: Set up Python 3.13
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
-          python-version: "3.13"
+          python-version: ${{ matrix.python-version }}
           cache: pip
 
       - name: Install dependencies
@@ -42,16 +46,24 @@ jobs:
         run: python -m unittest discover -s tests -v
 
   security-audit:
-    name: Dependency and Python security audit
+    name: ${{ matrix.check-name }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - python-version: "3.13"
+            check-name: Dependency and Python security audit
+          - python-version: "3.15"
+            check-name: Dependency and Python 3.15 security audit
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Set up Python 3.13
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
-          python-version: "3.13"
+          python-version: ${{ matrix.python-version }}
           cache: pip
 
       - name: Install security scanners

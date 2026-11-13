@@ -4,7 +4,7 @@ This file gives coding agents and contributors the project rules that matter mos
 
 ## Project
 
-Software Release Radar is a Python 3.13 Flask application for self-hosted release monitoring and upgrade review.
+Software Release Radar is a Python 3.15 Flask application (CI also tests Python 3.13) for self-hosted release monitoring and upgrade review.
 
 The primary public deployment path is Docker Compose.
 
