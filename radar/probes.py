@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ipaddress
 import json
+import logging
 import os
 import re
 import shlex
@@ -19,6 +20,8 @@ from .version import APP_VERSION
 from .portainer import PortainerError, sync_inventory
 from .http_client import open_http
 from .safe_regex import SafeRegexError, search_version
+
+LOGGER = logging.getLogger("software_release_radar.probes")
 
 
 @dataclass
@@ -334,10 +337,10 @@ def probe_all(enabled_only: bool = True) -> list[ProbeResult]:
     if has_portainer:
         try:
             sync_inventory()
-        except PortainerError:
+        except PortainerError as exc:
             # Individual probes will report stale/missing mappings without causing
             # non-Portainer services to be skipped.
-            pass
+            LOGGER.warning("Portainer inventory sync failed; continuing probes: %s", exc)
     return [
         probe_tracker(int(row["id"]), refresh_portainer=False if has_portainer else True)
         for row in rows

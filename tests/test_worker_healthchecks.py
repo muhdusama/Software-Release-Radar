@@ -14,7 +14,7 @@ class WorkerHealthcheckTests(unittest.TestCase):
             compose,
         )
         self.assertIn(
-            "ADMIN_PASSWORD_HASH: \"${ADMIN_PASSWORD_HASH:?ADMIN_PASSWORD_HASH is required}\"",
+            "ADMIN_PASSWORD_HASH: \"${ADMIN_PASSWORD_HASH:-}\"",
             compose,
         )
 

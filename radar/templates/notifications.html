@@ -10,7 +10,7 @@
 </section>
 
 {% if not system_enabled %}
-<div class="flash warning"><strong>Release notifications are paused for everyone.</strong> No update email or Pushover alert will be delivered until an administrator enables the system-wide override.</div>
+<div class="flash warning"><strong>Release notifications are paused for everyone.</strong> No update alert will be delivered through any channel until an administrator enables the system-wide override.</div>
 {% endif %}
 
 <section class="notification-overview metrics notification-metrics">
@@ -20,6 +20,33 @@
   <article class="metric"><span>Muted</span><strong data-notification-count="off">{{ preference_counts.off }}</strong><small>Per-software overrides</small></article>
   <article class="metric"><span>Use default</span><strong data-notification-count="inherit">{{ preference_counts.inherit }}</strong><small>Following the global default</small></article>
 </section>
+
+<section class="panel" aria-labelledby="channel-summary-heading">
+  <div class="panel-header notification-card-header"><div><h2 id="channel-summary-heading">Delivery channels</h2><p>Email and Pushover deliver per user. Webhook, ntfy and Gotify are system channels that deliver once per release and follow the first administrator's preferences. Administrators configure them under Settings.</p></div></div>
+  <div class="notification-toggle-grid">
+    {% for channel in channels %}
+    <div class="notification-toggle-card"><span><strong>{{ channel.name }}</strong><small>{{ channel.scope }} ·
+      {% if channel.enabled and channel.configured %}Ready to deliver{% elif channel.enabled %}Enabled but not fully configured{% elif channel.configured %}Configured but disabled{% else %}Not configured{% endif %}</small></span></div>
+    {% endfor %}
+  </div>
+</section>
+
+{% if current_user.role == 'admin' %}
+<section class="panel" aria-labelledby="delivery-failures-heading">
+  <div class="panel-header notification-card-header"><div><h2 id="delivery-failures-heading">Recent delivery failures</h2><p>Failed deliveries are retried up to 5 times. Alerts older than 7 days are closed without sending.</p></div></div>
+  {% if delivery_failures %}
+  <div class="software-notification-list">
+    {% for item in delivery_failures %}
+    <article class="software-notification-row">
+      <div class="notification-software-copy"><strong>{{ item.software }}</strong><small>{{ item.channel }} · {{ item.recipient }} · {{ item.at or 'Unknown time' }}</small></div>
+      <div class="notification-effective-state"><span class="status-badge state-paused">{{ item.attempts }} of 5 attempts{{ ', gave up' if item.exhausted else '' }}</span></div>
+      <small>{{ item.error }}</small>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}<p class="muted">No failed deliveries.</p>{% endif %}
+</section>
+{% endif %}
 
 <form method="post" class="panel notification-defaults-card" id="notification-defaults-form" data-no-busy data-system-enabled="{{ '1' if system_enabled else '0' }}" data-default-enabled="{{ '1' if notification_user.notifications_enabled else '0' }}">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

@@ -77,6 +77,8 @@ Open **http://localhost:9120**.
 
 The setup helper asks for the first administrator account, generates application secrets in a temporary container, writes a protected `.env`, builds the stack and waits for health. It does not save the administrator password itself. Host Python is not required.
 
+Alternatively, set only `SECRET_KEY` and `ENCRYPTION_KEY`, leave `ADMIN_PASSWORD_HASH` empty, start the stack and create the administrator in the browser at `/setup` using the one-time token in the web log (`docker compose logs radar | grep setup`).
+
 Published images are available at `ghcr.io/muhdusama/software-release-radar` for `linux/amd64` and `linux/arm64`. To use one, follow [the published-image deployment instructions](docs/DOCKER.md#use-the-published-image-instead-of-building).
 
 Read the [Docker guide](docs/DOCKER.md) and [security hardening guide](docs/SECURITY-HARDENING.md) before exposing the application outside a trusted network.

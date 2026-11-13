@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import http.client
 import json
 import urllib.error
 import urllib.request
@@ -98,8 +99,8 @@ def chat(messages: list[dict[str, str]], *, temperature: float = 0.2) -> tuple[s
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", "replace")[:1200]
         raise AIClientError(f"OpenAI-compatible endpoint returned HTTP {exc.code}: {detail}") from exc
-    except urllib.error.URLError as exc:
-        raise AIClientError(f"Could not reach the OpenAI-compatible endpoint: {exc.reason}") from exc
+    except (OSError, http.client.HTTPException) as exc:
+        raise AIClientError(f"Could not reach the OpenAI-compatible endpoint: {getattr(exc, 'reason', exc)}") from exc
     except (json.JSONDecodeError, UnicodeDecodeError) as exc:
         raise AIClientError("OpenAI-compatible endpoint returned an unreadable response.") from exc
 

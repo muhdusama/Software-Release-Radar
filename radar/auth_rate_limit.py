@@ -14,6 +14,7 @@ from .tracker_utils import parse_utc
 
 LOGIN_USERNAME_THRESHOLD = 8
 LOGIN_IP_THRESHOLD = 20
+SETUP_IP_THRESHOLD = 10
 RESET_IDENTITY_THRESHOLD = 3
 RESET_IP_THRESHOLD = 10
 WINDOW_SECONDS = 15 * 60
@@ -156,6 +157,16 @@ def install_auth_rate_limits(app: Flask) -> None:
                 verify_password(request.form.get("password", ""), dummy_password_hash)
             return None
 
+        if request.endpoint == "setup":
+            ip_key = _key(secret_key, "setup-ip", remote)
+            g.auth_rate_setup_key = ip_key
+            remaining = _remaining_seconds([ip_key])
+            if remaining:
+                minutes = max(1, math.ceil(remaining / 60))
+                flash(f"Too many setup attempts. Try again in about {minutes} minute{'s' if minutes != 1 else ''}.", "error")
+                return render_template("setup.html", form={}), 429
+            return None
+
         if request.endpoint == "forgot_password":
             identity = request.form.get("identity", "").strip()
             identity_key = _key(secret_key, "reset-identity", identity)
@@ -171,6 +182,9 @@ def install_auth_rate_limits(app: Flask) -> None:
 
     @app.after_request
     def auth_rate_limit_after_request(response):
+        setup_key = getattr(g, "auth_rate_setup_key", None)
+        if setup_key and response.status_code >= 400 and response.status_code != 429:
+            _record_failure(setup_key, SETUP_IP_THRESHOLD)
         if (
             request.method == "POST"
             and request.endpoint == "login"

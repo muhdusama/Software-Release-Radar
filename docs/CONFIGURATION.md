@@ -36,7 +36,7 @@ The recommended `bash scripts/setup.sh` flow creates `.env` for you.
 | `RADAR_LOG_LEVEL` | no | `INFO` | Scheduler log level |
 | `ADMIN_USERNAME` | first run | `admin` | Username seeded when the database contains no users |
 | `ADMIN_EMAIL` | no | empty | Email for the initial administrator |
-| `ADMIN_PASSWORD_HASH` | first run | empty | PBKDF2 hash for the initial administrator |
+| `ADMIN_PASSWORD_HASH` | no | empty | `pbkdf2_sha256` hash for the initial administrator. Leave empty to create the administrator in the browser at `/setup`. An invalid format is logged and ignored |
 | `SECRET_KEY` | yes | empty | Flask session signing secret |
 | `ENCRYPTION_KEY` | yes | empty | Fernet key used for encrypted application secrets |
 | `GITHUB_TOKEN` | recommended | empty | Authenticates release requests and raises the shared GitHub API quota |

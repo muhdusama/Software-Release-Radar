@@ -16,27 +16,28 @@ class SchedulerTests(unittest.TestCase):
             SimpleNamespace(event_id=None, changed=False, status="error"),
         ]
         with patch("radar.scheduler.check_all", return_value=results) as check_all, patch(
-            "radar.scheduler.dispatch_release_notifications",
+            "radar.scheduler.dispatch_pending_notifications",
             return_value={"sent": 2, "failed": 0, "skipped": 0},
         ) as dispatch:
             summary = scheduler.run_once()
 
         check_all.assert_called_once_with(enabled_only=True, due_only=True)
-        dispatch.assert_called_once_with([42])
+        dispatch.assert_called_once_with()
         self.assertEqual(summary["checked"], 3)
         self.assertEqual(summary["changed"], 1)
         self.assertEqual(summary["errors"], 1)
         self.assertEqual(summary["notifications"]["sent"], 2)
 
-    def test_run_once_does_not_dispatch_when_nothing_changed(self):
+    def test_run_once_retries_pending_events_even_when_nothing_changed(self):
         results = [SimpleNamespace(event_id=None, changed=False, status="ok")]
         with patch("radar.scheduler.check_all", return_value=results), patch(
-            "radar.scheduler.dispatch_release_notifications"
+            "radar.scheduler.dispatch_pending_notifications",
+            return_value={"sent": 1, "failed": 0, "skipped": 0},
         ) as dispatch:
             summary = scheduler.run_once()
 
-        dispatch.assert_not_called()
-        self.assertEqual(summary["notifications"], {"sent": 0, "failed": 0, "skipped": 0})
+        dispatch.assert_called_once_with()
+        self.assertEqual(summary["notifications"]["sent"], 1)
 
     def test_interval_validation(self):
         with patch.dict(os.environ, {"RADAR_SCHEDULER_INTERVAL_SECONDS": "30"}):

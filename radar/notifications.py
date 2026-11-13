@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import email.utils
+import http.client
 import json
+import logging
 import smtplib
 import sqlite3
 import ssl
 import urllib.error
 import urllib.parse
 import urllib.request
+from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 
 from .db import connect, get_settings, transaction, utcnow
@@ -15,6 +18,16 @@ from .security_policy import _is_loopback_host, insecure_integrations_allowed
 from .secrets_store import decrypt_secret
 from .version import APP_VERSION
 from .http_client import open_http
+from .system_channels import (
+    SYSTEM_CHANNEL_KEYS,
+    SYSTEM_CHANNEL_LABELS,
+    SYSTEM_CHANNELS,
+    channel_configured,
+    enabled_system_channels,
+    send_system_channel,
+)
+
+LOGGER = logging.getLogger("software_release_radar.notifications")
 
 SMTP_KEYS = [
     "smtp_enabled",
@@ -39,6 +52,10 @@ NOTIFICATION_CHANNELS = ("email", "pushover")
 
 class NotificationError(RuntimeError):
     pass
+
+
+class ChannelDisabledError(NotificationError):
+    """The provider is switched off in Settings, so the delivery is skipped."""
 
 
 def _as_bool(value: str | None) -> bool:
@@ -113,7 +130,7 @@ def smtp_config() -> dict[str, str | int | bool]:
 def send_email(to_email: str, subject: str, body: str) -> None:
     cfg = smtp_config()
     if not cfg["enabled"]:
-        raise NotificationError("SMTP notifications are disabled.")
+        raise ChannelDisabledError("SMTP notifications are disabled.")
     if not cfg["host"] or not cfg["from_email"]:
         raise NotificationError("SMTP host and From email are required.")
     message = EmailMessage()
@@ -176,7 +193,7 @@ def send_pushover(
 ) -> None:
     cfg = pushover_config()
     if not cfg["enabled"]:
-        raise NotificationError("Pushover notifications are disabled.")
+        raise ChannelDisabledError("Pushover notifications are disabled.")
     if not cfg["app_token"] or not user_key:
         raise NotificationError(
             "Pushover application token and user key are required."
@@ -209,7 +226,12 @@ def send_pushover(
         raise NotificationError(
             f"Pushover returned HTTP {exc.code}: {detail}"
         ) from exc
-    except (urllib.error.URLError, json.JSONDecodeError) as exc:
+    except (
+        OSError,
+        http.client.HTTPException,
+        json.JSONDecodeError,
+        UnicodeDecodeError,
+    ) as exc:
         raise NotificationError(f"Pushover delivery failed: {exc}") from exc
     if int(result.get("status", 0)) != 1:
         raise NotificationError(
@@ -281,6 +303,38 @@ def _policy_enabled(
     return False, "Personal release notifications are paused."
 
 
+MAX_DELIVERY_ATTEMPTS = 5
+RETRY_BACKOFF_SECONDS = 300
+PENDING_BATCH_LIMIT = 50
+STALE_EVENT_DAYS = 7
+_TERMINAL = ("sent", "skipped")
+
+
+def _parse_time(value: str | None) -> datetime | None:
+    try:
+        parsed = datetime.fromisoformat(str(value))
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+
+
+def _delivery_action(prior, now: datetime) -> str:
+    """Classify an earlier delivery row as ``done``, ``wait`` or ``send``.
+
+    A failed row is retried after ``RETRY_BACKOFF_SECONDS * attempts`` and is
+    terminal once ``MAX_DELIVERY_ATTEMPTS`` real attempts have been made.
+    """
+    if prior is None:
+        return "send"
+    status, attempts, last_attempt_at = prior
+    if status in _TERMINAL or attempts >= MAX_DELIVERY_ATTEMPTS:
+        return "done"
+    last = _parse_time(last_attempt_at)
+    if last and now < last + timedelta(seconds=RETRY_BACKOFF_SECONDS * attempts):
+        return "wait"
+    return "send"
+
+
 def _record_delivery(
     *,
     event_id: int,
@@ -289,19 +343,50 @@ def _record_delivery(
     status: str,
     error: str | None,
 ) -> None:
+    attempted = 0 if status == "skipped" else 1
+    now = utcnow()
     with transaction() as conn:
         conn.execute(
             """
             INSERT INTO notification_deliveries
-                (event_id, user_id, channel, status, error, sent_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+                (event_id, user_id, channel, status, error, sent_at,
+                 attempts, last_attempt_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(event_id, user_id, channel) DO UPDATE SET
                 status = excluded.status,
                 error = excluded.error,
-                sent_at = excluded.sent_at
+                sent_at = excluded.sent_at,
+                attempts = attempts + excluded.attempts,
+                last_attempt_at = excluded.last_attempt_at
             """,
-            (event_id, user_id, channel, status, error, utcnow()),
+            (event_id, user_id, channel, status, error, now, attempted, now),
         )
+
+
+def _record_system_delivery(
+    *, event_id: int, channel: str, status: str, error: str | None
+) -> None:
+    attempted = 0 if status == "skipped" else 1
+    now = utcnow()
+    with transaction() as conn:
+        conn.execute(
+            """
+            INSERT INTO system_notification_deliveries
+                (event_id, channel, status, error, sent_at, attempts, last_attempt_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(event_id, channel) DO UPDATE SET
+                status = excluded.status,
+                error = excluded.error,
+                sent_at = excluded.sent_at,
+                attempts = attempts + excluded.attempts,
+                last_attempt_at = excluded.last_attempt_at
+            """,
+            (event_id, channel, status, error, now, attempted, now),
+        )
+
+
+def _failure_text(exc: Exception) -> str:
+    return (str(exc) or type(exc).__name__)[:1000]
 
 
 def dispatch_release_notifications(
@@ -311,8 +396,13 @@ def dispatch_release_notifications(
 
     Muted deliveries are persisted as skipped. Re-enabling notifications later
     therefore does not create a surprise backlog of previously muted releases.
-    Failed deliveries remain retryable because only sent and skipped rows are
-    treated as complete.
+    Failed deliveries are retried with a bounded attempt count. Every delivery
+    is isolated, so one failing channel or user cannot abort the others.
+    ``events.notified_at`` is set once every delivery for the event is
+    terminal: sent, skipped, or failed with the attempts exhausted.
+
+    System channels (webhook, ntfy, Gotify) deliver once per event and follow
+    the preferences of the first active administrator.
     """
     ensure_notification_preferences()
     params: list[object] = []
@@ -347,13 +437,25 @@ def dispatch_release_notifications(
                 """
             ).fetchall()
         }
-        existing = {
-            (int(row["event_id"]), int(row["user_id"]), str(row["channel"]))
+        prior_user = {
+            (int(row["event_id"]), int(row["user_id"]), str(row["channel"])): (
+                str(row["status"]), int(row["attempts"] or 0), row["last_attempt_at"],
+            )
             for row in conn.execute(
                 """
-                SELECT event_id, user_id, channel
+                SELECT event_id, user_id, channel, status, attempts, last_attempt_at
                   FROM notification_deliveries
-                 WHERE status IN ('sent', 'skipped')
+                """
+            )
+        }
+        prior_system = {
+            (int(row["event_id"]), str(row["channel"])): (
+                str(row["status"]), int(row["attempts"] or 0), row["last_attempt_at"],
+            )
+            for row in conn.execute(
+                """
+                SELECT event_id, channel, status, attempts, last_attempt_at
+                  FROM system_notification_deliveries
                 """
             )
         }
@@ -362,11 +464,28 @@ def dispatch_release_notifications(
         ).fetchone()
 
     system_enabled = _as_bool(setting["value"] if setting else "1")
+    try:
+        system_channels = enabled_system_channels()
+    except Exception:
+        LOGGER.warning("System notification channel settings could not be read.")
+        system_channels = []
+    admin = next((u for u in users if u["role"] == "admin"), None)
     counts = {"sent": 0, "failed": 0, "skipped": 0}
+    now = datetime.now(timezone.utc)
+
+    def settle(prior, status: str, error: str | None, record, **ids) -> bool:
+        """Record one outcome; return True when the delivery is still open."""
+        record(status=status, error=error, **ids)
+        counts[status] += 1
+        attempts = (prior[1] if prior else 0) + (0 if status == "skipped" else 1)
+        return status == "failed" and attempts < MAX_DELIVERY_ATTEMPTS
 
     for event in events:
         title, body, release_url = _release_message(event)
         tracker_id = int(event["tracker_id"])
+        event_id = int(event["id"])
+        open_deliveries = False
+
         for user in users:
             user_id = int(user["id"])
             mode = preferences.get((user_id, tracker_id), "inherit")
@@ -381,8 +500,13 @@ def dispatch_release_notifications(
             )
 
             for channel in NOTIFICATION_CHANNELS:
-                key = (int(event["id"]), user_id, channel)
-                if key in existing:
+                key = (event_id, user_id, channel)
+                prior = prior_user.get(key)
+                action = _delivery_action(prior, now)
+                if action == "wait":
+                    open_deliveries = True
+                    continue
+                if action == "done":
                     continue
 
                 status = "sent"
@@ -430,19 +554,158 @@ def dispatch_release_notifications(
                                     body,
                                     release_url,
                                 )
-                    except (NotificationError, RuntimeError) as exc:
-                        status, error = "failed", str(exc)[:1000]
+                    except ChannelDisabledError as exc:
+                        status, error = "skipped", str(exc)
+                    except Exception as exc:  # isolate each delivery
+                        status, error = "failed", _failure_text(exc)
 
-                _record_delivery(
-                    event_id=int(event["id"]),
-                    user_id=user_id,
-                    channel=channel,
-                    status=status,
-                    error=error,
+                try:
+                    open_deliveries |= settle(
+                        prior, status, error, _record_delivery,
+                        event_id=event_id, user_id=user_id, channel=channel,
+                    )
+                except Exception:
+                    LOGGER.exception("Could not record a notification delivery.")
+                    open_deliveries = True
+
+        if system_channels:
+            admin_mode = (
+                preferences.get((int(admin["id"]), tracker_id), "inherit")
+                if admin else "inherit"
+            )
+            if admin_mode not in NOTIFICATION_MODES:
+                admin_mode = "inherit"
+            system_allowed, system_reason = _policy_enabled(
+                system_enabled=system_enabled,
+                user_default_enabled=(
+                    bool(int(admin["notifications_enabled"] or 0)) if admin else True
+                ),
+                mode=admin_mode,
+            )
+        for channel in system_channels:
+            prior = prior_system.get((event_id, channel))
+            action = _delivery_action(prior, now)
+            if action == "wait":
+                open_deliveries = True
+                continue
+            if action == "done":
+                continue
+            status, error = "sent", None
+            if not system_allowed:
+                status, error = "skipped", system_reason
+            else:
+                try:
+                    send_system_channel(channel, event, title, body)
+                except Exception as exc:  # isolate each delivery
+                    status, error = "failed", _failure_text(exc)
+            try:
+                open_deliveries |= settle(
+                    prior, status, error, _record_system_delivery,
+                    event_id=event_id, channel=channel,
                 )
-                counts[status] += 1
+            except Exception:
+                LOGGER.exception("Could not record a system notification delivery.")
+                open_deliveries = True
+
+        if not open_deliveries:
+            _mark_event_notified(event_id)
 
     return counts
+
+
+def _mark_event_notified(event_id: int) -> None:
+    with transaction() as conn:
+        conn.execute(
+            "UPDATE events SET notified_at = ? WHERE id = ? AND notified_at IS NULL",
+            (utcnow(), event_id),
+        )
+
+
+def close_stale_events() -> None:
+    """Close pending events older than ``STALE_EVENT_DAYS`` without sending.
+
+    Upgrading from a version that never set ``notified_at``, or a long outage,
+    therefore never floods users with old alerts.
+    """
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=STALE_EVENT_DAYS)).replace(
+        microsecond=0
+    ).isoformat()
+    with transaction() as conn:
+        conn.execute(
+            "UPDATE events SET notified_at = ? WHERE notified_at IS NULL AND detected_at < ?",
+            (utcnow(), cutoff),
+        )
+
+
+def dispatch_pending_notifications(limit: int = PENDING_BATCH_LIMIT) -> dict[str, int]:
+    """Dispatch the oldest pending events, whichever cycle detected them."""
+    close_stale_events()
+    with connect() as conn:
+        ids = [
+            int(row["id"])
+            for row in conn.execute(
+                """
+                SELECT id FROM events WHERE notified_at IS NULL
+                 ORDER BY detected_at, id LIMIT ?
+                """,
+                (limit,),
+            )
+        ]
+    if not ids:
+        return {"sent": 0, "failed": 0, "skipped": 0}
+    return dispatch_release_notifications(ids)
+
+
+def recent_delivery_failures(limit: int = 20) -> list[dict[str, object]]:
+    """Most recent failed deliveries across user and system channels."""
+    with connect() as conn:
+        rows = conn.execute(
+            """
+            SELECT t.name AS software, d.channel, d.error, d.attempts,
+                   d.last_attempt_at AS at, u.username AS recipient
+              FROM notification_deliveries d
+              JOIN events e ON e.id = d.event_id
+              JOIN trackers t ON t.id = e.tracker_id
+              JOIN users u ON u.id = d.user_id
+             WHERE d.status = 'failed'
+            UNION ALL
+            SELECT t.name, d.channel, d.error, d.attempts,
+                   d.last_attempt_at, 'System'
+              FROM system_notification_deliveries d
+              JOIN events e ON e.id = d.event_id
+              JOIN trackers t ON t.id = e.tracker_id
+             WHERE d.status = 'failed'
+             ORDER BY at DESC LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+    return [
+        {**dict(row), "error": str(row["error"] or "")[:200],
+         "exhausted": int(row["attempts"] or 0) >= MAX_DELIVERY_ATTEMPTS}
+        for row in rows
+    ]
+
+
+def configured_channels() -> list[dict[str, object]]:
+    """Which release-alert channels can actually deliver. No secrets are returned."""
+    smtp = get_settings(SMTP_KEYS)
+    pushover = get_settings(PUSHOVER_KEYS)
+    system = get_settings(SYSTEM_CHANNEL_KEYS)
+    rows: list[dict[str, object]] = [
+        {"name": "Email", "scope": "Per user",
+         "enabled": _as_bool(smtp["smtp_enabled"]),
+         "configured": bool(smtp["smtp_host"] and smtp["smtp_from_email"])},
+        {"name": "Pushover", "scope": "Per user",
+         "enabled": _as_bool(pushover["pushover_enabled"]),
+         "configured": bool(pushover["pushover_app_token_enc"])},
+    ]
+    for channel in SYSTEM_CHANNELS:
+        rows.append({
+            "name": SYSTEM_CHANNEL_LABELS[channel], "scope": "System",
+            "enabled": _as_bool(system[f"{channel}_enabled"]),
+            "configured": channel_configured(system, channel),
+        })
+    return rows
 
 
 def notification_smoke_payload() -> dict[str, str | None]:

@@ -70,6 +70,10 @@ Passwords are stored as PBKDF2-SHA256 hashes with 600,000 iterations.
 
 The public runtime also uses SQLite-backed login throttling. Repeated failures can temporarily block further attempts for an account or source address. This is an additional control, not a replacement for a strong password.
 
+### First-run setup token
+
+When `ADMIN_PASSWORD_HASH` is empty and no users exist, the application serves `/setup` so the first administrator can be created in the browser. To stop a stranger on the network from claiming a fresh instance, `/setup` requires a one-time setup token. The token is derived from `SECRET_KEY`, is printed to the web container log at WARNING level on start-up (`docker compose logs radar | grep setup`), and is compared in constant time. Wrong attempts are rate limited per client address. The creation runs in a single database transaction that re-checks that no user exists, so two submissions cannot both succeed. After the first user exists, `/setup` redirects to the sign-in page and the token has no further use. Do not expose a fresh instance to an untrusted network before completing setup, and keep container logs private.
+
 ## 6. Configure password reset carefully
 
 Password-reset links require SMTP and use the configured application base URL.

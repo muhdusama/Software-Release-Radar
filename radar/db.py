@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+import logging
 import os
 import sqlite3
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterator
+
+from .auth import is_valid_password_hash
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_REFRESH_HOURS = 6
 ALLOWED_REFRESH_HOURS = (1, 2, 3, 6, 12, 24, 48, 72, 168)
@@ -73,6 +78,13 @@ def _seed_admin(conn: sqlite3.Connection) -> None:
     password_hash = os.environ.get("ADMIN_PASSWORD_HASH", "").strip()
     email = os.environ.get("ADMIN_EMAIL", "").strip() or None
     if not password_hash:
+        return
+    if not is_valid_password_hash(password_hash):
+        logger.error(
+            "ADMIN_PASSWORD_HASH is not a valid pbkdf2_sha256 hash, so no administrator was "
+            "created from it. Fix or remove it, then create the administrator in the browser "
+            "at /setup."
+        )
         return
     now = utcnow()
     conn.execute(
@@ -234,6 +246,19 @@ def init_db() -> None:
                 FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
                 UNIQUE (event_id, user_id, channel)
+            );
+
+            CREATE TABLE IF NOT EXISTS system_notification_deliveries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_id INTEGER NOT NULL,
+                channel TEXT NOT NULL,
+                status TEXT NOT NULL CHECK (status IN ('sent', 'failed', 'skipped')),
+                error TEXT,
+                attempts INTEGER NOT NULL DEFAULT 0,
+                last_attempt_at TEXT,
+                sent_at TEXT NOT NULL,
+                FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
+                UNIQUE (event_id, channel)
             );
 
             CREATE TABLE IF NOT EXISTS ai_conversations (
@@ -439,6 +464,8 @@ def init_db() -> None:
             _add_column(conn, "trackers", definition)
 
         _add_column(conn, "audit_log", "api_key_id TEXT")
+        _add_column(conn, "notification_deliveries", "attempts INTEGER NOT NULL DEFAULT 0")
+        _add_column(conn, "notification_deliveries", "last_attempt_at TEXT")
         _add_column(conn, "upgrade_decisions", "revision INTEGER NOT NULL DEFAULT 0")
         for definition in [
             "previous_version TEXT",
@@ -480,6 +507,17 @@ def init_db() -> None:
             "pushover_app_token_enc": "",
             "pushover_priority": "0",
             "pushover_sound": "pushover",
+            "webhook_enabled": "0",
+            "webhook_url": "",
+            "webhook_token_enc": "",
+            "webhook_secret_enc": "",
+            "ntfy_enabled": "0",
+            "ntfy_server_url": "https://ntfy.sh",
+            "ntfy_topic": "",
+            "ntfy_token_enc": "",
+            "gotify_enabled": "0",
+            "gotify_url": "",
+            "gotify_token_enc": "",
             "openai_enabled": "0",
             "openai_base_url": "",
             "openai_api_key_enc": "",

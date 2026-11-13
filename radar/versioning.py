@@ -38,6 +38,20 @@ def canonical_version(value: str | None) -> str:
     return value
 
 
+def display_version(value: str | None) -> str:
+    """Short label for showing a release tag, e.g. ``version/2026.8.5`` as ``2026.8.5``."""
+    return canonical_version(value)
+
+
+def secondary_release_name(name: str | None, version: str | None) -> str:
+    """Return the release name only when it says more than the version already does."""
+    name = (name or "").strip()
+    shown = display_version(version)
+    if not name or not shown or shown in name.lower() or name.lower() == (version or "").strip().lower():
+        return ""
+    return name
+
+
 def version_candidates(*values: str | None) -> set[str]:
     candidates: set[str] = set()
     for value in values:
@@ -245,7 +259,8 @@ def classify_tracker_state(tracker: Mapping[str, object]) -> dict[str, object]:
         attention.append({"reason": "offline", "label": ATTENTION_REASON_LABELS["offline"], "detail": str(tracker.get("last_probe_error") or "Last service probe failed.")})
     if not (release_tag or release_name):
         attention.append({"reason": "upstream_unavailable", "label": ATTENTION_REASON_LABELS["upstream_unavailable"], "detail": "No upstream release version is currently available."})
-    elif upgrade.get("reason") in {"installed_version_unavailable", "comparison_unavailable"}:
+    # A missing installed version means a release-watch tracker, not an operational problem.
+    elif upgrade.get("reason") == "comparison_unavailable":
         attention.append({"reason": "comparison_unavailable", "label": ATTENTION_REASON_LABELS["comparison_unavailable"], "detail": upgrade["label"]})
 
     update_available = bool(upgrade["available"]) and str(tracker.get("last_status") or "") != "error"

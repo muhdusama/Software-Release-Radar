@@ -50,7 +50,7 @@
       </div>
       <dl class="context-facts">
         <div><dt>Installed</dt><dd>{{ tracker['detected_installed_version'] or tracker['installed_version'] or 'Unknown' }}</dd></div>
-        <div><dt>Current</dt><dd>{{ tracker['current_release_name'] or tracker['current_version'] or 'Unknown' }}</dd></div>
+        <div><dt>Current</dt><dd>{{ tracker['current_version'] or tracker['current_release_name'] or 'Unknown' }}</dd></div>
         <div><dt>Machine</dt><dd>{{ tracker['machine_name'] or tracker['install_host'] or 'Not specified' }}</dd></div>
         <div><dt>Repository</dt><dd>{{ tracker['repository'] }}</dd></div>
       </dl>
