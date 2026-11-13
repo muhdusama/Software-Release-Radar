@@ -8,6 +8,25 @@ Format reference: https://keepachangelog.com/en/1.1.0/
 
 ## [Unreleased]
 
+## [2.12.0] - 2026-11-13
+
+### Added
+
+- MCP server area in Settings for administrators: an access switch, the scopes
+  keys may use, whether standard users may use keys, MCP rate limits and a list
+  of every user's keys with revoke. Changes apply to the next MCP request
+  without a restart.
+
+### Compatibility
+
+- No new dependency or schema change. Policy is stored in the existing settings
+  table; unset values keep v2.11.0 behaviour, so upgrades change nothing until
+  an administrator saves the MCP section.
+- Clearing a scope removes it from existing keys until it is allowed again.
+  Network, HTTPS and proxy rules and the authentication failure limit remain
+  environment settings.
+- Rollback to v2.11.0 ignores the stored MCP policy and rate limits.
+
 ## [2.11.0] - 2026-11-02
 
 ### Added

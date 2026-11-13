@@ -18,23 +18,38 @@ from mcp.server.transport_security import RequestBodyLimitMiddleware, TransportS
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp
 
-from .db import init_db, transaction
-from .mcp_auth import RadarTokenVerifier
+from .db import get_settings, init_db, transaction
+from .mcp_auth import RadarTokenVerifier, mcp_policy
 from .security_controls import _int_env
 
 BODY_LIMIT = 131072
 
 
-def limit_config() -> dict[str, int]:
-    ranges = {
-        'MCP_KEY_MINUTE_LIMIT': (120, 1, 10000),
-        'MCP_OPERATION_HOURLY_LIMIT': (20, 1, 1000),
-        'MCP_OPERATION_KEY_CONCURRENCY': (1, 1, 4),
-        'MCP_OPERATION_GLOBAL_CONCURRENCY': (2, 1, 16),
-        'MCP_AUTH_FAILURE_LIMIT': (20, 1, 1000),
-    }
+# Limits an administrator may override in Settings: name -> (default, minimum, maximum).
+# The pre-authentication failure limit stays environment-only.
+ADMIN_LIMITS = {
+    'MCP_KEY_MINUTE_LIMIT': (120, 1, 10000),
+    'MCP_OPERATION_HOURLY_LIMIT': (20, 1, 1000),
+    'MCP_OPERATION_KEY_CONCURRENCY': (1, 1, 4),
+    'MCP_OPERATION_GLOBAL_CONCURRENCY': (2, 1, 16),
+}
+
+
+def env_limits() -> dict[str, int]:
+    ranges = {**ADMIN_LIMITS, 'MCP_AUTH_FAILURE_LIMIT': (20, 1, 1000)}
     return {name: _int_env(name, default, minimum=low, maximum=high)
             for name, (default, low, high) in ranges.items()}
+
+
+def limit_config() -> dict[str, int]:
+    """Environment limits, overridden by in-range values saved in Settings."""
+    limits = env_limits()
+    stored = get_settings([name.lower() for name in ADMIN_LIMITS])
+    for name, (_, low, high) in ADMIN_LIMITS.items():
+        raw = stored[name.lower()]
+        if raw.isascii() and raw.isdecimal() and low <= int(raw) <= high:
+            limits[name] = int(raw)
+    return limits
 
 
 def proxy_config() -> dict[str, object]:
@@ -142,6 +157,8 @@ def build_app() -> ASGIApp:
             status, error = 400, 'Invalid content length.'
         elif length and (len(length[0]) > 9 or int(length[0]) > BODY_LIMIT):
             status, error = 413, 'Request body too large.'
+        elif scope['path'] != '/healthz' and not (await asyncio.to_thread(mcp_policy))['enabled']:
+            status, error = 503, 'MCP access is turned off by an administrator.'
         if status:
             return await JSONResponse({'error': error}, status_code=status)(scope, receive, send)
         return await bounded(scope, receive, send)

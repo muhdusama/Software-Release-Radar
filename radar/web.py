@@ -936,13 +936,16 @@ def create_app() -> Flask:
         return redirect(url_for("dashboard"))
 
     def render_profile(**kwargs):
-        from .mcp_auth import list_keys, available_scopes
-        return render_template('profile.html', mcp_keys=list_keys(int(g.user['id'])), mcp_scopes=available_scopes(),
+        from .mcp_auth import list_keys, mcp_policy
+        policy = mcp_policy()
+        return render_template('profile.html', mcp_keys=list_keys(int(g.user['id'])), mcp_scopes=policy['scopes'],
+                               mcp_can_create=g.user['role'] == 'admin' or policy['user_keys'],
+                               mcp_enabled=policy['enabled'],
                                has_pushover_key=bool(g.user['pushover_user_key_enc']), **kwargs)
 
     @app.after_request
     def profile_no_store(response):
-        if request.path == '/profile' or request.path.startswith('/profile/mcp-keys'):
+        if request.path in ('/profile', '/settings') or request.path.startswith(('/profile/mcp-keys', '/settings/mcp-keys')):
             response.headers['Cache-Control'] = 'no-store'
         return response
 
@@ -1193,13 +1196,30 @@ def create_app() -> Flask:
                     elif request.form.get("clear_openai_api_key"):
                         values["openai_api_key_enc"] = ""
                     set_settings(values)
+                elif section == "mcp":
+                    from .mcp_auth import available_scopes
+                    from .mcp_server import ADMIN_LIMITS
+                    scopes = set(request.form.getlist("mcp_scopes")) | {"read"}
+                    if not scopes <= available_scopes():
+                        raise ValueError("Unknown MCP scope.")
+                    values = {
+                        "mcp_enabled": "1" if request.form.get("mcp_enabled") else "0",
+                        "mcp_user_keys": "1" if request.form.get("mcp_user_keys") else "0",
+                        "mcp_allowed_scopes": ",".join(sorted(scopes)),
+                    }
+                    for name, (_, low, high) in ADMIN_LIMITS.items():
+                        raw = request.form.get(name.lower(), "").strip()
+                        if raw and not (raw.isascii() and raw.isdecimal() and low <= int(raw) <= high):
+                            raise ValueError(f"{name.replace('_', ' ').capitalize()} must be {low} to {high}, or blank for the default.")
+                        values[name.lower()] = raw
+                    set_settings(values)
                 else:
                     raise ValueError("Unknown settings section.")
             except (ValueError, RuntimeError) as exc:
                 flash(str(exc), "error")
                 return redirect(url_for("settings", section=section))
             audit(int(g.user["id"]), "settings_updated", "settings", section)
-            flash(f"{section.title()} settings saved.", "success")
+            flash(f"{'MCP' if section == 'mcp' else section.title()} settings saved.", "success")
             return redirect(url_for("settings", section=section))
         keys = [
             "default_refresh_hours", "app_base_url",
@@ -1211,14 +1231,34 @@ def create_app() -> Flask:
             "dockhand_base_url", "dockhand_api_token_enc", "dockhand_verify_tls", "dockhand_timeout", "dockhand_sync_hours", "dockhand_last_sync_at", "dockhand_last_sync_status", "dockhand_last_sync_error",
         ]
         values = get_settings(keys)
+        from .mcp_auth import available_scopes, list_keys, mcp_policy
+        from .mcp_server import ADMIN_LIMITS, env_limits
+        defaults = env_limits()
+        stored_limits = get_settings([name.lower() for name in ADMIN_LIMITS])
+        mcp_limits = [{"name": name.lower(), "low": low, "high": high, "default": defaults[name],
+                       "value": stored_limits[name.lower()]} for name, (_, low, high) in ADMIN_LIMITS.items()]
         return render_template(
             "settings.html", settings=values,
+            mcp_policy=mcp_policy(), mcp_available_scopes=sorted(available_scopes(), key=lambda scope: (scope != "read", scope)),
+            mcp_limits=mcp_limits, mcp_all_keys=list_keys(None),
             has_smtp_password=bool(values["smtp_password_enc"]),
             has_pushover_token=bool(values["pushover_app_token_enc"]),
             has_openai_key=bool(values["openai_api_key_enc"]),
             has_portainer_token=bool(values["portainer_api_token_enc"]),
             has_dockhand_token=bool(values["dockhand_api_token_enc"]),
         )
+
+    @app.post("/settings/mcp-keys/<key_id>/revoke")
+    @admin_required
+    def admin_revoke_mcp_key(key_id):
+        from .mcp_auth import revoke_key
+        require_csrf()
+        try:
+            revoke_key(int(g.user["id"]), key_id, any_owner=True)
+        except ValueError:
+            abort(404)
+        flash("MCP key revoked.", "success")
+        return redirect(url_for("settings", section="mcp"))
 
     @app.post("/settings/test-email")
     @admin_required
