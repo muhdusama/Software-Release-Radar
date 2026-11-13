@@ -8,8 +8,31 @@ Format reference: https://keepachangelog.com/en/1.1.0/
 
 ## [Unreleased]
 
+## [2.14.0] - 2026-11-13
+
 ### Added
 
+- GitLab, Codeberg, Gitea and Forgejo release sources. Paste a gitlab.com,
+  codeberg.org or gitea.com project URL, or use `gitlab:host/group/project`
+  or `gitea:host/owner/repository` for a self-hosted forge. Public projects
+  only. The latest release is the highest version rather than the most
+  recently published backport, and the GitHub rate-limit cooldown no longer
+  pauses trackers on other forges. See `docs/INTEGRATIONS.md`.
+- Read-only REST API under `/api/v1` (status, trackers, releases, history and
+  upgrade decisions) using the existing Profile API keys or the browser
+  session. It reuses the MCP read projections, permissions and size limits.
+  Twenty failed key attempts from one address block it for 15 minutes.
+- Prometheus metrics at `/metrics`: check success, update availability, probe
+  status and latency, last check time, attention and pending notification
+  counts, decision counts and the GitHub cooldown.
+- Private maintenance calendar (ICS). Profile can create, replace or revoke a
+  subscription link that lists planned upgrade dates as all-day events.
+- Optional proxy sign-in for Authelia, Authentik or oauth2-proxy with
+  `RADAR_FORWARD_AUTH_HEADER` and `RADAR_FORWARD_AUTH_TRUSTED_PROXIES`. The
+  header is trusted only from the listed proxy addresses and must name an
+  existing active user.
+- The command palette finds tracked software as well as pages and actions,
+  and opens the upgrade plan for the selected software.
 - New trackers now start with recent history. The first check records up to
   10 recent upstream releases (release strategy only) with their publish
   dates, so History, the activity chart and upgrade evidence are useful
@@ -38,6 +61,14 @@ Format reference: https://keepachangelog.com/en/1.1.0/
 
 ### Changed
 
+- The command palette follows the ARIA combobox pattern: the search box owns
+  the result list, the active result is announced with
+  `aria-activedescendant`, result counts are announced politely, Tab stays
+  inside the dialog and focus returns to where it was on close. Filtered
+  results are now actually hidden; previously the list was filtered for the
+  keyboard but every item stayed visible.
+- The Assistant's release comparison pages back through up to 300 releases
+  until it finds the installed version, instead of stopping at 20.
 - The pre-upgrade checklist is now a single editable list. Each item has a
   stable ID, so a tick stays with its item when other items are edited,
   removed or added. Previously ticks were stored by position and could move

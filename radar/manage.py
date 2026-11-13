@@ -160,7 +160,7 @@ def track(args: argparse.Namespace) -> int:
         )
         return 0 if result.status == "ok" else 2
 
-    name = (args.name or repository.split("/", 1)[1]).strip()
+    name = (args.name or repository.rsplit("/", 1)[-1]).strip()
     default_refresh = int(get_setting("default_refresh_hours", "6") or 6)
     refresh_hours = validate_refresh_hours(
         args.refresh_hours if args.refresh_hours is not None else default_refresh

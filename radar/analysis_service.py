@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from .ai_client import chat as ai_chat
 from .db import audit, connect, get_setting, transaction, utcnow
-from .github import (GitHubError, get_recent_releases, is_searxng_rolling_repository,
+from .github import (GitHubError, MAX_RECENT_RELEASES, get_recent_releases, is_searxng_rolling_repository,
                      normalise_repository)
 from .versioning import versions_match
 
@@ -161,13 +161,18 @@ def release_history_context(tracker, *, release_fetcher=None) -> str:
     rolling_history = is_searxng_rolling_repository(str(tracker["repository"] or ""))
     history_label = "upstream history" if rolling_history else "GitHub release history"
     history_records = "upstream version records" if rolling_history else "GitHub releases"
+    installed = tracker["detected_installed_version"] or tracker["installed_version"]
     try:
-        releases = release_fetcher(
-            tracker["repository"], bool(tracker["include_prereleases"]), limit=20
-        )
+        if installed:
+            # Page back through history until the installed release is found (up to 300 releases).
+            releases = release_fetcher(
+                tracker["repository"], bool(tracker["include_prereleases"]), limit=MAX_RECENT_RELEASES,
+                stop_when=lambda release: versions_match(installed, release.name, release.version),
+            )
+        else:
+            releases = release_fetcher(tracker["repository"], bool(tracker["include_prereleases"]), limit=20)
     except (GitHubError, ValueError) as exc:
         return _context_with_note(tracker, f"release-history lookup failed: {exc}")
-    installed = tracker["detected_installed_version"] or tracker["installed_version"]
     selected = []
     matched_installed = False
     matched_target = False
@@ -206,7 +211,7 @@ def release_history_context(tracker, *, release_fetcher=None) -> str:
     match_note = (
         f"The installed version was found in {history_label}; the notes below cover releases after it."
         if matched_installed
-        else f"The installed version could not be matched exactly in the 20 most recent {history_records}; the notes below may be incomplete."
+        else f"The installed version could not be matched exactly in the {len(releases)} most recent {history_records}; the notes below may be incomplete."
     )
     if truncated:
         match_note += " Release notes were truncated to keep the Assistant context within its limit."

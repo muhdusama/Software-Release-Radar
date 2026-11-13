@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 
 from .db import connect, init_db, transaction, utcnow
 from .github import (GitHubError, GitHubRateLimitError, ReleaseInfo, _parse_utc,
-                     _persist_rate_limit, get_latest, get_recent_releases, shared_rate_limit_until)
+                     _persist_rate_limit, forge_for, get_latest, get_recent_releases, shared_rate_limit_until)
 from .notifications import close_stale_events, dispatch_pending_notifications
 from .portainer import PortainerError, sync_inventory
 from .probes import probe_tracker
@@ -198,7 +198,8 @@ def check_tracker(tracker_id: int, baseline: bool = False, run_probe: bool = Tru
     if tracker is None:
         raise ValueError(f"Tracker {tracker_id} does not exist.")
 
-    cooldown = shared_rate_limit_until()
+    # The shared cooldown is GitHub's; trackers on other forges are checked regardless.
+    cooldown = shared_rate_limit_until() if forge_for(tracker["repository"]) is None else None
     if cooldown and cooldown > datetime.now(timezone.utc):
         return _deferred_result(tracker, cooldown)
 
@@ -238,11 +239,10 @@ def check_all(enabled_only: bool = True, baseline: bool = False, due_only: bool 
     selected = trackers
     if due_only:
         cooldown = shared_rate_limit_until()
-        if cooldown and cooldown > datetime.now(timezone.utc):
-            return []
+        github_paused = bool(cooldown and cooldown > datetime.now(timezone.utc))
         selected = [
             row for row in trackers
-            if is_due(row["last_checked_at"], int(row["refresh_hours"] or 6), retry_at=row["github_retry_at"])
+            if not (github_paused and forge_for(row["repository"]) is None) and is_due(row["last_checked_at"], int(row["refresh_hours"] or 6), retry_at=row["github_retry_at"])
         ]
     has_portainer = any(str(row["probe_mode"] or "") == "portainer" for row in selected)
     if has_portainer:

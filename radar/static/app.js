@@ -222,33 +222,124 @@
   /* ------------------------------------------------------------------ */
   const commandPalette = $('[data-command-palette]');
   const commandSearch = $('[data-command-search]');
-  const commandItems = $$('[data-command-item]');
   const commandEmpty = $('[data-command-empty]');
+  const commandStatus = $('[data-command-status]');
+  const softwareGroup = $('[data-command-software]');
+  const softwareLabel = $('[data-command-software-label]');
+  const pageItems = $$('[data-command-item]');
+  let commandItems = pageItems.slice();
   let commandIndex = 0;
+  let commandOpener = null;
+  let softwareList = null;
+  let softwareLoading = null;
+  let statusTimer = 0;
+
+  function prepareOption(item, index) {
+    item.setAttribute('role', 'option');
+    item.setAttribute('tabindex', '-1');
+    item.setAttribute('aria-selected', 'false');
+    if (!item.id) item.id = `command-option-${index}`;
+    $$('.command-item-icon', item).forEach((icon) => icon.setAttribute('aria-hidden', 'true'));
+  }
+  pageItems.forEach(prepareOption);
 
   function visibleCommandItems() { return commandItems.filter((item) => !item.hidden); }
   function setCommandIndex(index) {
     const visible = visibleCommandItems();
-    commandItems.forEach((item) => item.classList.remove('is-active'));
-    if (!visible.length) return;
+    commandItems.forEach((item) => { item.classList.remove('is-active'); item.setAttribute('aria-selected', 'false'); });
+    if (!visible.length) { commandSearch?.removeAttribute('aria-activedescendant'); return; }
     commandIndex = (index + visible.length) % visible.length;
-    visible[commandIndex].classList.add('is-active');
-    visible[commandIndex].scrollIntoView({ block: 'nearest' });
+    const active = visible[commandIndex];
+    active.classList.add('is-active');
+    active.setAttribute('aria-selected', 'true');
+    commandSearch?.setAttribute('aria-activedescendant', active.id);
+    active.scrollIntoView({ block: 'nearest' });
+  }
+  function announce(message) {
+    if (!commandStatus) return;
+    window.clearTimeout(statusTimer);
+    // A short delay lets screen readers finish echoing the typed character first.
+    statusTimer = window.setTimeout(() => { commandStatus.textContent = message; }, 250);
+  }
+  function renderSoftware(query) {
+    if (!softwareGroup) return;
+    softwareGroup.replaceChildren();
+    const matches = query && softwareList
+      ? softwareList.filter((item) => `${item.name} ${item.repository}`.toLowerCase().includes(query)).slice(0, 8)
+      : [];
+    const planTemplate = commandSearch?.dataset.commandPlan || '';
+    matches.forEach((tracker, index) => {
+      const link = document.createElement('a');
+      link.className = 'command-item';
+      link.href = planTemplate.replace(/\/0$/, `/${tracker.id}`);
+      link.dataset.commandItem = '';
+      const icon = document.createElement('span');
+      icon.className = 'command-item-icon';
+      icon.textContent = '▣';
+      const text = document.createElement('span');
+      const title = document.createElement('strong');
+      title.textContent = tracker.name;
+      const detail = document.createElement('small');
+      const installed = tracker.installed_version ? `Installed ${tracker.installed_version}` : 'Installed version unknown';
+      detail.textContent = `${tracker.repository} · ${installed} · Latest ${tracker.current_version || 'not checked'}`;
+      text.append(title, detail);
+      link.append(icon, text);
+      prepareOption(link, `software-${index}`);
+      softwareGroup.append(link);
+    });
+    softwareGroup.hidden = !matches.length;
+    if (softwareLabel) softwareLabel.hidden = !matches.length;
+    commandItems = [...$$('[data-command-item]', softwareGroup), ...pageItems];
   }
   function filterCommands() {
     const query = (commandSearch?.value || '').trim().toLowerCase();
-    commandItems.forEach((item) => { item.hidden = Boolean(query) && !(item.dataset.commandSearchText || item.textContent).toLowerCase().includes(query); });
-    if (commandEmpty) commandEmpty.hidden = visibleCommandItems().length > 0;
+    pageItems.forEach((item) => { item.hidden = Boolean(query) && !(item.dataset.commandSearchText || item.textContent).toLowerCase().includes(query); });
+    renderSoftware(query);
+    const count = visibleCommandItems().length;
+    if (commandEmpty) commandEmpty.hidden = count > 0;
     setCommandIndex(0);
+    announce(count ? `${count} result${count === 1 ? '' : 's'} available.` : 'No matching page, action or software.');
+  }
+  async function loadSoftware() {
+    const endpoint = commandSearch?.dataset.commandApi;
+    if (!endpoint || softwareList || softwareLoading) return softwareLoading;
+    softwareLoading = (async () => {
+      const items = [];
+      let after = null;
+      try {
+        for (let page = 0; page < 5; page += 1) {
+          const url = new URL(endpoint, window.location.origin);
+          url.searchParams.set('limit', '100');
+          if (after) url.searchParams.set('after_id', String(after));
+          const response = await fetch(url, { credentials: 'same-origin', headers: { Accept: 'application/json' } });
+          if (!response.ok) break;
+          const data = await response.json();
+          items.push(...(data.items || []));
+          after = data.next_after_id;
+          if (!after) break;
+        }
+      } catch (error) {
+        // Software search is optional; pages and actions still work if it fails.
+      }
+      softwareList = items;
+      if (commandPalette && !commandPalette.hidden) filterCommands();
+    })();
+    return softwareLoading;
   }
   function setCommandPalette(open) {
     if (!commandPalette) return;
     commandPalette.hidden = !open;
     document.body.classList.toggle('command-open', open);
     if (open) {
+      commandOpener = document.activeElement;
       if (commandSearch) commandSearch.value = '';
       filterCommands();
+      loadSoftware();
       window.setTimeout(() => commandSearch?.focus(), 0);
+    } else {
+      commandSearch?.removeAttribute('aria-activedescendant');
+      if (commandOpener && document.contains(commandOpener)) commandOpener.focus();
+      commandOpener = null;
     }
   }
   const dashboardPath = (() => { const link = document.querySelector('.sidebar-navigation a'); return link ? new URL(link.href).pathname : '/'; })();
@@ -282,11 +373,18 @@
   $$('[data-command-open]').forEach((button) => button.addEventListener('click', () => setCommandPalette(true)));
   $$('[data-command-close]').forEach((button) => button.addEventListener('click', () => setCommandPalette(false)));
   commandSearch?.addEventListener('input', filterCommands);
-  commandItems.forEach((item) => item.addEventListener('mouseenter', () => setCommandIndex(visibleCommandItems().indexOf(item))));
+  $('[data-command-results]')?.addEventListener('mousemove', (event) => {
+    const item = event.target.closest('[data-command-item]');
+    if (item && !item.classList.contains('is-active')) setCommandIndex(visibleCommandItems().indexOf(item));
+  });
   commandPalette?.addEventListener('keydown', (event) => {
     if (event.key === 'ArrowDown') { event.preventDefault(); setCommandIndex(commandIndex + 1); }
     if (event.key === 'ArrowUp') { event.preventDefault(); setCommandIndex(commandIndex - 1); }
+    if (event.key === 'Home' && event.ctrlKey) { event.preventDefault(); setCommandIndex(0); }
+    if (event.key === 'End' && event.ctrlKey) { event.preventDefault(); setCommandIndex(-1); }
     if (event.key === 'Enter') { event.preventDefault(); runCommand(visibleCommandItems()[commandIndex]); }
+    // Keep focus inside the modal: the search box is the only tab stop; options use aria-activedescendant.
+    if (event.key === 'Tab') { event.preventDefault(); commandSearch?.focus(); }
   });
   document.addEventListener('keydown', (event) => {
     const typing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName) || document.activeElement?.isContentEditable;

@@ -234,7 +234,9 @@ def _read(name, query):
             result = query(conn, principal)
             if _size(result) > MAX_RESULT_BYTES:
                 raise ValueError
-            audit(principal.user_id, 'mcp_read', details=name, conn=conn, api_key_id=principal.key_id)
+            if principal.key_id:
+                # Browser-session API reads are not audited, like ordinary page views.
+                audit(principal.user_id, 'mcp_read', details=name, conn=conn, api_key_id=principal.key_id)
             return result
     except LookupError:
         raise ToolError('Not found.') from None

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hmac
+import ipaddress
 import json
 import logging
 import os
@@ -22,13 +23,14 @@ from .ai_client import AIClientError, chat as ai_chat, test_connection as ai_tes
 from .analysis_service import analyse_messages, chat_messages, release_history_context, tracker_context
 from .auth import hash_password, setup_token, token_digest, verify_password
 from .auth_rate_limit import install_auth_rate_limits
+from .rest_api import CALENDAR_TOKEN_PREFIX, install_api
 from .build_info import build_commit
 from .checker import check_all, check_tracker
 from .db import (
     ALLOWED_REFRESH_HOURS, audit, connect, get_setting, get_settings, init_db,
     set_settings, transaction, utcnow,
 )
-from .github import get_recent_releases, normalise_repository, shared_rate_limit_until
+from .github import get_recent_releases, normalise_repository, repository_web_url, shared_rate_limit_until
 from .inventory_providers import validate_origin_url
 from .system_channels import (
     SYSTEM_CHANNEL_KEYS, SYSTEM_CHANNEL_LABELS, SYSTEM_CHANNELS, SystemChannelError,
@@ -181,6 +183,41 @@ def _evidence_releases(tracker: dict, events, target_key: str, installed: str | 
     return selected
 
 
+def forward_auth_config() -> tuple[str, list] | None:
+    """Return (header, trusted networks) when proxy sign-in is configured.
+
+    Proxy sign-in trusts a username header (for example ``Remote-User`` from
+    Authelia, Authentik or oauth2-proxy) only on requests whose direct TCP peer
+    is one of RADAR_FORWARD_AUTH_TRUSTED_PROXIES. The header is ignored from any
+    other peer, so a client cannot sign itself in by sending it.
+    """
+    header = os.environ.get("RADAR_FORWARD_AUTH_HEADER", "").strip()
+    if not header:
+        return None
+    if not re.fullmatch(r"[A-Za-z0-9-]{1,64}", header):
+        raise RuntimeError("RADAR_FORWARD_AUTH_HEADER must be an HTTP header name such as Remote-User.")
+    raw = [item.strip() for item in os.environ.get("RADAR_FORWARD_AUTH_TRUSTED_PROXIES", "").split(",") if item.strip()]
+    if not raw:
+        raise RuntimeError("RADAR_FORWARD_AUTH_TRUSTED_PROXIES must list the reverse proxy addresses when "
+                           "RADAR_FORWARD_AUTH_HEADER is set.")
+    networks = []
+    for item in raw:
+        try:
+            network = ipaddress.ip_network(item, strict=False)
+        except ValueError as exc:
+            raise RuntimeError(f"RADAR_FORWARD_AUTH_TRUSTED_PROXIES contains an invalid address: {item}") from exc
+        if network.prefixlen == 0:
+            raise RuntimeError("RADAR_FORWARD_AUTH_TRUSTED_PROXIES must not trust every address.")
+        networks.append(network)
+    return header, networks
+
+
+def _direct_peer() -> str:
+    # ProxyFix rewrites REMOTE_ADDR from X-Forwarded-For; trust is decided on the real TCP peer.
+    original = request.environ.get("werkzeug.proxy_fix.orig") or {}
+    return str(original.get("REMOTE_ADDR") or request.environ.get("REMOTE_ADDR") or "")
+
+
 def _user_by_id(user_id: int):
     with connect() as conn:
         return conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
@@ -268,9 +305,28 @@ def create_app() -> Flask:
             return None
         return redirect(url_for("setup"))
 
+    forward_auth = forward_auth_config()
+
     @app.before_request
     def load_user():
         g.user = None
+        g.forward_auth = False
+        if forward_auth is not None:
+            header, networks = forward_auth
+            username = request.headers.get(header, "").strip()
+            try:
+                peer = ipaddress.ip_address(_direct_peer())
+            except ValueError:
+                peer = None
+            if username and peer is not None and any(peer in network for network in networks):
+                with connect() as conn:
+                    row = conn.execute("SELECT * FROM users WHERE username = ? COLLATE NOCASE AND active = 1",
+                                       (username[:64],)).fetchone()
+                if row is None:
+                    abort(403, "The signed-in proxy user does not match an active Release Radar account.")
+                g.user = row
+                g.forward_auth = True
+                return
         user_id = session.get("user_id")
         if user_id:
             row = _user_by_id(int(user_id))
@@ -359,6 +415,7 @@ def create_app() -> Flask:
         return _relative_time(value)
 
     app.add_template_filter(display_version, "display_version")
+    app.add_template_filter(repository_web_url, "repository_url")
     app.add_template_filter(secondary_release_name, "secondary_release_name")
 
     @app.template_filter("split_tags")
@@ -1114,11 +1171,12 @@ def create_app() -> Flask:
         return render_template('profile.html', mcp_keys=list_keys(int(g.user['id'])), mcp_scopes=policy['scopes'],
                                mcp_can_create=g.user['role'] == 'admin' or policy['user_keys'],
                                mcp_enabled=policy['enabled'], mcp_never_expiring=policy['never_expiring'],
-                               has_pushover_key=bool(g.user['pushover_user_key_enc']), **kwargs)
+                               has_pushover_key=bool(g.user['pushover_user_key_enc']),
+                               has_calendar_feed=bool(g.user['calendar_token_digest']), **kwargs)
 
     @app.after_request
     def profile_no_store(response):
-        if request.path in ('/profile', '/settings') or request.path.startswith(('/profile/mcp-keys', '/settings/mcp-keys')):
+        if request.path in ('/profile', '/settings') or request.path.startswith(('/profile/mcp-keys', '/profile/calendar', '/settings/mcp-keys')):
             response.headers['Cache-Control'] = 'no-store'
         return response
 
@@ -1139,6 +1197,26 @@ def create_app() -> Flask:
         except ValueError as exc:
             return render_profile(mcp_error=str(exc)), 400
         return render_profile(mcp_secret=secret)
+
+    @app.post('/profile/calendar')
+    @login_required
+    def calendar_link():
+        require_csrf()
+        token = None
+        if request.form.get('action') == 'revoke':
+            digest = None
+        else:
+            token = CALENDAR_TOKEN_PREFIX + secrets.token_urlsafe(32)
+            digest = token_digest(token)
+        with transaction() as conn:
+            conn.execute('UPDATE users SET calendar_token_digest = ?, updated_at = ? WHERE id = ?',
+                         (digest, utcnow(), g.user['id']))
+            audit(int(g.user['id']), 'calendar_link_revoked' if token is None else 'calendar_link_created', conn=conn)
+            g.user = conn.execute('SELECT * FROM users WHERE id = ?', (g.user['id'],)).fetchone()
+        if token is None:
+            flash('Calendar link revoked. Calendar apps using it will stop updating.', 'success')
+            return redirect(url_for('profile'))
+        return render_profile(calendar_url=url_for('calendar_feed', token=token, _external=True))
 
     @app.post('/profile/mcp-keys/<key_id>/revoke')
     @login_required
@@ -1886,5 +1964,6 @@ def create_app() -> Flask:
 
     install_fleet_notification_controls(app)
     install_auth_rate_limits(app)
+    install_api(app)
     install_security_controls(app)
     return app

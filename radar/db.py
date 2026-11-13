@@ -467,6 +467,9 @@ def init_db() -> None:
         _add_column(conn, "notification_deliveries", "attempts INTEGER NOT NULL DEFAULT 0")
         _add_column(conn, "notification_deliveries", "last_attempt_at TEXT")
         _add_column(conn, "upgrade_decisions", "revision INTEGER NOT NULL DEFAULT 0")
+        _add_column(conn, "users", "calendar_token_digest TEXT")
+        conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_calendar_token ON users(calendar_token_digest) "
+                     "WHERE calendar_token_digest IS NOT NULL")
         for definition in [
             "previous_version TEXT",
             "previous_release_name TEXT",

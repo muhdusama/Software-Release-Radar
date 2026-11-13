@@ -734,7 +734,7 @@ def import_service(service_id: int, repository: str, *, name: str | None = None,
         ).fetchone()
     if service is None:
         raise PortainerError("Inventory service does not exist. Run a synchronisation first.")
-    tracker_name = (name or service["service_name"] or service["container_name"] or repository.split("/", 1)[1]).strip()
+    tracker_name = (name or service["service_name"] or service["container_name"] or repository.rsplit("/", 1)[-1]).strip()
     now = utcnow()
     with transaction() as conn:
         existing = conn.execute("SELECT * FROM trackers WHERE repository=? COLLATE NOCASE", (repository,)).fetchone()
