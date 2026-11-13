@@ -26,11 +26,11 @@ x-radar-environment: &radar-environment
 
 services:
   radar:
-    image: "ghcr.io/muhdusama/software-release-radar:${RADAR_VERSION:-2.14.0}"
+    image: "ghcr.io/muhdusama/software-release-radar:${RADAR_VERSION:-2.15.0}"
     build:
       context: .
       args:
-        APP_VERSION: "${RADAR_VERSION:-2.14.0}"
+        APP_VERSION: "${RADAR_VERSION:-2.15.0}"
         VCS_REF: "${RADAR_BUILD_COMMIT:-}"
     restart: unless-stopped
     environment:
@@ -50,11 +50,11 @@ services:
       start_period: 20s
 
   scheduler:
-    image: "ghcr.io/muhdusama/software-release-radar:${RADAR_VERSION:-2.14.0}"
+    image: "ghcr.io/muhdusama/software-release-radar:${RADAR_VERSION:-2.15.0}"
     build:
       context: .
       args:
-        APP_VERSION: "${RADAR_VERSION:-2.14.0}"
+        APP_VERSION: "${RADAR_VERSION:-2.15.0}"
         VCS_REF: "${RADAR_BUILD_COMMIT:-}"
     restart: unless-stopped
     environment:
@@ -72,11 +72,11 @@ services:
       - "host.docker.internal:host-gateway"
 
   portainer-worker:
-    image: "ghcr.io/muhdusama/software-release-radar:${RADAR_VERSION:-2.14.0}"
+    image: "ghcr.io/muhdusama/software-release-radar:${RADAR_VERSION:-2.15.0}"
     build:
       context: .
       args:
-        APP_VERSION: "${RADAR_VERSION:-2.14.0}"
+        APP_VERSION: "${RADAR_VERSION:-2.15.0}"
         VCS_REF: "${RADAR_BUILD_COMMIT:-}"
     restart: unless-stopped
     environment:
@@ -95,11 +95,11 @@ services:
 
   mcp:
     profiles: [mcp]
-    image: "ghcr.io/muhdusama/software-release-radar:${RADAR_VERSION:-2.14.0}"
+    image: "ghcr.io/muhdusama/software-release-radar:${RADAR_VERSION:-2.15.0}"
     build:
       context: .
       args:
-        APP_VERSION: "${RADAR_VERSION:-2.14.0}"
+        APP_VERSION: "${RADAR_VERSION:-2.15.0}"
         VCS_REF: "${RADAR_BUILD_COMMIT:-}"
     restart: unless-stopped
     command: ["python", "-m", "radar.mcp_server"]
