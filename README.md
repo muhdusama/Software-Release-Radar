@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/muhdusama/Software-Release-Radar/releases/latest"><img alt="Version 2.10.9" src="https://img.shields.io/badge/version-2.10.9-2f81f7"></a>
+  <a href="https://github.com/muhdusama/Software-Release-Radar/releases/latest"><img alt="Version 2.14.0" src="https://img.shields.io/badge/version-2.14.0-2f81f7"></a>
   <a href="https://github.com/muhdusama/Software-Release-Radar/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/muhdusama/Software-Release-Radar/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Python 3.13" src="https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white">
   <img alt="Docker Compose" src="https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white">
@@ -27,9 +27,9 @@
 
 **Understand what you gain, what might break and what you miss by waiting, before you update.**
 
-Software Release Radar is a self-hosted dashboard for reviewing software updates across a homelab or small server fleet. It tracks upstream GitHub releases against the versions you actually run, adds service and container context, and keeps your upgrade decisions in one place.
+Software Release Radar is a self-hosted dashboard for reviewing software updates across a homelab or small server fleet. It tracks upstream GitHub, GitLab, Codeberg, Gitea and Forgejo releases against the versions you actually run, adds service and container context, and keeps your upgrade decisions in one place.
 
-**Version 2.10.9** corrects the dashboard provider label after inventory rebinding. Dockhand versions now display Dockhand, while Portainer mappings retain their own label. See the [changelog](CHANGELOG.md) for changes and compatibility notes.
+**Version 2.14.0** adds GitLab, Codeberg, Gitea and Forgejo release sources, a read-only REST API, Prometheus metrics, a private maintenance calendar, optional proxy sign-in, browser-based first-run setup, webhook, ntfy and Gotify alerts, suggested trackers from your container inventory and a faster command palette that also finds tracked software. Version 2.13.0 lets administrators allow MCP keys that never expire. Version 2.12.0 added the MCP server area in Settings, where administrators turn MCP access off, choose which scopes keys may use, limit keys to administrators, adjust MCP rate limits and revoke any user's key, all without a restart. See the [changelog](CHANGELOG.md) for changes and compatibility notes.
 
 ## Why Release Radar?
 
@@ -77,6 +77,8 @@ Open **http://localhost:9120**.
 
 The setup helper asks for the first administrator account, generates application secrets in a temporary container, writes a protected `.env`, builds the stack and waits for health. It does not save the administrator password itself. Host Python is not required.
 
+Alternatively, set only `SECRET_KEY` and `ENCRYPTION_KEY`, leave `ADMIN_PASSWORD_HASH` empty, start the stack and create the administrator in the browser at `/setup` using the one-time token in the web log (`docker compose logs radar | grep setup`).
+
 Published images are available at `ghcr.io/muhdusama/software-release-radar` for `linux/amd64` and `linux/arm64`. To use one, follow [the published-image deployment instructions](docs/DOCKER.md#use-the-published-image-instead-of-building).
 
 Read the [Docker guide](docs/DOCKER.md) and [security hardening guide](docs/SECURITY-HARDENING.md) before exposing the application outside a trusted network.
@@ -113,14 +115,15 @@ Services grouped by machine, with health and update status.
 
 | Area | Available now |
 |---|---|
-| Release tracking | GitHub releases, prereleases and latest tags; SearXNG rolling commits and Organizr v2 feed; refresh interval per tracker |
+| Release tracking | GitHub, GitLab, Codeberg, Gitea and Forgejo releases, prereleases and latest tags; SearXNG rolling commits and Organizr v2 feed; refresh interval per tracker |
 | Version awareness | Manual versions, service probes, constrained SSH Docker inspection and inventory-provider detection |
 | Fleet inventory | Portainer or Dockhand, machine and service context, aliases and container rebinding |
 | Upgrade review | Decisions, priorities, risk, maintenance dates, checklists, rollback notes and deployment records |
 | Optional Assistant | Release comparison and tracker chat using an OpenAI-compatible endpoint |
 | Notifications | SMTP email and Pushover with system, user, channel and software preferences |
 | Project information | Contributors and AI disclosure inside the application; roadmap, comparison and revision updates on GitHub |
-| Access and storage | Administrator and standard-user roles, SQLite WAL storage and encrypted integration secrets |
+| Integrations | Read-only REST API, Prometheus `/metrics`, private ICS maintenance calendar and MCP |
+| Access and storage | Administrator and standard-user roles, optional proxy sign-in, SQLite WAL storage and encrypted integration secrets |
 | Deployment | Docker Compose, persistent state and published multi-architecture images |
 
 ### Monitoring without AI
@@ -135,7 +138,7 @@ Release history uses up to 20 upstream version records. Standard repositories us
 
 ### Upgrade and recovery
 
-Read the [revision updates](CHANGELOG.md) before upgrading. Version 2.10.9 requires no new dependency or database migration beyond v2.10.6. Changing inventory providers still requires an explicit mapping review; the [configuration guide](docs/CONFIGURATION.md#preserving-trackers-when-changing-providers) describes the guarded rebinding command. Preserve your `.env`, data and SSH material, and retain a rollback image.
+Read the [revision updates](CHANGELOG.md) before upgrading. Version 2.14.0 adds no dependency. Its startup migrations are additive (a calendar link column, notification retry fields and a system channel delivery table), so rolling back to 2.13.0 is supported; after a rollback, trackers on GitLab, Codeberg, Gitea or Forgejo report a check error until they are removed or the upgrade is reapplied. Versions 2.12.0 and 2.13.0 add no dependency or schema change beyond v2.11.0, and older versions reject keys that never expire. Version 2.11.0 added the `mcp` dependency and additive startup migrations. The MCP service stays off until its Compose profile is enabled, and must share the same `/data` mount as the other services. Changing inventory providers still requires an explicit mapping review; the [configuration guide](docs/CONFIGURATION.md#preserving-trackers-when-changing-providers) describes the guarded rebinding command. Preserve your `.env`, data and SSH material, and retain a rollback image.
 
 The repository includes online SQLite backup and guarded restore helpers:
 
@@ -181,6 +184,7 @@ The maintainer directs the work, reviews changes, verifies behaviour and decides
 |---|---|
 | [Docker deployment](docs/DOCKER.md) | Install, upgrade, back up, restore and troubleshoot |
 | [Configuration](docs/CONFIGURATION.md) | Environment variables and optional integrations |
+| [Integrations](docs/INTEGRATIONS.md) | Release sources, REST API, metrics, calendar and proxy sign-in |
 | [Comparison](docs/COMPARISON.md) | Why Release Radar, other tools and analysis limits |
 | [Revision updates](CHANGELOG.md) | Versioned application changes and compatibility notes |
 | [Roadmap](ROADMAP.md) | Shipped features, priorities and future acceptance criteria |

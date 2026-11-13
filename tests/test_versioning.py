@@ -121,6 +121,16 @@ class VersioningTests(unittest.TestCase):
         self.assertTrue(state["needs_attention"])
         self.assertIn("offline", state["attention_reasons"])
 
+    def test_unknown_installed_version_is_not_attention(self):
+        state = classify_tracker_state({
+            "current_version": "2.5.11",
+            "current_release_name": "2.5.11",
+            "last_status": "ok",
+        })
+        self.assertFalse(state["update_available"])
+        self.assertFalse(state["needs_attention"])
+        self.assertEqual(state["upgrade"]["reason"], "installed_version_unavailable")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -18,6 +18,8 @@ from .inventory_providers import (
     InventoryProvider, InventoryProviderError,
 )
 from .db import connect, get_settings, set_settings, transaction, utcnow
+from .github import normalise_repository
+from .known_images import suggest_repository
 from .secrets_store import decrypt_secret
 from .version import APP_VERSION
 from .http_client import open_http
@@ -732,7 +734,7 @@ def import_service(service_id: int, repository: str, *, name: str | None = None,
         ).fetchone()
     if service is None:
         raise PortainerError("Inventory service does not exist. Run a synchronisation first.")
-    tracker_name = (name or service["service_name"] or service["container_name"] or repository.split("/", 1)[1]).strip()
+    tracker_name = (name or service["service_name"] or service["container_name"] or repository.rsplit("/", 1)[-1]).strip()
     now = utcnow()
     with transaction() as conn:
         existing = conn.execute("SELECT * FROM trackers WHERE repository=? COLLATE NOCASE", (repository,)).fetchone()
@@ -1000,6 +1002,44 @@ def import_services_batch(items: list[dict[str, Any]], *, refresh_hours: int = 6
             )
     return {"imported": imported, "failures": failures}
 
+def track_suggested_services(items: list[dict[str, Any]], *, refresh_hours: int = 6,
+                             tags: str = "portainer,docker") -> dict[str, Any]:
+    """Create trackers for reviewed suggestions in one bounded, network-free pass.
+
+    Reuses import_service so binding semantics match the single import path. Rows whose service
+    is already linked, ignored or missing, or whose repository is already tracked, are skipped so
+    repeating a submission is harmless. Repositories are validated by shape only; the scheduler
+    checks them against GitHub later.
+    """
+    created = skipped = 0
+    invalid: list[str] = []
+    for item in items:
+        service_id = int(item["service_id"])
+        label = str(item.get("name") or "").strip() or f"Service {service_id}"
+        try:
+            repository = normalise_repository(str(item.get("repository") or ""))
+        except ValueError as exc:
+            invalid.append(f"{label}: {exc}")
+            continue
+        with connect() as conn:
+            service = conn.execute(
+                "SELECT tracker_id, ignored FROM portainer_services WHERE id=?", (service_id,)
+            ).fetchone()
+            tracked = conn.execute(
+                "SELECT 1 FROM trackers WHERE repository=? COLLATE NOCASE", (repository,)
+            ).fetchone()
+        if service is None or service["tracker_id"] or service["ignored"] or tracked:
+            skipped += 1
+            continue
+        try:
+            import_service(service_id, repository, name=item.get("name") or None,
+                           refresh_hours=refresh_hours, tags=tags)
+            created += 1
+        except (ValueError, PortainerError) as exc:
+            invalid.append(f"{label}: {exc}")
+    return {"created": created, "skipped": skipped, "invalid": invalid}
+
+
 def ignore_service(service_id: int, ignored: bool = True) -> None:
     with transaction() as conn:
         result = conn.execute(
@@ -1031,6 +1071,17 @@ def inventory_summary() -> dict[str, Any]:
         ).fetchall()
     environment_items = [dict(row) for row in environments]
     service_items = [dict(row) for row in services]
+    with connect() as conn:
+        tracked = {str(row[0]).lower() for row in conn.execute("SELECT repository FROM trackers")}
+    for item in service_items:
+        suggestion = None
+        if not item["tracker_id"] and not item["ignored"]:
+            suggestion = suggest_repository(
+                item.get("image"), item.get("repository_override") or item.get("detected_repository"),
+            )
+            if suggestion and suggestion[0].lower() in tracked:
+                suggestion = None
+        item["suggested_repository"], item["suggestion_source"] = suggestion or (None, None)
     return {
         "provider": provider,
         "provider_label": provider.title(),

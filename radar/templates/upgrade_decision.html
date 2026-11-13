@@ -8,7 +8,7 @@
 </section>
 
 <section class="upgrade-version-hero panel">
-  <div><span>Installed</span><strong>{{ effective_installed_version or 'Unknown' }}</strong></div><span class="version-arrow">→</span><div><span>Current upstream release</span><strong>{{ target_release_name or release_key or 'Not checked' }}</strong>{% if target_release_name and release_key and target_release_name|lower != release_key|lower %}<small>Version {{ release_key }}</small>{% endif %}</div><span class="upgrade-chip {{ upgrade['level'] }}">{{ upgrade['label'] }}</span>
+  <div><span>Installed</span><strong>{{ effective_installed_version or 'Unknown' }}</strong></div><span class="version-arrow">→</span><div><span>Current upstream release</span><strong>{{ release_key or target_release_name or 'Not checked' }}</strong>{% if target_release_name and release_key and target_release_name|lower|trim('v') != release_key|lower|trim('v') %}<small>{{ target_release_name }}</small>{% endif %}</div><span class="upgrade-chip {{ upgrade['level'] }}">{{ upgrade['label'] }}</span>
 </section>
 
 {% if historical_release %}<div class="notice-banner warning"><strong>Historical record</strong><span>You are viewing the decision for {{ release_key }}, not the tracker's current upstream release.</span></div>{% endif %}
@@ -27,15 +27,15 @@
         <label>Planned maintenance date<input type="date" name="maintenance_date" value="{{ decision['maintenance_date'] or '' }}" {% if current_user['role'] != 'admin' %}disabled{% endif %}></label>
       </div>
       <label>Decision notes<textarea name="decision_notes" rows="5" placeholder="Why update now, wait, or ignore this release?" {% if current_user['role'] != 'admin' %}disabled{% endif %}>{{ decision['decision_notes'] or '' }}</textarea></label>
-      <label>Obsidian change record link<input type="text" name="change_record_url" value="{{ decision['change_record_url'] or '' }}" placeholder="obsidian://open?... or https://..." {% if current_user['role'] != 'admin' %}disabled{% endif %}></label>
+      <label>Change record link<input type="text" name="change_record_url" value="{{ decision['change_record_url'] or '' }}" placeholder="https://... or obsidian://..." {% if current_user['role'] != 'admin' %}disabled{% endif %}></label>
       {% if decision['change_record_url'] %}<a class="text-link" href="{{ decision['change_record_url'] }}">Open linked change record</a>{% endif %}
     </article>
 
     <article class="panel checklist-panel">
-      <div class="panel-header"><div><h2>Pre-upgrade checklist</h2><p>One item per line. Tick completed controls before deployment.</p></div><span class="checklist-progress-label">{{ checklist_summary['complete'] }}/{{ checklist_summary['total'] }}</span></div>
+      <div class="panel-header"><div><h2>Pre-upgrade checklist</h2><p>Tick completed controls before deployment. Edit an item in place, or clear its text to remove it.</p></div><span class="checklist-progress-label">{{ checklist_summary['complete'] }}/{{ checklist_summary['total'] }}</span></div>
       <div class="checklist-progress-track"><span style="width: {{ checklist_summary['percent'] }}%"></span></div>
-      {% if checklist %}<div class="upgrade-checklist">{% for item in checklist %}<label><input type="checkbox" name="checklist_done" value="{{ loop.index0 }}" {{ 'checked' if item['done'] else '' }} {% if current_user['role'] != 'admin' %}disabled{% endif %}><span>{{ item['text'] }}</span></label>{% endfor %}</div>{% endif %}
-      <label>Checklist items<textarea name="checklist_items" rows="10" placeholder="Back up application data&#10;Confirm rollback command&#10;Review migrations&#10;Validate maintenance window" {% if current_user['role'] != 'admin' %}disabled{% endif %}>{% for item in checklist %}{{ item['text'] }}{{ '\n' if not loop.last else '' }}{% endfor %}</textarea></label>
+      {% if checklist %}<ul class="upgrade-checklist">{% for item in checklist %}<li class="checklist-item"><input type="hidden" name="checklist_id" value="{{ item['id'] }}"><input type="checkbox" name="checklist_done" value="{{ item['id'] }}" aria-label="Completed: {{ item['text'] }}" {{ 'checked' if item['done'] else '' }} {% if current_user['role'] != 'admin' %}disabled{% endif %}><input type="text" name="checklist_text" value="{{ item['text'] }}" maxlength="240" aria-label="Checklist item {{ loop.index }}" {% if current_user['role'] != 'admin' %}disabled{% endif %}></li>{% endfor %}</ul>{% endif %}
+      {% if current_user['role'] == 'admin' %}<label>Add checklist items<textarea name="checklist_new" rows="3" placeholder="One new item per line"></textarea></label>{% endif %}
     </article>
 
     <article class="panel rollback-panel">

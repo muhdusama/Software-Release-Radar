@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import re
+import secrets
 from datetime import datetime
 from urllib.parse import urlparse
 from .db import audit, transaction, utcnow
@@ -24,6 +26,14 @@ RISK_CHOICES = (
     ("medium", "Medium"),
     ("high", "High"),
     ("critical", "Critical"),
+)
+
+DEFAULT_CHECKLIST = (
+    "Back up application data",
+    "Confirm the rollback command and previous version",
+    "Review release notes, migrations and breaking changes",
+    "Confirm the maintenance window",
+    "Validate health checks after deployment",
 )
 
 DECISION_VALUES = {value for value, _ in DECISION_CHOICES}
@@ -65,19 +75,59 @@ def validate_change_record_url(value: str | None) -> str | None:
     return value
 
 
-def checklist_from_form(lines_value: str | None, completed_values: list[str]) -> list[dict[str, object]]:
-    completed = {int(item) for item in completed_values if str(item).isdigit()}
+CHECKLIST_LIMIT = 30
+CHECKLIST_ID_PATTERN = re.compile(r"[A-Za-z0-9_-]{1,32}")
+
+
+def _new_checklist_id(used: set[str]) -> str:
+    while True:
+        item_id = secrets.token_hex(4)
+        if item_id not in used:
+            used.add(item_id)
+            return item_id
+
+
+def _checklist_text(value: object) -> str:
+    text = str(value or "").strip()
+    if len(text) > 240:
+        raise ValueError("Checklist items must be 240 characters or fewer.")
+    return text
+
+
+def checklist_from_form(item_ids: list[str], item_texts: list[str], done_ids: list[str],
+                        new_lines: str | None) -> list[dict[str, object]]:
+    """Build a checklist from the decision form.
+
+    Existing items keep their stable ID, so a tick always follows its item even
+    when other items are edited, removed or added. Clearing an item's text removes it.
+    """
+    if len(item_ids) != len(item_texts):
+        raise ValueError("The checklist form was incomplete; reload the decision.")
+    done = {str(value) for value in done_ids}
+    used: set[str] = set()
     items: list[dict[str, object]] = []
-    for raw in str(lines_value or "").splitlines():
-        text = raw.strip()
+    for raw_id, raw_text in zip(item_ids, item_texts):
+        text = _checklist_text(raw_text)
         if not text:
             continue
-        if len(text) > 240:
-            raise ValueError("Checklist items must be 240 characters or fewer.")
-        if len(items) >= 30:
-            raise ValueError("A checklist can contain at most 30 items.")
-        items.append({"text": text, "done": len(items) in completed})
+        item_id = str(raw_id)
+        if CHECKLIST_ID_PATTERN.fullmatch(item_id) and item_id not in used:
+            used.add(item_id)
+            items.append({"id": item_id, "text": text, "done": item_id in done})
+        else:
+            items.append({"id": _new_checklist_id(used), "text": text, "done": False})
+    for raw in str(new_lines or "").splitlines():
+        text = _checklist_text(raw)
+        if text:
+            items.append({"id": _new_checklist_id(used), "text": text, "done": False})
+    if len(items) > CHECKLIST_LIMIT:
+        raise ValueError("A checklist can contain at most 30 items.")
     return items
+
+
+def default_checklist() -> list[dict[str, object]]:
+    used: set[str] = set()
+    return [{"id": _new_checklist_id(used), "text": text, "done": False} for text in DEFAULT_CHECKLIST]
 
 
 def checklist_json(items: list[dict[str, object]]) -> str:
@@ -92,12 +142,22 @@ def load_checklist(value: str | None) -> list[dict[str, object]]:
     result: list[dict[str, object]] = []
     if not isinstance(raw, list):
         return result
-    for item in raw[:30]:
+    used: set[str] = set()
+    for item in raw[:CHECKLIST_LIMIT]:
         if not isinstance(item, dict):
             continue
         text = str(item.get("text") or "").strip()
-        if text:
-            result.append({"text": text[:240], "done": bool(item.get("done"))})
+        if not text:
+            continue
+        item_id = str(item.get("id") or "")
+        if not CHECKLIST_ID_PATTERN.fullmatch(item_id) or item_id in used:
+            # Records saved before stable IDs: derive a position-based ID that
+            # stays the same until the decision is next saved with real IDs.
+            item_id = f"item-{len(result) + 1}"
+            while item_id in used:
+                item_id += "x"
+        used.add(item_id)
+        result.append({"id": item_id, "text": text[:240], "done": bool(item.get("done"))})
     return result
 
 
@@ -135,13 +195,25 @@ def save_upgrade_review(tracker_id: int, submitted_release_key: str, expected_re
         if value is not None and (not isinstance(value, str) or len(value) > 10000):
             raise ValueError('Notes must be 10000 characters or fewer.')
         notes[key] = (value or '').strip() or None
-    checklist = review.get('checklist', [])
-    if not isinstance(checklist, list) or len(checklist) > 30:
+    submitted_checklist = review.get('checklist', [])
+    if not isinstance(submitted_checklist, list) or len(submitted_checklist) > CHECKLIST_LIMIT:
         raise ValueError('Invalid checklist.')
-    for item in checklist:
-        if (not isinstance(item, dict) or set(item) != {'text', 'done'} or not isinstance(item['text'], str)
-                or not 1 <= len(item['text'].strip()) <= 240 or type(item['done']) is not bool):
+    checklist = []
+    used_ids: set[str] = set()
+    for item in submitted_checklist:
+        if (not isinstance(item, dict) or not {'text', 'done'} <= set(item) <= {'id', 'text', 'done'}
+                or not isinstance(item['text'], str) or not 1 <= len(item['text'].strip()) <= 240
+                or type(item['done']) is not bool):
             raise ValueError('Invalid checklist item.')
+        item_id = item.get('id')
+        if item_id is not None:
+            if not isinstance(item_id, str) or not CHECKLIST_ID_PATTERN.fullmatch(item_id) or item_id in used_ids:
+                raise ValueError('Invalid checklist item.')
+            used_ids.add(item_id)
+        checklist.append({'id': item_id, 'text': item['text'].strip(), 'done': item['done']})
+    for item in checklist:
+        if item['id'] is None:
+            item['id'] = _new_checklist_id(used_ids)
     if cli:
         if user_id is not None:
             raise ValueError('The trusted local CLI path has no user identity.')

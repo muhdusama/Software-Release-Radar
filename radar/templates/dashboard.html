@@ -25,6 +25,9 @@
 <section class="insight-grid">
   <article class="panel activity-panel">
     <div class="panel-header compact-panel-header"><div><h2>Update activity</h2><p>Detected releases during the past 14 days.</p></div></div>
+    {% if not activity|selectattr('count')|list %}
+    <div class="activity-empty">No upstream releases were published or detected in the past 14 days. Adding a tracker records its recent release history, and new releases appear here as they are detected.</div>
+    {% else %}
     <div class="activity-chart">
       {% for day in activity %}
       <a class="activity-day activity-day-link" href="{{ url_for('history', date=day['date']) }}" title="{{ day['label'] }}: {{ day['count'] }} update(s) · open history">
@@ -34,18 +37,19 @@
       </a>
       {% endfor %}
     </div>
+    {% endif %}
   </article>
   <article class="panel recent-panel">
     <div class="panel-header compact-panel-header"><div><h2>Recently updated</h2><p>Latest detected release changes.</p></div><a class="text-link" href="{{ url_for('history') }}">Full history</a></div>
     {% if recent_events %}
     <div class="recent-update-list">
       {% for event in recent_events[:4] %}
-      <a class="recent-update" href="{{ event['release_url'] or ('https://github.com/' ~ event['repository']) }}" target="_blank" rel="noreferrer">
+      <a class="recent-update" href="{{ event['release_url'] or (event['repository']|repository_url) }}" target="_blank" rel="noreferrer">
         <span class="update-symbol">↗</span><span class="recent-update-copy"><strong>{{ event['name'] }}</strong><small>{{ event['previous_release_name'] or event['previous_version'] or 'Previous' }} → {{ event['release_name'] or event['version'] }}</small></span><span class="update-time">{{ event['detected_at']|relative_time }}</span>
       </a>
       {% endfor %}
     </div>
-    {% else %}<div class="mini-empty">No release changes have been detected after the initial baselines.</div>{% endif %}
+    {% else %}<div class="mini-empty">No upstream release changes have been recorded yet.</div>{% endif %}
   </article>
 </section>
 
@@ -59,7 +63,7 @@
     {% for tracker in workflow_queue %}
     <article class="workflow-queue-row">
       <span class="decision-chip {{ tracker['decision_status'] }}">{{ tracker['decision_label'] }}</span>
-      <div class="workflow-queue-copy"><strong>{{ tracker['name'] }}</strong><small>{{ tracker['effective_installed_version'] or 'Unknown installed' }} → {{ tracker['current_release_name'] or tracker['current_version'] }}{% if tracker['machine_name'] %} · {{ tracker['machine_name'] }}{% endif %}</small></div>
+      <div class="workflow-queue-copy"><strong>{{ tracker['name'] }}</strong><small>{{ tracker['effective_installed_version'] or 'Unknown installed' }} → {{ tracker['current_version'] or tracker['current_release_name'] }}{% if tracker['machine_name'] %} · {{ tracker['machine_name'] }}{% endif %}</small></div>
       <span class="priority-chip {{ tracker['decision_priority'] }}">{{ tracker['decision_priority']|title }}</span>
       {% if tracker['maintenance_date'] %}<span class="maintenance-chip">{{ tracker['maintenance_date'] }}</span>{% endif %}
       <a class="button ghost small" href="{{ url_for('upgrade_decision', tracker_id=tracker['id']) }}">Review</a>
@@ -149,7 +153,7 @@
       data-tags="{{ tracker['tags']|lower }}"
       data-name="{{ tracker['name']|lower }}"
       data-installed="{{ (tracker['effective_installed_version'] or '')|lower }}"
-      data-current="{{ (tracker['current_release_name'] or tracker['current_version'] or '')|lower }}"
+      data-current="{{ (tracker['current_version'] or tracker['current_release_name'] or '')|lower }}"
       data-refresh="{{ tracker['refresh_hours'] or 0 }}"
       data-checked="{{ tracker['last_checked_at'] or '' }}"
       data-status="{{ 'paused' if not tracker['enabled'] else ('error' if tracker['last_status'] == 'error' else ('pending' if tracker['pending_count'] else 'active')) }}"
@@ -160,14 +164,14 @@
       data-update="{% if tracker['update_available'] %}{{ tracker['upgrade']['level'] or 'update-available' }} update-available{% elif tracker['version_current'] %}installed-current{% elif not tracker['effective_installed_version'] %}unknown{% else %}no-update-data{% endif %}">
       <div class="tracker-select">{% if current_user['role'] == 'admin' %}<input class="tracker-checkbox" type="checkbox" name="tracker_ids" value="{{ tracker['id'] }}" form="bulk-form" aria-label="Select {{ tracker['name'] }}">{% endif %}</div>
       <div class="tracker-main">
-        <div class="tracker-title-line"><span class="status-dot {% if not tracker['enabled'] %}paused{% elif tracker['last_status'] == 'error' %}error{% else %}ok{% endif %}"></span><div><div class="tracker-name-line"><h3>{{ tracker['name'] }}</h3>{% if tracker['recently_updated'] %}<span class="updated-badge">Updated</span>{% endif %}{% if tracker['update_available'] %}<span class="upgrade-chip {{ tracker['upgrade']['level'] }}">{{ tracker['upgrade']['label'] }}</span>{% elif tracker['version_current'] %}<span class="current-badge">{{ tracker['upgrade']['label'] }}</span>{% endif %}{% if tracker['needs_attention'] %}<span class="pill warning-pill">Needs attention</span>{% endif %}{% if tracker['decision_status'] %}<span class="decision-chip {{ tracker['decision_status'] }}">{{ tracker['decision_status']|title }}</span>{% endif %}</div><a href="https://github.com/{{ tracker['repository'] }}" target="_blank" rel="noreferrer">{{ tracker['repository'] }}</a></div></div>
+        <div class="tracker-title-line"><span class="status-dot {% if not tracker['enabled'] %}paused{% elif tracker['last_status'] == 'error' %}error{% else %}ok{% endif %}"></span><div><div class="tracker-name-line"><h3>{{ tracker['name'] }}</h3>{% if tracker['recently_updated'] %}<span class="updated-badge">Updated</span>{% endif %}{% if tracker['update_available'] %}<span class="upgrade-chip {{ tracker['upgrade']['level'] }}">{{ tracker['upgrade']['label'] }}</span>{% elif tracker['version_current'] %}<span class="current-badge">{{ tracker['upgrade']['label'] }}</span>{% endif %}{% if tracker['needs_attention'] %}<span class="pill warning-pill">Needs attention</span>{% endif %}{% if tracker['decision_status'] %}<span class="decision-chip {{ tracker['decision_status'] }}">{{ tracker['decision_status']|title }}</span>{% endif %}</div><a href="{{ tracker['repository']|repository_url }}" target="_blank" rel="noreferrer">{{ tracker['repository'] }}</a></div></div>
         {% if tracker['machine_name'] or tracker['install_host'] %}<div class="machine-line"><strong>{{ tracker['machine_name'] or 'Installed service' }}</strong><span>{{ tracker['install_host'] or 'No IP' }}{% if tracker['install_port'] %}:{{ tracker['install_port'] }}{% endif %}</span>{% if tracker['last_probe_status'] == 'ok' %}<span class="online-chip">Online · {{ tracker['last_probe_latency_ms'] }} ms</span>{% elif tracker['last_probe_status'] == 'error' %}<span class="offline-chip">Offline</span>{% else %}<span class="muted-chip">Not probed</span>{% endif %}</div>{% endif %}
         {% if tracker['tags_list'] %}<div class="tag-list tracker-tags">{% for tag in tracker['tags_list'] %}<span class="tag-chip">{{ tag }}</span>{% endfor %}</div>{% endif %}
         {% if tracker['notes'] %}<p class="tracker-notes">{{ tracker['notes'] }}</p>{% endif %}
       </div>
       <div class="tracker-facts tracker-facts-wide">
         <div class="release-fact"><span>Installed version</span><strong>{{ tracker['effective_installed_version'] or 'Not recorded' }}</strong><small>{% if tracker['probe_mode'] == 'portainer' %}{{ tracker['inventory_source']|title if tracker['inventory_source'] in ['portainer', 'dockhand'] else 'Inventory provider' }}{% else %}{{ tracker['probe_mode']|replace('_', ' ')|title }}{% endif %}</small></div>
-        <div class="release-fact"><span>Current release</span><strong>{{ tracker['current_release_name'] or tracker['current_version'] or 'Not checked' }}</strong>{% if tracker['current_release_name'] and tracker['current_version'] and tracker['current_release_name']|lower != tracker['current_version']|lower %}<small>Version {{ tracker['current_version'] }}</small>{% endif %}</div>
+        <div class="release-fact"><span>Current release</span><strong>{{ tracker['current_version'] or tracker['current_release_name'] or 'Not checked' }}</strong>{% if tracker['current_release_name'] and tracker['current_version'] and tracker['current_release_name']|lower|trim('v') != tracker['current_version']|lower|trim('v') %}<small>{{ tracker['current_release_name'] }}</small>{% endif %}</div>
         <div><span>Refresh</span><strong>Every {{ tracker['refresh_hours'] }}h</strong><small>Next {{ tracker['next_due_at']|relative_time }}</small></div>
         <div><span>Last checked</span><strong>{{ tracker['last_checked_at']|relative_time }}</strong><small>{{ tracker['last_checked_at']|pretty_time }}</small></div>
         <div><span>Status</span>{% if not tracker['enabled'] %}<strong class="pill muted-pill">Paused</strong>{% elif tracker['last_status'] == 'error' %}<strong class="pill error-pill">Error</strong>{% elif tracker['pending_count'] %}<strong class="pill warning-pill">Alert pending</strong>{% else %}<strong class="pill success-pill">Active</strong>{% endif %}</div>
@@ -176,15 +180,23 @@
       {% if tracker['last_error'] %}<div class="inline-error">Upstream check: {{ tracker['last_error'] }}</div>{% endif %}
       {% if tracker['last_probe_error'] %}<div class="inline-error probe-error">Service probe: {{ tracker['last_probe_error'] }}</div>{% endif %}
       <div class="tracker-actions">
-        {% if tracker['current_release_url'] %}<a class="button ghost small" href="{{ tracker['current_release_url'] }}" target="_blank" rel="noreferrer">Release</a>{% endif %}
-        <a class="button ghost small" href="{{ url_for('assistant', tracker_id=tracker['id']) }}">Analyse</a>
         {% if tracker['update_available'] or tracker['decision_id'] %}<a class="button ghost small" href="{{ url_for('upgrade_decision', tracker_id=tracker['id']) }}">Plan</a>{% endif %}
         {% if current_user['role'] == 'admin' %}
-        {% if tracker['probe_mode'] == 'portainer' or tracker['install_host'] %}<form method="post" action="{{ url_for('probe_one', tracker_id=tracker['id']) }}" data-preserve-dashboard-state><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button ghost small" type="submit">Probe</button></form>{% else %}<a class="button ghost small" href="{{ url_for('edit_tracker', tracker_id=tracker['id']) }}" data-preserve-dashboard-state title="Configure machine, port or inventory mapping before probing">Configure probe</a>{% endif %}
         <form method="post" action="{{ url_for('check_one', tracker_id=tracker['id']) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button ghost small" type="submit">Check</button></form>
-        <a class="button ghost small" href="{{ url_for('edit_tracker', tracker_id=tracker['id']) }}">Edit</a>
-        <form method="post" action="{{ url_for('toggle_tracker', tracker_id=tracker['id']) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button ghost small" type="submit">{{ 'Pause' if tracker['enabled'] else 'Enable' }}</button></form>
-        <form method="post" action="{{ url_for('delete_tracker', tracker_id=tracker['id']) }}" data-confirm="{{ 'Delete ' ~ tracker['name'] ~ ' and its release history?' }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button danger small" type="submit">Delete</button></form>
+        <details class="row-menu">
+          <summary class="button ghost small" aria-label="More actions for {{ tracker['name'] }}">More</summary>
+          <div class="row-menu-list">
+            {% if tracker['current_release_url'] %}<a href="{{ tracker['current_release_url'] }}" target="_blank" rel="noreferrer">Open release notes</a>{% endif %}
+            <a href="{{ url_for('assistant', tracker_id=tracker['id']) }}">Analyse</a>
+            {% if tracker['probe_mode'] == 'portainer' or tracker['install_host'] %}<form method="post" action="{{ url_for('probe_one', tracker_id=tracker['id']) }}" data-preserve-dashboard-state><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit">Probe service</button></form>{% else %}<a href="{{ url_for('edit_tracker', tracker_id=tracker['id']) }}" data-preserve-dashboard-state title="Configure machine, port or inventory mapping before probing">Configure probe</a>{% endif %}
+            <a href="{{ url_for('edit_tracker', tracker_id=tracker['id']) }}">Edit</a>
+            <form method="post" action="{{ url_for('toggle_tracker', tracker_id=tracker['id']) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit">{{ 'Pause' if tracker['enabled'] else 'Enable' }}</button></form>
+            <form method="post" action="{{ url_for('delete_tracker', tracker_id=tracker['id']) }}" data-confirm="{{ 'Delete ' ~ tracker['name'] ~ ' and its release history? This cannot be undone.' }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="row-menu-danger" type="submit">Delete</button></form>
+          </div>
+        </details>
+        {% else %}
+        {% if tracker['current_release_url'] %}<a class="button ghost small" href="{{ tracker['current_release_url'] }}" target="_blank" rel="noreferrer">Release</a>{% endif %}
+        <a class="button ghost small" href="{{ url_for('assistant', tracker_id=tracker['id']) }}">Analyse</a>
         {% endif %}
       </div>
     </article>

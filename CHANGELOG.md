@@ -8,6 +8,173 @@ Format reference: https://keepachangelog.com/en/1.1.0/
 
 ## [Unreleased]
 
+## [2.14.0] - 2026-11-13
+
+### Added
+
+- GitLab, Codeberg, Gitea and Forgejo release sources. Paste a gitlab.com,
+  codeberg.org or gitea.com project URL, or use `gitlab:host/group/project`
+  or `gitea:host/owner/repository` for a self-hosted forge. Public projects
+  only. The latest release is the highest version rather than the most
+  recently published backport, and the GitHub rate-limit cooldown no longer
+  pauses trackers on other forges. See `docs/INTEGRATIONS.md`.
+- Read-only REST API under `/api/v1` (status, trackers, releases, history and
+  upgrade decisions) using the existing Profile API keys or the browser
+  session. It reuses the MCP read projections, permissions and size limits.
+  Twenty failed key attempts from one address block it for 15 minutes.
+- Prometheus metrics at `/metrics`: check success, update availability, probe
+  status and latency, last check time, attention and pending notification
+  counts, decision counts and the GitHub cooldown.
+- Private maintenance calendar (ICS). Profile can create, replace or revoke a
+  subscription link that lists planned upgrade dates as all-day events.
+- Optional proxy sign-in for Authelia, Authentik or oauth2-proxy with
+  `RADAR_FORWARD_AUTH_HEADER` and `RADAR_FORWARD_AUTH_TRUSTED_PROXIES`. The
+  header is trusted only from the listed proxy addresses and must name an
+  existing active user.
+- The command palette finds tracked software as well as pages and actions,
+  and opens the upgrade plan for the selected software.
+- New trackers now start with recent history. The first check records up to
+  10 recent upstream releases (release strategy only) with their publish
+  dates, so History, the activity chart and upgrade evidence are useful
+  straight away. Seeded releases are marked as already notified and never
+  trigger alerts or automatic analysis. Trackers that already have history
+  are left unchanged and make no extra GitHub request.
+- Zero-typing inventory import: the Inventory page shows a Suggested trackers
+  review for untracked containers. Suggestions come from image labels or from
+  a curated, versioned list of well-known self-hosted images
+  (`radar/known_images.py`), and each row shows its source. Track selected
+  creates the trackers in one request and reports created, skipped and
+  invalid counts. No GitHub call is made during the request; the scheduled
+  check validates the repositories.
+- First-run administrator setup in the browser. `ADMIN_PASSWORD_HASH` is now
+  optional in `docker-compose.yml`. When no users exist, every page redirects
+  to `/setup`, which requires a one-time setup token printed to the web
+  container log (`docker compose logs radar | grep setup`).
+- Webhook, ntfy and Gotify release-alert channels, configured by an
+  administrator under Settings, Other channels. Each is enabled separately,
+  delivers once per release rather than once per user, and has a Send test
+  notification button. The webhook sends a JSON payload (see
+  `docs/NOTIFICATIONS.md`) with an optional bearer token and an optional
+  `X-Radar-Signature` HMAC-SHA256 header. Release notes are never sent.
+- The Notifications page lists which channels are ready to deliver, and shows
+  administrators a Recent delivery failures section.
+
+### Changed
+
+- The command palette follows the ARIA combobox pattern: the search box owns
+  the result list, the active result is announced with
+  `aria-activedescendant`, result counts are announced politely, Tab stays
+  inside the dialog and focus returns to where it was on close. Filtered
+  results are now actually hidden; previously the list was filtered for the
+  keyboard but every item stayed visible.
+- The Assistant's release comparison pages back through up to 300 releases
+  until it finds the installed version, instead of stopping at 20.
+- The pre-upgrade checklist is now a single editable list. Each item has a
+  stable ID, so a tick stays with its item when other items are edited,
+  removed or added. Previously ticks were stored by position and could move
+  to the wrong item, and the list was shown twice (as checkboxes and again in
+  a text box). Existing checklists load unchanged and gain IDs on the next
+  save. MCP and CLI callers may pass an optional `id` per item.
+- Dashboard software rows show Plan, Check and a More menu instead of up to
+  eight buttons. Delete moved into the menu and its confirmation says it
+  cannot be undone.
+- The software list header and rows share one column layout, so headers line
+  up with their columns and no longer overflow. Per-cell labels are hidden on
+  desktop and remain on narrow screens.
+- Timestamps show in the viewer's local time, with UTC in the tooltip.
+- Versions show first, with the release name underneath only when it adds
+  information.
+- A tracker without an installed version is no longer listed under Needs
+  attention. Trackers whose versions cannot be compared still are.
+- Keyboard shortcuts follow the sidebar links, so standard users are not sent
+  to administrator pages, `A` opens Add software, `Ctrl K` is shown outside
+  macOS, and shortcuts work under a sub-path.
+- The update activity chart explains why it is empty on a new installation.
+- Fleet: correct pluralisation, a neutral Not probed state instead of a green
+  "0 online", and no placeholder host text.
+- Inventory: Synchronise now is disabled while the integration is off.
+- Upgrade decision: the change record field is labelled "Change record link".
+
+### Fixed
+
+- A fresh installation could fail to start: the two web workers, scheduler
+  and worker opened the new database together, and one could exit with
+  "database is locked" while switching to WAL or "duplicate column name"
+  during migrations. The WAL switch now retries briefly and migrations run
+  under a write lock.
+- An `ADMIN_PASSWORD_HASH` that is not a valid `pbkdf2_sha256` hash no longer
+  creates an administrator who can never sign in. The error is logged and the
+  application falls back to `/setup`.
+- Release alerts were never marked as delivered, so Pending alerts on the
+  dashboard grew without end and failed or interrupted deliveries were never
+  retried. The scheduler now dispatches every pending alert each cycle, oldest
+  first (50 per cycle), and sets `notified_at` once every delivery is sent,
+  skipped, or failed with its attempts used up.
+- Failed deliveries are retried up to 5 times, waiting 5 minutes multiplied by
+  the attempts so far between tries.
+- A timeout or other network error while reading a Pushover or AI response no
+  longer aborts the whole notification cycle. Each delivery is isolated.
+- An AI auto-analysis failure can no longer stop the release alert.
+- `radar.checker --notify` no longer marks events as notified when delivery
+  failed.
+- A failed Portainer or Dockhand inventory sync during checks and probes is now
+  logged as a warning (the check still continues).
+
+### Compatibility
+
+- Additive schema only: two columns on `notification_deliveries` (`attempts`,
+  `last_attempt_at`) and a new `system_notification_deliveries` table. Older
+  versions ignore them and keep working against an upgraded database.
+- Upgrade safety: on the first scheduler cycle after upgrading, pending alerts
+  detected more than 7 days earlier are closed without sending. The same rule
+  applies after a long outage. Newer pending alerts that were already sent are
+  closed without a duplicate; others are sent.
+- Webhook, ntfy and Gotify are off by default. They follow the system-wide
+  safety switch and the first active administrator's notification preferences,
+  including per-software Mute and the personal default.
+- Previously, a user whose Pushover or SMTP provider was disabled in Settings
+  had a retryable failed row. That case is now recorded as skipped.
+- Rollback to an earlier version leaves pending alerts without `notified_at`
+  again, and the new channels stop sending.
+
+## [2.13.0] - 2026-11-13
+
+### Added
+
+- MCP keys that never expire. An administrator enables them in Settings, MCP
+  server; users then choose Never expires when creating a key in Profile. Such
+  keys still stop working when revoked, after a password change or when the
+  account is deactivated.
+
+### Compatibility
+
+- Off by default. No dependency or schema change; a key without expiry stores
+  `never` in the existing expiry column.
+- Turning the setting off stops new keys without expiry but keeps existing ones;
+  revoke them from Settings if required.
+- Rollback to v2.12.0 or earlier rejects keys that never expire.
+
+## [2.12.0] - 2026-11-13
+
+### Added
+
+- MCP server area in Settings for administrators: an access switch, the scopes
+  keys may use, whether standard users may use keys, MCP rate limits and a list
+  of every user's keys with revoke. Changes apply to the next MCP request
+  without a restart.
+
+### Compatibility
+
+- No new dependency or schema change. Policy is stored in the existing settings
+  table; unset values keep v2.11.0 behaviour, so upgrades change nothing until
+  an administrator saves the MCP section.
+- Clearing a scope removes it from existing keys until it is allowed again.
+  Network, HTTPS and proxy rules and the authentication failure limit remain
+  environment settings.
+- Rollback to v2.11.0 ignores the stored MCP policy and rate limits.
+
+## [2.11.0] - 2026-11-02
+
 ### Added
 
 - Optional built-in MCP HTTP service with browser-managed scoped API keys,
@@ -21,6 +188,21 @@ Format reference: https://keepachangelog.com/en/1.1.0/
 - Inventory sync enqueue is atomic across workers.
 - Browser and MCP upgrade decisions use release-bound integer revisions, preventing
   stale reviews from overwriting a concurrent save or deployed decision.
+- The `decide` and `mark-deployed` commands now join the same revision contract.
+  Each reads, validates, saves and audits in one immediate transaction, so a CLI
+  change invalidates an earlier browser or MCP read, cannot overwrite a deployed
+  decision, and is never saved without its audit entry.
+
+### Compatibility
+
+- Adds the `mcp` Python dependency to the image. The MCP service is a separate,
+  opt-in Compose profile; existing deployments run unchanged until it is enabled.
+- Applies additive startup migrations: MCP key, lease and rate tables, an audit
+  `api_key_id` column and an upgrade-decision `revision` column. Version 2.10.9
+  ignores these additions, so its image remains a valid rollback.
+- Deployments that override the data mount must give the `mcp` service the same
+  `/data` and `/ssh` mounts as the other services. Stop every writer, including
+  `mcp`, before restoring a database backup.
 
 ## [2.10.9] - 2026-10-24
 

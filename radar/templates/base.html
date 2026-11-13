@@ -97,14 +97,19 @@
 <div class="command-palette" id="command-palette" role="dialog" aria-modal="true" aria-labelledby="command-palette-title" hidden data-command-palette>
   <button class="command-palette-backdrop" type="button" aria-label="Close command palette" data-command-close></button>
   <section class="command-palette-card">
+    <h2 class="sr-only" id="command-palette-title">Command palette</h2>
     <div class="command-search-wrap">
       <span aria-hidden="true">⌕</span>
-      <label class="sr-only" for="command-search">Find a page or action</label>
-      <input id="command-search" type="search" placeholder="Find a page or action…" autocomplete="off" data-command-search>
+      <label class="sr-only" for="command-search">Find a page, action or tracked software</label>
+      <input id="command-search" type="text" role="combobox" aria-autocomplete="list" aria-expanded="true" aria-controls="command-results" aria-describedby="command-help" placeholder="Find a page, action or software…" autocomplete="off" spellcheck="false" data-command-search data-command-api="{{ url_for('api_trackers') }}" data-command-plan="{{ url_for('upgrade_decision', tracker_id=0) }}">
       <kbd>Esc</kbd>
     </div>
-    <div class="command-results" role="listbox" aria-label="Available commands" data-command-results>
-      <div class="command-group-label" id="command-palette-title">Navigate or run</div>
+    <p class="sr-only" id="command-help">Use the up and down arrow keys to choose a result and Enter to open it.</p>
+    <div class="command-results" id="command-results" role="listbox" aria-label="Results" data-command-results>
+      <div class="command-group-label" id="command-software-label" role="presentation" data-command-software-label hidden>Software</div>
+      <div role="group" aria-labelledby="command-software-label" data-command-software hidden></div>
+      <div class="command-group-label" id="command-pages-label" role="presentation">Pages and actions</div>
+      <div role="group" aria-labelledby="command-pages-label">
       {% if current_user['role'] == 'admin' %}
       <a class="command-item" href="{{ url_for('add_tracker') }}" data-command-item data-command-search-text="add software new tracker create monitor"><span class="command-item-icon">＋</span><span><strong>Add software</strong><small>Create a new release tracker</small></span><kbd>A</kbd></a>
       {% endif %}
@@ -119,8 +124,10 @@
       <a class="command-item" href="{{ url_for('assistant') }}" data-command-item data-command-search-text="assistant ai analysis chat upgrade risk"><span class="command-item-icon">✦</span><span><strong>Release Assistant</strong><small>Deployment-aware upgrade analysis</small></span><kbd>7</kbd></a>
       <a class="command-item" href="{{ url_for('contributors') }}" data-command-item data-command-search-text="contributors credits codex claude ai development maintenance disclosure"><span class="command-item-icon">◇</span><span><strong>Contributors</strong><small>People, AI assistance and maintenance</small></span></a>
       {% if current_user['role'] == 'admin' %}<a class="command-item" href="{{ url_for('settings') }}" data-command-item data-command-search-text="settings smtp pushover openai portainer"><span class="command-item-icon">⚙</span><span><strong>Settings</strong><small>Connections and application defaults</small></span><kbd>8</kbd></a>{% endif %}
+      </div>
     </div>
-    <div class="command-empty" data-command-empty hidden>No matching page or action.</div>
+    <div class="command-empty" data-command-empty hidden>No matching page, action or software.</div>
+    <div class="sr-only" role="status" aria-live="polite" aria-atomic="true" data-command-status></div>
     <footer class="command-footer"><span><kbd>↑</kbd><kbd>↓</kbd> move</span><span><kbd>Enter</kbd> open</span><span><kbd>⌘ K</kbd> toggle</span></footer>
   </section>
 </div>

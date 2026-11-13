@@ -1,11 +1,17 @@
 from __future__ import annotations
 
+import logging
 import os
 import sqlite3
+import time
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterator
+
+from .auth import is_valid_password_hash
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_REFRESH_HOURS = 6
 ALLOWED_REFRESH_HOURS = (1, 2, 3, 6, 12, 24, 48, 72, 168)
@@ -35,9 +41,31 @@ def connect() -> sqlite3.Connection:
     conn = sqlite3.connect(path, timeout=30, factory=ClosingConnection)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
-    conn.execute("PRAGMA journal_mode = WAL")
     conn.execute("PRAGMA busy_timeout = 30000")
+    _ensure_wal(conn)
     return conn
+
+
+def _ensure_wal(conn: sqlite3.Connection) -> None:
+    """Switch to WAL once. WAL persists in the file, so later connections only read the mode.
+
+    Changing the journal mode can fail with "database is locked" without waiting
+    on the busy timeout when several processes open a brand-new database at once
+    (two web workers, the scheduler and the worker), so retry briefly.
+    """
+    if str(conn.execute("PRAGMA journal_mode").fetchone()[0]).lower() == "wal":
+        return
+    deadline = time.monotonic() + 30
+    delay = 0.02
+    while True:
+        try:
+            conn.execute("PRAGMA journal_mode = WAL")
+            return
+        except sqlite3.OperationalError as exc:
+            if "locked" not in str(exc).lower() or time.monotonic() >= deadline:
+                raise
+            time.sleep(delay)
+            delay = min(delay * 2, 0.5)
 
 
 @contextmanager
@@ -73,6 +101,13 @@ def _seed_admin(conn: sqlite3.Connection) -> None:
     password_hash = os.environ.get("ADMIN_PASSWORD_HASH", "").strip()
     email = os.environ.get("ADMIN_EMAIL", "").strip() or None
     if not password_hash:
+        return
+    if not is_valid_password_hash(password_hash):
+        logger.error(
+            "ADMIN_PASSWORD_HASH is not a valid pbkdf2_sha256 hash, so no administrator was "
+            "created from it. Fix or remove it, then create the administrator in the browser "
+            "at /setup."
+        )
         return
     now = utcnow()
     conn.execute(
@@ -234,6 +269,19 @@ def init_db() -> None:
                 FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
                 UNIQUE (event_id, user_id, channel)
+            );
+
+            CREATE TABLE IF NOT EXISTS system_notification_deliveries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_id INTEGER NOT NULL,
+                channel TEXT NOT NULL,
+                status TEXT NOT NULL CHECK (status IN ('sent', 'failed', 'skipped')),
+                error TEXT,
+                attempts INTEGER NOT NULL DEFAULT 0,
+                last_attempt_at TEXT,
+                sent_at TEXT NOT NULL,
+                FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
+                UNIQUE (event_id, channel)
             );
 
             CREATE TABLE IF NOT EXISTS ai_conversations (
@@ -405,6 +453,11 @@ def init_db() -> None:
             CREATE INDEX IF NOT EXISTS idx_upgrade_decisions_tracker ON upgrade_decisions(tracker_id, updated_at DESC);
             """
         )
+        # executescript runs in autocommit mode. Take the write lock before the
+        # check-then-ALTER migrations so concurrent starts (two gunicorn workers,
+        # the scheduler and the worker on a fresh database) run them one at a time;
+        # the next process waits, then finds the columns already present.
+        conn.execute("BEGIN IMMEDIATE")
 
         # Idempotent migrations from 1.x.
         tracker_columns = [
@@ -439,7 +492,12 @@ def init_db() -> None:
             _add_column(conn, "trackers", definition)
 
         _add_column(conn, "audit_log", "api_key_id TEXT")
+        _add_column(conn, "notification_deliveries", "attempts INTEGER NOT NULL DEFAULT 0")
+        _add_column(conn, "notification_deliveries", "last_attempt_at TEXT")
         _add_column(conn, "upgrade_decisions", "revision INTEGER NOT NULL DEFAULT 0")
+        _add_column(conn, "users", "calendar_token_digest TEXT")
+        conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_calendar_token ON users(calendar_token_digest) "
+                     "WHERE calendar_token_digest IS NOT NULL")
         for definition in [
             "previous_version TEXT",
             "previous_release_name TEXT",
@@ -480,6 +538,17 @@ def init_db() -> None:
             "pushover_app_token_enc": "",
             "pushover_priority": "0",
             "pushover_sound": "pushover",
+            "webhook_enabled": "0",
+            "webhook_url": "",
+            "webhook_token_enc": "",
+            "webhook_secret_enc": "",
+            "ntfy_enabled": "0",
+            "ntfy_server_url": "https://ntfy.sh",
+            "ntfy_topic": "",
+            "ntfy_token_enc": "",
+            "gotify_enabled": "0",
+            "gotify_url": "",
+            "gotify_token_enc": "",
             "openai_enabled": "0",
             "openai_base_url": "",
             "openai_api_key_enc": "",

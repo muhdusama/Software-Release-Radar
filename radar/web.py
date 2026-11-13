@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import hmac
+import ipaddress
 import json
+import logging
 import os
 import re
 import secrets
@@ -14,25 +16,31 @@ from urllib.parse import urlparse
 from flask import (
     Flask, abort, flash, g, jsonify, redirect, render_template, request, session, url_for,
 )
+from markupsafe import Markup
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from .ai_client import AIClientError, chat as ai_chat, test_connection as ai_test_connection
 from .analysis_service import analyse_messages, chat_messages, release_history_context, tracker_context
-from .auth import hash_password, token_digest, verify_password
+from .auth import hash_password, setup_token, token_digest, verify_password
 from .auth_rate_limit import install_auth_rate_limits
+from .rest_api import CALENDAR_TOKEN_PREFIX, install_api
 from .build_info import build_commit
 from .checker import check_all, check_tracker
 from .db import (
     ALLOWED_REFRESH_HOURS, audit, connect, get_setting, get_settings, init_db,
     set_settings, transaction, utcnow,
 )
-from .github import get_recent_releases, normalise_repository, shared_rate_limit_until
+from .github import get_recent_releases, normalise_repository, repository_web_url, shared_rate_limit_until
 from .inventory_providers import validate_origin_url
+from .system_channels import (
+    SYSTEM_CHANNEL_KEYS, SYSTEM_CHANNEL_LABELS, SYSTEM_CHANNELS, SystemChannelError,
+    send_system_channel, settings_from_form, smoke_event,
+)
 from .notifications import NotificationError, dispatch_release_notifications, send_email, send_pushover
 from .probes import probe_all, probe_tracker
 from .presentation import render_assistant_text
 from .portainer import (PortainerError, ignore_service, inventory_summary,
-                        is_expected_offline_error, sync_inventory,
+                        is_expected_offline_error, sync_inventory, track_suggested_services,
                         test_connection as portainer_test_connection)
 from .portainer_jobs import enqueue_import, enqueue_sync, latest_import_job, latest_job
 from .secrets_store import decrypt_secret, encrypt_secret, validate_encryption_key
@@ -42,11 +50,12 @@ from .tracker_utils import (next_due_at, normalise_tags, parse_utc, split_tags, 
 from .upgrade_workflow import save_upgrade_review
 from .upgrade_workflow import (
     DECISION_CHOICES, DECISION_VALUES, PRIORITY_CHOICES, PRIORITY_VALUES,
-    RISK_CHOICES, RISK_VALUES, checklist_from_form, checklist_json,
+    RISK_CHOICES, RISK_VALUES, checklist_from_form, checklist_json, default_checklist,
     checklist_summary, load_checklist, release_key, validate_change_record_url,
     validate_choice, validate_maintenance_date,
 )
-from .versioning import classify_upgrade, classify_tracker_state, summarise_tracker_states
+from .versioning import (classify_upgrade, classify_tracker_state, display_version, secondary_release_name,
+                         summarise_tracker_states, versions_match)
 from .version import APP_VERSION
 
 _USERNAME_RE = re.compile(r"^[A-Za-z0-9_.-]{3,64}$")
@@ -138,6 +147,77 @@ def _relative_time(value: str | None) -> str:
     return f"in {amount} {unit}{suffix}" if future else f"{amount} {unit}{suffix} ago"
 
 
+def _local_redirect(value: str | None, fallback: str) -> str:
+    """Accept only a same-site path so a form cannot redirect users elsewhere."""
+    value = str(value or "")
+    if value.startswith("/") and not value.startswith("//") and not any(c in value for c in "\\\r\n"):
+        return value
+    return fallback
+
+
+def _evidence_releases(tracker: dict, events, target_key: str, installed: str | None, historical: bool) -> list[dict]:
+    """Stored release records from the target back to (excluding) the installed version, newest first.
+
+    Only data already in the database is used. Releases that were skipped between
+    checks were never stored, so the list can be shorter than the true range.
+    """
+    records = [
+        {"version": e["version"], "name": e["release_name"], "url": e["release_url"],
+         "published_at": e["published_at"], "body": e["release_body"]}
+        for e in events
+    ]
+    if not historical and not any(r["version"] == target_key for r in records):
+        records.insert(0, {
+            "version": tracker.get("current_version") or target_key, "name": tracker.get("current_release_name"),
+            "url": tracker.get("current_release_url"), "published_at": tracker.get("current_published_at"),
+            "body": tracker.get("current_release_body"),
+        })
+    start = next((i for i, r in enumerate(records) if r["version"] == target_key), None)
+    if start is None:
+        return []
+    selected: list[dict] = []
+    for record in records[start:start + 20]:
+        if installed and versions_match(installed, record["name"], record["version"]):
+            break
+        selected.append(record)
+    return selected
+
+
+def forward_auth_config() -> tuple[str, list] | None:
+    """Return (header, trusted networks) when proxy sign-in is configured.
+
+    Proxy sign-in trusts a username header (for example ``Remote-User`` from
+    Authelia, Authentik or oauth2-proxy) only on requests whose direct TCP peer
+    is one of RADAR_FORWARD_AUTH_TRUSTED_PROXIES. The header is ignored from any
+    other peer, so a client cannot sign itself in by sending it.
+    """
+    header = os.environ.get("RADAR_FORWARD_AUTH_HEADER", "").strip()
+    if not header:
+        return None
+    if not re.fullmatch(r"[A-Za-z0-9-]{1,64}", header):
+        raise RuntimeError("RADAR_FORWARD_AUTH_HEADER must be an HTTP header name such as Remote-User.")
+    raw = [item.strip() for item in os.environ.get("RADAR_FORWARD_AUTH_TRUSTED_PROXIES", "").split(",") if item.strip()]
+    if not raw:
+        raise RuntimeError("RADAR_FORWARD_AUTH_TRUSTED_PROXIES must list the reverse proxy addresses when "
+                           "RADAR_FORWARD_AUTH_HEADER is set.")
+    networks = []
+    for item in raw:
+        try:
+            network = ipaddress.ip_network(item, strict=False)
+        except ValueError as exc:
+            raise RuntimeError(f"RADAR_FORWARD_AUTH_TRUSTED_PROXIES contains an invalid address: {item}") from exc
+        if network.prefixlen == 0:
+            raise RuntimeError("RADAR_FORWARD_AUTH_TRUSTED_PROXIES must not trust every address.")
+        networks.append(network)
+    return header, networks
+
+
+def _direct_peer() -> str:
+    # ProxyFix rewrites REMOTE_ADDR from X-Forwarded-For; trust is decided on the real TCP peer.
+    original = request.environ.get("werkzeug.proxy_fix.orig") or {}
+    return str(original.get("REMOTE_ADDR") or request.environ.get("REMOTE_ADDR") or "")
+
+
 def _user_by_id(user_id: int):
     with connect() as conn:
         return conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
@@ -205,9 +285,48 @@ def create_app() -> Flask:
         app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
     init_db()
 
+    def users_exist() -> bool:
+        if not app.config.get("_users_exist"):
+            with connect() as conn:
+                app.config["_users_exist"] = conn.execute("SELECT 1 FROM users LIMIT 1").fetchone() is not None
+        return bool(app.config["_users_exist"])
+
+    expected_setup_token = setup_token(secret_key)
+    if not users_exist():
+        logging.getLogger(__name__).warning(
+            "First-run setup: no administrator exists yet. Open /setup in a browser and enter "
+            "this one-time setup token: %s (find it again with: docker compose logs radar | grep setup)",
+            expected_setup_token,
+        )
+
+    @app.before_request
+    def require_first_run_setup():
+        if request.endpoint in {"setup", "healthz", "static"} or users_exist():
+            return None
+        return redirect(url_for("setup"))
+
+    forward_auth = forward_auth_config()
+
     @app.before_request
     def load_user():
         g.user = None
+        g.forward_auth = False
+        if forward_auth is not None:
+            header, networks = forward_auth
+            username = request.headers.get(header, "").strip()
+            try:
+                peer = ipaddress.ip_address(_direct_peer())
+            except ValueError:
+                peer = None
+            if username and peer is not None and any(peer in network for network in networks):
+                with connect() as conn:
+                    row = conn.execute("SELECT * FROM users WHERE username = ? COLLATE NOCASE AND active = 1",
+                                       (username[:64],)).fetchone()
+                if row is None:
+                    abort(403, "The signed-in proxy user does not match an active Release Radar account.")
+                g.user = row
+                g.forward_auth = True
+                return
         user_id = session.get("user_id")
         if user_id:
             row = _user_by_id(int(user_id))
@@ -284,11 +403,20 @@ def create_app() -> Flask:
     def pretty_time(value):
         if not value:
             return "-"
-        return str(value).replace("T", " ").replace("+00:00", " UTC")
+        text = str(value).replace("T", " ").replace("+00:00", " UTC")
+        parsed = parse_utc(value)
+        if parsed is None:
+            return text
+        # app.js replaces the UTC text with the viewer's local time.
+        return Markup('<time datetime="{}" data-local-time>{}</time>').format(parsed.isoformat(), text)
 
     @app.template_filter("relative_time")
     def relative_time(value):
         return _relative_time(value)
+
+    app.add_template_filter(display_version, "display_version")
+    app.add_template_filter(repository_web_url, "repository_url")
+    app.add_template_filter(secondary_release_name, "secondary_release_name")
 
     @app.template_filter("split_tags")
     def split_tags_filter(value):
@@ -329,6 +457,57 @@ def create_app() -> Flask:
                 return redirect(next_url if next_url.startswith("/") and not next_url.startswith("//") else url_for("dashboard"))
             flash("Incorrect username or password.", "error")
         return render_template("login.html")
+
+    @app.route("/setup", methods=["GET", "POST"])
+    def setup():
+        if users_exist():
+            return redirect(url_for("login"))
+        form = {}
+        if request.method == "POST":
+            require_csrf()
+            form = request.form.to_dict()
+            username = form.get("username", "").strip()
+            password = form.get("password", "")
+            try:
+                if not hmac.compare_digest(form.get("setup_token", "").strip(), expected_setup_token):
+                    raise ValueError("The setup token is incorrect.")
+                if not _USERNAME_RE.fullmatch(username):
+                    raise ValueError("Username must be 3–64 characters using letters, numbers, dots, dashes, or underscores.")
+                email = _optional_email(form.get("email"))
+                if password != form.get("confirm_password", ""):
+                    raise ValueError("Passwords do not match.")
+                password_hash = hash_password(password)
+                now = utcnow()
+                with transaction(immediate=True) as conn:
+                    if conn.execute("SELECT 1 FROM users LIMIT 1").fetchone():
+                        app.config["_users_exist"] = True
+                        flash("Setup has already been completed. Sign in instead.", "info")
+                        return redirect(url_for("login"))
+                    cursor = conn.execute(
+                        """
+                        INSERT INTO users (username, email, password_hash, role, active,
+                            notify_email, notify_pushover, pushover_user_key_enc, created_at, updated_at)
+                        VALUES (?, ?, ?, 'admin', 1, 1, 0, '', ?, ?)
+                        """,
+                        (username, email, password_hash, now, now),
+                    )
+                    user_id = int(cursor.lastrowid)
+                    audit(user_id, "first_run_setup", "user", user_id, conn=conn)
+            except ValueError as exc:
+                flash(str(exc), "error")
+                form.pop("password", None)
+                form.pop("confirm_password", None)
+                form.pop("setup_token", None)
+                return render_template("setup.html", form=form), 400
+            app.config["_users_exist"] = True
+            session.clear()
+            session["user_id"] = user_id
+            session["password_stamp"] = token_digest(password_hash)
+            session["csrf_token"] = secrets.token_urlsafe(32)
+            session.permanent = True
+            flash("Administrator account created.", "success")
+            return redirect(url_for("dashboard"))
+        return render_template("setup.html", form=form)
 
     @app.post("/logout")
     @login_required
@@ -396,7 +575,7 @@ def create_app() -> Flask:
                        d.decision_status, d.priority AS decision_priority, d.risk AS decision_risk,
                        d.maintenance_date, d.checklist_json, d.rollback_notes, d.change_record_url,
                        d.decision_notes, d.previous_version AS decision_previous_version,
-                       d.deployed_version, d.deployed_at,
+                       d.deployed_version, d.deployed_at, d.revision AS decision_revision,
                        (SELECT COUNT(*) FROM events e WHERE e.tracker_id = t.id) AS event_count,
                        (SELECT COUNT(*) FROM events e WHERE e.tracker_id = t.id AND e.notified_at IS NULL) AS pending_count,
                        (SELECT e.detected_at FROM events e WHERE e.tracker_id = t.id ORDER BY e.detected_at DESC, e.id DESC LIMIT 1) AS latest_event_at,
@@ -523,7 +702,7 @@ def create_app() -> Flask:
                        d.decision_status, d.priority AS decision_priority, d.risk AS decision_risk,
                        d.maintenance_date, d.checklist_json, d.rollback_notes, d.change_record_url,
                        d.decision_notes, d.previous_version AS decision_previous_version,
-                       d.deployed_version, d.deployed_at
+                       d.deployed_version, d.deployed_at, d.revision AS decision_revision
                   FROM trackers t
                   LEFT JOIN upgrade_decisions d
                     ON d.tracker_id = t.id
@@ -611,13 +790,8 @@ def create_app() -> Flask:
         upgrade = classify_upgrade(installed_for_comparison, target_release_name, target_release_key)
         decision = dict(decision_row) if decision_row else {
             "decision_status": "review", "priority": "normal", "risk": "unknown",
-            "maintenance_date": None, "checklist_json": checklist_json([
-                {"text": "Back up application data", "done": False},
-                {"text": "Confirm the rollback command and previous version", "done": False},
-                {"text": "Review release notes, migrations and breaking changes", "done": False},
-                {"text": "Confirm the maintenance window", "done": False},
-                {"text": "Validate health checks after deployment", "done": False},
-            ]), "rollback_notes": None,
+            "maintenance_date": None,
+            "checklist_json": checklist_json(default_checklist()), "rollback_notes": None,
             "change_record_url": None, "decision_notes": None, "previous_version": None,
             "deployed_version": None, "deployed_at": None,
         }
@@ -643,7 +817,8 @@ def create_app() -> Flask:
                     raise ValueError("Decision notes must be 10,000 characters or fewer.")
                 if rollback_notes and len(rollback_notes) > 10_000:
                     raise ValueError("Rollback notes must be 10,000 characters or fewer.")
-                checklist = checklist_from_form(request.form.get("checklist_items"), request.form.getlist("checklist_done"))
+                checklist = checklist_from_form(request.form.getlist("checklist_id"), request.form.getlist("checklist_text"),
+                                                request.form.getlist("checklist_done"), request.form.get("checklist_new"))
                 deployed = action == "mark_deployed"
                 revision = request.form.get('revision', '')
                 submitted = request.form.get('release_key', '')
@@ -659,14 +834,69 @@ def create_app() -> Flask:
                 flash(str(exc), "error")
                 return redirect(decision_redirect)
         checklist = load_checklist(decision.get("checklist_json"))
+        with connect() as conn:
+            event_rows = conn.execute(
+                "SELECT version, release_name, release_body, release_url, published_at FROM events "
+                "WHERE tracker_id = ? ORDER BY detected_at DESC, id DESC LIMIT 60", (tracker_id,),
+            ).fetchall()
+            analysis = conn.execute(
+                "SELECT * FROM ai_analyses WHERE tracker_id = ? AND user_id = ? ORDER BY (release_version = ?) DESC, id DESC LIMIT 1",
+                (tracker_id, int(g.user["id"]), target_release_key),
+            ).fetchone()
+        evidence = _evidence_releases(tracker, event_rows, target_release_key, installed_for_comparison or None, historical_release)
+        target_record = evidence[0] if evidence else {}
         return render_template(
             "upgrade_decision.html", tracker=tracker, decision=decision, checklist=checklist,
+            evidence=evidence, analysis=analysis, target_published_at=target_record.get("published_at") or (None if historical_release else tracker.get("current_published_at")),
             revision=decision.get('revision', 0),
             checklist_summary=checklist_summary(checklist), upgrade=upgrade,
             effective_installed_version=installed_for_comparison or None, release_key=target_release_key,
             target_release_name=target_release_name, historical_release=historical_release,
             decision_choices=DECISION_CHOICES, priority_choices=PRIORITY_CHOICES, risk_choices=RISK_CHOICES,
         )
+
+    @app.post("/upgrades/<int:tracker_id>/triage")
+    @admin_required
+    def upgrade_triage(tracker_id: int):
+        require_csrf()
+        action = request.form.get("action", "")
+        back = _local_redirect(request.form.get("next"), url_for("upgrades"))
+        if action not in {"update", "wait", "ignore"}:
+            abort(400)
+        with connect() as conn:
+            tracker_row = conn.execute("SELECT * FROM trackers WHERE id = ?", (tracker_id,)).fetchone()
+            if tracker_row is None:
+                abort(404)
+            tracker = dict(tracker_row)
+            key = release_key(tracker)
+            row = conn.execute(
+                "SELECT * FROM upgrade_decisions WHERE tracker_id = ? AND release_version = ?", (tracker_id, key),
+            ).fetchone()
+        existing = dict(row) if row else {}
+        revision = request.form.get("revision", "")
+        try:
+            if (not revision.isascii() or not revision.isdecimal() or len(revision) > 12
+                    or not key or request.form.get("release_key", "") != key):
+                raise ValueError("Release and revision changed or are missing; reload the queue.")
+            notes = existing.get("decision_notes")
+            maintenance = existing.get("maintenance_date")
+            if action == "wait":
+                maintenance = (datetime.now(timezone.utc) + timedelta(days=7)).date().isoformat()
+                note = "Deferred 7 days from the queue"
+                notes = f"{notes}\n{note}" if notes else note
+            checklist = (load_checklist(existing.get("checklist_json")) if row
+                         else default_checklist())
+            save_upgrade_review(tracker_id, key, int(revision), {
+                "decision_status": action, "priority": existing.get("priority") or "normal",
+                "risk": existing.get("risk") or "unknown", "maintenance_date": maintenance,
+                "checklist": checklist, "rollback_notes": existing.get("rollback_notes"),
+                "change_record_url": existing.get("change_record_url"), "decision_notes": notes,
+            }, user_id=int(g.user["id"]))
+            flash(f"Deferred {tracker['name']} until {maintenance}." if action == "wait"
+                  else f"Saved the {action} decision for {tracker['name']}.", "success")
+        except ValueError as exc:
+            flash(str(exc), "error")
+        return redirect(back)
 
     def tracker_form(tracker=None):
         default_refresh = int(get_setting("default_refresh_hours", "6") or 6)
@@ -936,13 +1166,17 @@ def create_app() -> Flask:
         return redirect(url_for("dashboard"))
 
     def render_profile(**kwargs):
-        from .mcp_auth import list_keys, available_scopes
-        return render_template('profile.html', mcp_keys=list_keys(int(g.user['id'])), mcp_scopes=available_scopes(),
-                               has_pushover_key=bool(g.user['pushover_user_key_enc']), **kwargs)
+        from .mcp_auth import list_keys, mcp_policy
+        policy = mcp_policy()
+        return render_template('profile.html', mcp_keys=list_keys(int(g.user['id'])), mcp_scopes=policy['scopes'],
+                               mcp_can_create=g.user['role'] == 'admin' or policy['user_keys'],
+                               mcp_enabled=policy['enabled'], mcp_never_expiring=policy['never_expiring'],
+                               has_pushover_key=bool(g.user['pushover_user_key_enc']),
+                               has_calendar_feed=bool(g.user['calendar_token_digest']), **kwargs)
 
     @app.after_request
     def profile_no_store(response):
-        if request.path == '/profile' or request.path.startswith('/profile/mcp-keys'):
+        if request.path in ('/profile', '/settings') or request.path.startswith(('/profile/mcp-keys', '/profile/calendar', '/settings/mcp-keys')):
             response.headers['Cache-Control'] = 'no-store'
         return response
 
@@ -953,13 +1187,36 @@ def create_app() -> Flask:
         require_csrf()
         try:
             days = request.form.get('expires_days', '90')
-            if not days.isascii() or not days.isdecimal():
+            if request.form.get('never_expires'):
+                days = None
+            elif not days.isascii() or not days.isdecimal():
                 raise ValueError('Key expiry must be 1 to 365 days.')
             _, secret = create_key(int(g.user['id']), request.form.get('current_password', ''),
-                                   request.form.get('label', ''), request.form.getlist('scopes'), int(days))
+                                   request.form.get('label', ''), request.form.getlist('scopes'),
+                                   None if days is None else int(days))
         except ValueError as exc:
             return render_profile(mcp_error=str(exc)), 400
         return render_profile(mcp_secret=secret)
+
+    @app.post('/profile/calendar')
+    @login_required
+    def calendar_link():
+        require_csrf()
+        token = None
+        if request.form.get('action') == 'revoke':
+            digest = None
+        else:
+            token = CALENDAR_TOKEN_PREFIX + secrets.token_urlsafe(32)
+            digest = token_digest(token)
+        with transaction() as conn:
+            conn.execute('UPDATE users SET calendar_token_digest = ?, updated_at = ? WHERE id = ?',
+                         (digest, utcnow(), g.user['id']))
+            audit(int(g.user['id']), 'calendar_link_revoked' if token is None else 'calendar_link_created', conn=conn)
+            g.user = conn.execute('SELECT * FROM users WHERE id = ?', (g.user['id'],)).fetchone()
+        if token is None:
+            flash('Calendar link revoked. Calendar apps using it will stop updating.', 'success')
+            return redirect(url_for('profile'))
+        return render_profile(calendar_url=url_for('calendar_feed', token=token, _external=True))
 
     @app.post('/profile/mcp-keys/<key_id>/revoke')
     @login_required
@@ -1148,6 +1405,8 @@ def create_app() -> Flask:
                     elif request.form.get("clear_pushover_app_token"):
                         values["pushover_app_token_enc"] = ""
                     set_settings(values)
+                elif section == "channels":
+                    set_settings(settings_from_form(request.form, get_settings(SYSTEM_CHANNEL_KEYS)))
                 elif section == "portainer":
                     provider = request.form.get("inventory_provider", "portainer").strip()
                     if provider not in {"portainer", "dockhand"}:
@@ -1193,32 +1452,75 @@ def create_app() -> Flask:
                     elif request.form.get("clear_openai_api_key"):
                         values["openai_api_key_enc"] = ""
                     set_settings(values)
+                elif section == "mcp":
+                    from .mcp_auth import available_scopes
+                    from .mcp_server import ADMIN_LIMITS
+                    scopes = set(request.form.getlist("mcp_scopes")) | {"read"}
+                    if not scopes <= available_scopes():
+                        raise ValueError("Unknown MCP scope.")
+                    values = {
+                        "mcp_enabled": "1" if request.form.get("mcp_enabled") else "0",
+                        "mcp_user_keys": "1" if request.form.get("mcp_user_keys") else "0",
+                        "mcp_never_expiring_keys": "1" if request.form.get("mcp_never_expiring_keys") else "0",
+                        "mcp_allowed_scopes": ",".join(sorted(scopes)),
+                    }
+                    for name, (_, low, high) in ADMIN_LIMITS.items():
+                        raw = request.form.get(name.lower(), "").strip()
+                        if raw and not (raw.isascii() and raw.isdecimal() and low <= int(raw) <= high):
+                            raise ValueError(f"{name.replace('_', ' ').capitalize()} must be {low} to {high}, or blank for the default.")
+                        values[name.lower()] = raw
+                    set_settings(values)
                 else:
                     raise ValueError("Unknown settings section.")
             except (ValueError, RuntimeError) as exc:
                 flash(str(exc), "error")
                 return redirect(url_for("settings", section=section))
             audit(int(g.user["id"]), "settings_updated", "settings", section)
-            flash(f"{section.title()} settings saved.", "success")
+            flash(f"{'MCP' if section == 'mcp' else section.title()} settings saved.", "success")
             return redirect(url_for("settings", section=section))
         keys = [
             "default_refresh_hours", "app_base_url",
             "smtp_enabled", "smtp_host", "smtp_port", "smtp_security", "smtp_username", "smtp_password_enc", "smtp_from_email", "smtp_from_name", "smtp_timeout",
             "pushover_enabled", "pushover_app_token_enc", "pushover_priority", "pushover_sound",
+            *SYSTEM_CHANNEL_KEYS,
             "openai_enabled", "openai_base_url", "openai_api_key_enc", "openai_model", "openai_timeout", "openai_max_tokens", "openai_auto_analyse",
             "inventory_provider",
             "portainer_enabled", "portainer_base_url", "portainer_api_token_enc", "portainer_verify_tls", "portainer_timeout", "portainer_sync_hours", "portainer_last_sync_at", "portainer_last_sync_status", "portainer_last_sync_error",
             "dockhand_base_url", "dockhand_api_token_enc", "dockhand_verify_tls", "dockhand_timeout", "dockhand_sync_hours", "dockhand_last_sync_at", "dockhand_last_sync_status", "dockhand_last_sync_error",
         ]
         values = get_settings(keys)
+        from .mcp_auth import available_scopes, list_keys, mcp_policy
+        from .mcp_server import ADMIN_LIMITS, env_limits
+        defaults = env_limits()
+        stored_limits = get_settings([name.lower() for name in ADMIN_LIMITS])
+        mcp_limits = [{"name": name.lower(), "low": low, "high": high, "default": defaults[name],
+                       "value": stored_limits[name.lower()]} for name, (_, low, high) in ADMIN_LIMITS.items()]
         return render_template(
             "settings.html", settings=values,
+            mcp_policy=mcp_policy(), mcp_available_scopes=sorted(available_scopes(), key=lambda scope: (scope != "read", scope)),
+            mcp_limits=mcp_limits, mcp_all_keys=list_keys(None),
             has_smtp_password=bool(values["smtp_password_enc"]),
             has_pushover_token=bool(values["pushover_app_token_enc"]),
+            has_webhook_token=bool(values["webhook_token_enc"]),
+            has_webhook_secret=bool(values["webhook_secret_enc"]),
+            has_ntfy_token=bool(values["ntfy_token_enc"]),
+            has_gotify_token=bool(values["gotify_token_enc"]),
             has_openai_key=bool(values["openai_api_key_enc"]),
             has_portainer_token=bool(values["portainer_api_token_enc"]),
             has_dockhand_token=bool(values["dockhand_api_token_enc"]),
         )
+
+    @app.post("/settings/mcp-keys/<key_id>/revoke")
+    @admin_required
+    def admin_revoke_mcp_key(key_id):
+        from .mcp_auth import revoke_key
+        require_csrf()
+        try:
+            revoke_key(int(g.user["id"]), key_id, any_owner=True)
+        except ValueError:
+            abort(404)
+        flash("MCP key revoked.", "success")
+        return redirect(url_for("settings", section="mcp"))
 
     @app.post("/settings/test-email")
     @admin_required
@@ -1249,6 +1551,23 @@ def create_app() -> Flask:
         except (NotificationError, RuntimeError) as exc:
             flash(str(exc), "error")
         return redirect(url_for("settings", section="pushover"))
+
+    @app.post("/settings/test-channel/<channel>")
+    @admin_required
+    def test_system_channel_route(channel: str):
+        require_csrf()
+        if channel not in SYSTEM_CHANNELS:
+            abort(404)
+        label = SYSTEM_CHANNEL_LABELS[channel]
+        try:
+            send_system_channel(
+                channel, smoke_event(), "Software Release Radar",
+                f"{label} notifications are working.",
+            )
+            flash(f"{label} test notification sent.", "success")
+        except (SystemChannelError, RuntimeError) as exc:
+            flash(str(exc), "error")
+        return redirect(url_for("settings", section="channels"))
 
     @app.post("/settings/test-openai")
     @admin_required
@@ -1377,6 +1696,45 @@ def create_app() -> Flask:
             audit(int(g.user["id"]), "portainer_import_queued", "portainer_import_job", job_id, message)
         else:
             flash("An inventory import is already queued or running.", "info")
+        return redirect(url_for("portainer_inventory"), code=303)
+
+    @app.post("/portainer/track-suggested")
+    @admin_required
+    def portainer_track_suggested_route():
+        require_csrf()
+        selected = request.form.getlist("selected")[:500]
+        if not selected:
+            flash("Select at least one suggested tracker.", "warning")
+            return redirect(url_for("portainer_inventory"), code=303)
+        try:
+            refresh_hours = validate_refresh_hours(request.form.get("refresh_hours", "6"))
+        except ValueError as exc:
+            flash(str(exc), "error")
+            return redirect(url_for("portainer_inventory"), code=303)
+        items = []
+        invalid = []
+        for raw_id in selected:
+            try:
+                service_id = int(raw_id)
+            except (TypeError, ValueError):
+                invalid.append(f"Invalid inventory service identifier: {raw_id[:20]}")
+                continue
+            items.append({
+                "service_id": service_id,
+                "name": (request.form.get(f"name_{service_id}") or "").strip()[:120],
+                "repository": request.form.get(f"repository_{service_id}") or "",
+            })
+        result = track_suggested_services(
+            items, refresh_hours=refresh_hours,
+            tags=normalise_tags(request.form.get("tags", "portainer,docker")),
+        )
+        invalid = invalid + result["invalid"]
+        message = (f"Suggested trackers: {result['created']} created, "
+                   f"{result['skipped']} skipped, {len(invalid)} invalid.")
+        if invalid:
+            message += " " + " ".join(invalid[:5])
+        flash(message, "success" if result["created"] and not invalid else "warning")
+        audit(int(g.user["id"]), "portainer_suggested_tracked", "tracker", None, message[:500])
         return redirect(url_for("portainer_inventory"), code=303)
 
     @app.get("/portainer/import-status")
@@ -1606,5 +1964,6 @@ def create_app() -> Flask:
 
     install_fleet_notification_controls(app)
     install_auth_rate_limits(app)
+    install_api(app)
     install_security_controls(app)
     return app

@@ -3,7 +3,7 @@
 {% block content %}
 <section class="page-heading portainer-heading">
   <div><span class="eyebrow">DOCKER INVENTORY</span><h1>{{ inventory.provider_label }} inventory</h1><p>Synchronise every Docker environment, review discovered containers, and import selected software into release tracking.</p></div>
-  <form method="post" action="{{ url_for('portainer_sync_route') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button primary" type="submit">Synchronise now</button></form>
+  <form method="post" action="{{ url_for('portainer_sync_route') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button primary" type="submit"{% if settings['portainer_enabled'] != '1' %} disabled title="Enable the inventory integration under Settings first"{% endif %}>Synchronise now</button></form>
 </section>
 
 <section class="metrics metrics-six portainer-metrics">
@@ -35,10 +35,40 @@
 {% if settings['last_sync_error'] %}<div class="flash warning">{{ settings['last_sync_error'] }}</div>{% endif %}
 {% if inventory.environment_counts.offline %}<div class="flash info">{{ inventory.environment_counts.offline }} {{ inventory.provider_label }} environment(s) are currently offline. Their last known containers remain in the inventory and will refresh automatically when the hosts return.</div>{% endif %}
 
+{% set suggested = inventory.services|selectattr('suggested_repository')|list %}
+{% if suggested %}
+<form method="post" action="{{ url_for('portainer_track_suggested_route') }}" class="panel portainer-panel suggested-panel">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="tags" value="{{ inventory.provider }},docker">
+  <div class="panel-header"><div><h2>Suggested trackers</h2><p>These containers are not tracked yet and a GitHub repository was suggested for each. Review the repositories, untick anything wrong, then track them in one step. Repositories are checked against GitHub by the next scheduled check.</p></div></div>
+  <div class="bulk-toolbar">
+    <label>Refresh<select name="refresh_hours">{% for hours in allowed_refresh_hours %}<option value="{{ hours }}" {{ 'selected' if settings['default_refresh_hours']|int == hours else '' }}>{{ hours }}h</option>{% endfor %}</select></label>
+    <button class="button primary" type="submit">Track selected</button>
+  </div>
+  <div class="portainer-list">
+    {% for service in suggested %}
+    <article class="portainer-row">
+      <div class="portainer-select"><input type="checkbox" name="selected" value="{{ service.id }}" checked aria-label="Track {{ service.container_name }}"></div>
+      <div class="portainer-service-main">
+        <div class="tracker-name-line"><h3>{{ service.container_name }}</h3><span class="muted-chip">{{ service.suggestion_source }}</span></div>
+        <span class="environment-name">{{ service.environment_name }}</span>
+        <small>{{ service.image or 'Image unavailable' }}</small>
+      </div>
+      <div class="portainer-fields">
+        <label>Software name<input name="name_{{ service.id }}" value="{{ service.service_name or service.container_name }}"></label>
+        <label>GitHub repository<input name="repository_{{ service.id }}" value="{{ service.suggested_repository }}" placeholder="owner/repository"></label>
+      </div>
+      <div class="portainer-facts"><div><span>Installed</span><strong>{{ service.detected_version or 'Unknown' }}</strong></div></div>
+    </article>
+    {% endfor %}
+  </div>
+</form>
+{% endif %}
+
 <form method="post" action="{{ url_for('portainer_import_route') }}" class="panel portainer-panel">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <div class="panel-header repository-header portainer-repository-header">
-    <div><h2>Discovered containers</h2><p>Repository fields are detected from OCI labels when available. Fill missing mappings manually before importing.</p></div>
+    <div><h2>Discovered containers</h2><p>All containers are listed here. Where no repository was detected or suggested, fill in the GitHub repository manually before importing.</p></div>
     <div class="filter-tools"><input id="portainerFilter" class="filter" placeholder="Filter environment, stack, container or image"><select id="environmentFilter"><option value="">All environments</option>{% for env in inventory.environments %}<option value="{{ env.name|lower }}">{{ env.name }}</option>{% endfor %}</select></div>
   </div>
   <div class="bulk-toolbar portainer-toolbar">

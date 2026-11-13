@@ -3,7 +3,7 @@
 {% block topbar_title %}Detected release history{% endblock %}
 {% block content %}
 <section class="page-heading">
-  <div><span class="eyebrow">CHANGE LOG</span><h1>Release history</h1><p>Detected upstream release transitions after each tracker’s initial baseline.</p></div>
+  <div><span class="eyebrow">CHANGE LOG</span><h1>Release history</h1><p>Upstream release transitions for each tracker, including the recent releases recorded when it was added.</p></div>
 </section>
 <section class="panel">
   <form class="history-filter-panel" method="get" action="{{ url_for('history') }}">
@@ -28,7 +28,7 @@
     {% endfor %}
   </div>
   {% else %}
-  <div class="empty-state"><h3>No matching release events</h3><p>{% if selected_date or history_query %}Adjust or clear the filters to see more history.{% else %}Initial baselines do not create history entries.{% endif %}</p></div>
+  <div class="empty-state"><h3>No matching release events</h3><p>{% if selected_date or history_query %}Adjust or clear the filters to see more history.{% else %}New trackers record their recent upstream releases here. Trackers that use tags start their history from the next new tag.{% endif %}</p></div>
   {% endif %}
 </section>
 {% endblock %}

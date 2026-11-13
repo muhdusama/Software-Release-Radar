@@ -17,7 +17,12 @@ from flask import (
 )
 
 from .db import audit, connect, get_setting, set_setting, transaction, utcnow
-from .notifications import NOTIFICATION_MODES, ensure_notification_preferences
+from .notifications import (
+    NOTIFICATION_MODES,
+    configured_channels,
+    ensure_notification_preferences,
+    recent_delivery_failures,
+)
 from .portainer_jobs import enqueue_sync
 from .versioning import classify_tracker_state
 
@@ -730,6 +735,10 @@ def install_fleet_notification_controls(app: Flask) -> None:
             notification_user=dict(user),
             has_pushover_key=bool(user["pushover_user_key_enc"]),
             trackers=trackers,
+            channels=configured_channels(),
+            delivery_failures=(
+                recent_delivery_failures() if str(user["role"]) == "admin" else []
+            ),
             system_enabled=system_enabled,
             preference_counts=counts,
             notification_modes=(

@@ -9,7 +9,7 @@ from dataclasses import asdict
 
 from .checker import check_all
 from .db import init_db
-from .notifications import dispatch_release_notifications
+from .notifications import dispatch_pending_notifications
 
 LOGGER = logging.getLogger("software_release_radar.scheduler")
 _STOP = False
@@ -29,12 +29,8 @@ def _interval_seconds() -> int:
 def run_once() -> dict[str, object]:
     """Run due release checks once and dispatch notifications for new releases."""
     results = check_all(enabled_only=True, due_only=True)
-    event_ids = [int(item.event_id) for item in results if item.event_id is not None]
-    notifications = (
-        dispatch_release_notifications(event_ids)
-        if event_ids
-        else {"sent": 0, "failed": 0, "skipped": 0}
-    )
+    # Pending events from earlier cycles are retried alongside new ones.
+    notifications = dispatch_pending_notifications()
     summary = {
         "checked": len(results),
         "changed": sum(1 for item in results if item.changed),
