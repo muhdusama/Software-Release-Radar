@@ -26,7 +26,7 @@
   <article class="panel activity-panel">
     <div class="panel-header compact-panel-header"><div><h2>Update activity</h2><p>Detected releases during the past 14 days.</p></div></div>
     {% if not activity|selectattr('count')|list %}
-    <div class="activity-empty">No new releases have been detected in the past 14 days. The first check records each tracker's current release as a baseline, so activity appears from the next upstream release.</div>
+    <div class="activity-empty">No upstream releases were published or detected in the past 14 days. Adding a tracker records its recent release history, and new releases appear here as they are detected.</div>
     {% else %}
     <div class="activity-chart">
       {% for day in activity %}
@@ -49,7 +49,7 @@
       </a>
       {% endfor %}
     </div>
-    {% else %}<div class="mini-empty">No release changes have been detected after the initial baselines.</div>{% endif %}
+    {% else %}<div class="mini-empty">No upstream release changes have been recorded yet.</div>{% endif %}
   </article>
 </section>
 

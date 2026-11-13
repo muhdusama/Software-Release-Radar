@@ -47,8 +47,8 @@ from .tracker_utils import (next_due_at, normalise_tags, parse_utc, split_tags, 
                             safe_optional_url, validate_tracker_core, reset_release_state)
 from .upgrade_workflow import save_upgrade_review
 from .upgrade_workflow import (
-    DECISION_CHOICES, DEFAULT_CHECKLIST, DECISION_VALUES, PRIORITY_CHOICES, PRIORITY_VALUES,
-    RISK_CHOICES, RISK_VALUES, checklist_from_form, checklist_json,
+    DECISION_CHOICES, DECISION_VALUES, PRIORITY_CHOICES, PRIORITY_VALUES,
+    RISK_CHOICES, RISK_VALUES, checklist_from_form, checklist_json, default_checklist,
     checklist_summary, load_checklist, release_key, validate_change_record_url,
     validate_choice, validate_maintenance_date,
 )
@@ -734,7 +734,7 @@ def create_app() -> Flask:
         decision = dict(decision_row) if decision_row else {
             "decision_status": "review", "priority": "normal", "risk": "unknown",
             "maintenance_date": None,
-            "checklist_json": checklist_json([{"text": text, "done": False} for text in DEFAULT_CHECKLIST]), "rollback_notes": None,
+            "checklist_json": checklist_json(default_checklist()), "rollback_notes": None,
             "change_record_url": None, "decision_notes": None, "previous_version": None,
             "deployed_version": None, "deployed_at": None,
         }
@@ -760,7 +760,8 @@ def create_app() -> Flask:
                     raise ValueError("Decision notes must be 10,000 characters or fewer.")
                 if rollback_notes and len(rollback_notes) > 10_000:
                     raise ValueError("Rollback notes must be 10,000 characters or fewer.")
-                checklist = checklist_from_form(request.form.get("checklist_items"), request.form.getlist("checklist_done"))
+                checklist = checklist_from_form(request.form.getlist("checklist_id"), request.form.getlist("checklist_text"),
+                                                request.form.getlist("checklist_done"), request.form.get("checklist_new"))
                 deployed = action == "mark_deployed"
                 revision = request.form.get('revision', '')
                 submitted = request.form.get('release_key', '')
@@ -827,7 +828,7 @@ def create_app() -> Flask:
                 note = "Deferred 7 days from the queue"
                 notes = f"{notes}\n{note}" if notes else note
             checklist = (load_checklist(existing.get("checklist_json")) if row
-                         else [{"text": text, "done": False} for text in DEFAULT_CHECKLIST])
+                         else default_checklist())
             save_upgrade_review(tracker_id, key, int(revision), {
                 "decision_status": action, "priority": existing.get("priority") or "normal",
                 "risk": existing.get("risk") or "unknown", "maintenance_date": maintenance,

@@ -573,6 +573,10 @@ def decide_upgrade(args: argparse.Namespace) -> int:
             checklist = load_checklist(old.get("checklist_json"))
         else:
             done = set(args.checklist_done or [])
+            # Keep the stable ID of an existing item whose text is unchanged.
+            previous_ids = {}
+            for item in load_checklist(old.get("checklist_json")):
+                previous_ids.setdefault(item["text"], item["id"])
             checklist = []
             for index, text in enumerate(args.checklist_item[:30]):
                 text = str(text).strip()
@@ -580,7 +584,8 @@ def decide_upgrade(args: argparse.Namespace) -> int:
                     continue
                 if len(text) > 240:
                     raise ValueError("Checklist items must be 240 characters or fewer.")
-                checklist.append({"text": text, "done": index in done})
+                item_id = previous_ids.pop(text, None)
+                checklist.append({"text": text, "done": index in done, **({"id": item_id} if item_id else {})})
         return {
             "decision_status": args.decision, "priority": args.priority or old.get("priority") or "normal",
             "risk": args.risk or old.get("risk") or "unknown",

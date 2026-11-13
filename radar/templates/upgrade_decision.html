@@ -32,10 +32,10 @@
     </article>
 
     <article class="panel checklist-panel">
-      <div class="panel-header"><div><h2>Pre-upgrade checklist</h2><p>One item per line. Tick completed controls before deployment.</p></div><span class="checklist-progress-label">{{ checklist_summary['complete'] }}/{{ checklist_summary['total'] }}</span></div>
+      <div class="panel-header"><div><h2>Pre-upgrade checklist</h2><p>Tick completed controls before deployment. Edit an item in place, or clear its text to remove it.</p></div><span class="checklist-progress-label">{{ checklist_summary['complete'] }}/{{ checklist_summary['total'] }}</span></div>
       <div class="checklist-progress-track"><span style="width: {{ checklist_summary['percent'] }}%"></span></div>
-      {% if checklist %}<div class="upgrade-checklist">{% for item in checklist %}<label><input type="checkbox" name="checklist_done" value="{{ loop.index0 }}" {{ 'checked' if item['done'] else '' }} {% if current_user['role'] != 'admin' %}disabled{% endif %}><span>{{ item['text'] }}</span></label>{% endfor %}</div>{% endif %}
-      <label>Checklist items<textarea name="checklist_items" rows="10" placeholder="Back up application data&#10;Confirm rollback command&#10;Review migrations&#10;Validate maintenance window" {% if current_user['role'] != 'admin' %}disabled{% endif %}>{% for item in checklist %}{{ item['text'] }}{{ '\n' if not loop.last else '' }}{% endfor %}</textarea></label>
+      {% if checklist %}<ul class="upgrade-checklist">{% for item in checklist %}<li class="checklist-item"><input type="hidden" name="checklist_id" value="{{ item['id'] }}"><input type="checkbox" name="checklist_done" value="{{ item['id'] }}" aria-label="Completed: {{ item['text'] }}" {{ 'checked' if item['done'] else '' }} {% if current_user['role'] != 'admin' %}disabled{% endif %}><input type="text" name="checklist_text" value="{{ item['text'] }}" maxlength="240" aria-label="Checklist item {{ loop.index }}" {% if current_user['role'] != 'admin' %}disabled{% endif %}></li>{% endfor %}</ul>{% endif %}
+      {% if current_user['role'] == 'admin' %}<label>Add checklist items<textarea name="checklist_new" rows="3" placeholder="One new item per line"></textarea></label>{% endif %}
     </article>
 
     <article class="panel rollback-panel">

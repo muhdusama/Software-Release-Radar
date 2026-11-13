@@ -69,6 +69,7 @@ class TrackerPatch(BaseModel):
 
 class ChecklistItem(BaseModel):
     model_config = ConfigDict(extra='forbid', strict=True)
+    id: Annotated[str, Field(pattern=r'^[A-Za-z0-9_-]{1,32}$')] | None = None
     text: Annotated[str, Field(min_length=1, max_length=240)]
     done: bool
 

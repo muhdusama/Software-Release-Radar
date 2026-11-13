@@ -10,6 +10,12 @@ Format reference: https://keepachangelog.com/en/1.1.0/
 
 ### Added
 
+- New trackers now start with recent history. The first check records up to
+  10 recent upstream releases (release strategy only) with their publish
+  dates, so History, the activity chart and upgrade evidence are useful
+  straight away. Seeded releases are marked as already notified and never
+  trigger alerts or automatic analysis. Trackers that already have history
+  are left unchanged and make no extra GitHub request.
 - Zero-typing inventory import: the Inventory page shows a Suggested trackers
   review for untracked containers. Suggestions come from image labels or from
   a curated, versioned list of well-known self-hosted images
@@ -32,6 +38,12 @@ Format reference: https://keepachangelog.com/en/1.1.0/
 
 ### Changed
 
+- The pre-upgrade checklist is now a single editable list. Each item has a
+  stable ID, so a tick stays with its item when other items are edited,
+  removed or added. Previously ticks were stored by position and could move
+  to the wrong item, and the list was shown twice (as checkboxes and again in
+  a text box). Existing checklists load unchanged and gain IDs on the next
+  save. MCP and CLI callers may pass an optional `id` per item.
 - Dashboard software rows show Plan, Check and a More menu instead of up to
   eight buttons. Delete moved into the menu and its confirmation says it
   cannot be undone.

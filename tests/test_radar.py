@@ -1046,8 +1046,9 @@ class RadarTests(unittest.TestCase):
                 "maintenance_date": "2026-08-15",
                 "decision_notes": "Schedule after the database backup.",
                 "change_record_url": "obsidian://open?vault=DemoVault&file=Release%20Radar",
-                "checklist_items": "Back up application data\nConfirm rollback command",
-                "checklist_done": ["0"],
+                "checklist_id": ["backup", "rollback"],
+                "checklist_text": ["Back up application data", "Confirm rollback command"],
+                "checklist_done": ["backup"],
                 "rollback_notes": "Restore the prior image and database backup.",
             },
         )
@@ -1059,7 +1060,7 @@ class RadarTests(unittest.TestCase):
         self.assertEqual(decision["risk"], "medium")
         self.assertEqual(decision["maintenance_date"], "2026-08-15")
         checklist = json.loads(decision["checklist_json"])
-        self.assertEqual(checklist[0], {"text": "Back up application data", "done": True})
+        self.assertEqual(checklist[0], {"id": "backup", "text": "Back up application data", "done": True})
         self.assertFalse(checklist[1]["done"])
         client.post(f'/upgrades/{tracker_id}', data={'csrf_token': 'upgrade-csrf', **bindings,
                     'decision_status': 'ignore'})
@@ -1083,8 +1084,9 @@ class RadarTests(unittest.TestCase):
                 "maintenance_date": "2026-08-15",
                 "decision_notes": "Validated after deployment.",
                 "change_record_url": "obsidian://open?vault=DemoVault&file=Release%20Radar",
-                "checklist_items": "Back up application data\nConfirm rollback command",
-                "checklist_done": ["0", "1"],
+                "checklist_id": ["backup", "rollback"],
+                "checklist_text": ["Back up application data", "Confirm rollback command"],
+                "checklist_done": ["backup", "rollback"],
                 "rollback_notes": "Restore the prior image and database backup.",
             },
         )
