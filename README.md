@@ -5,7 +5,7 @@
 <p align="center">
   <a href="https://github.com/muhdusama/Software-Release-Radar/releases/latest"><img alt="Version 2.14.0" src="https://img.shields.io/badge/version-2.14.0-2f81f7"></a>
   <a href="https://github.com/muhdusama/Software-Release-Radar/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/muhdusama/Software-Release-Radar/actions/workflows/ci.yml/badge.svg"></a>
-  <img alt="Python 3.13" src="https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white">
+  <img alt="Python 3.15" src="https://img.shields.io/badge/Python-3.15-3776AB?logo=python&logoColor=white">
   <img alt="Docker Compose" src="https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white">
   <a href="LICENSE"><img alt="AGPL 3.0 licence" src="https://img.shields.io/badge/licence-AGPL--3.0-663399"></a>
   <img alt="AI is optional" src="https://img.shields.io/badge/AI-optional-64748b">
@@ -151,7 +151,7 @@ The [Docker guide](docs/DOCKER.md) explains their operation and the difference b
 
 ## Quality and security
 
-Pull requests run Python 3.13 tests, dependency vulnerability auditing, a reviewed Bandit gate and Docker setup/recovery acceptance. The [Actions page](https://github.com/muhdusama/Software-Release-Radar/actions) records the result for each revision. A passing historical run is not a guarantee for a later build or a particular deployment.
+Pull requests run Python 3.13 and 3.15 tests, dependency vulnerability auditing, a reviewed Bandit gate and Docker setup/recovery acceptance. The [Actions page](https://github.com/muhdusama/Software-Release-Radar/actions) records the result for each revision. A passing historical run is not a guarantee for a later build or a particular deployment.
 
 The application includes CSRF protection, authenticated access, login/reset throttling, encrypted integration credentials, a non-root container user and a Content Security Policy that blocks inline scripts. Credential-bearing integration requests require HTTPS by default and use constrained redirects and response sizes. Optional SSH probes use fixed commands and strict host-key checking.
 

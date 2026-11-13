@@ -8,6 +8,11 @@ Format reference: https://keepachangelog.com/en/1.1.0/
 
 ## [Unreleased]
 
+### Changed
+
+- The container image now runs Python 3.15 (`python:3.15-slim`). CI runs the
+  tests and the dependency and Bandit audits on both Python 3.13 and 3.15.
+
 ## [2.14.0] - 2026-11-13
 
 ### Added
