@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/muhdusama/Software-Release-Radar/releases/latest"><img alt="Version 2.12.0" src="https://img.shields.io/badge/version-2.12.0-2f81f7"></a>
+  <a href="https://github.com/muhdusama/Software-Release-Radar/releases/latest"><img alt="Version 2.13.0" src="https://img.shields.io/badge/version-2.13.0-2f81f7"></a>
   <a href="https://github.com/muhdusama/Software-Release-Radar/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/muhdusama/Software-Release-Radar/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Python 3.13" src="https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white">
   <img alt="Docker Compose" src="https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white">
@@ -29,7 +29,7 @@
 
 Software Release Radar is a self-hosted dashboard for reviewing software updates across a homelab or small server fleet. It tracks upstream GitHub releases against the versions you actually run, adds service and container context, and keeps your upgrade decisions in one place.
 
-**Version 2.12.0** adds an MCP server area to Settings. Administrators can turn MCP access off, choose which scopes keys may use, limit keys to administrators, adjust MCP rate limits and revoke any user's key, all without a restart. See the [changelog](CHANGELOG.md) for changes and compatibility notes.
+**Version 2.13.0** lets administrators allow MCP keys that never expire. Version 2.12.0 added the MCP server area in Settings, where administrators turn MCP access off, choose which scopes keys may use, limit keys to administrators, adjust MCP rate limits and revoke any user's key, all without a restart. See the [changelog](CHANGELOG.md) for changes and compatibility notes.
 
 ## Why Release Radar?
 
@@ -135,7 +135,7 @@ Release history uses up to 20 upstream version records. Standard repositories us
 
 ### Upgrade and recovery
 
-Read the [revision updates](CHANGELOG.md) before upgrading. Version 2.12.0 adds no dependency or schema change beyond v2.11.0, and the v2.11.0 image remains a valid rollback. Version 2.11.0 added the `mcp` dependency and additive startup migrations. The MCP service stays off until its Compose profile is enabled, and must share the same `/data` mount as the other services. Changing inventory providers still requires an explicit mapping review; the [configuration guide](docs/CONFIGURATION.md#preserving-trackers-when-changing-providers) describes the guarded rebinding command. Preserve your `.env`, data and SSH material, and retain a rollback image.
+Read the [revision updates](CHANGELOG.md) before upgrading. Versions 2.12.0 and 2.13.0 add no dependency or schema change beyond v2.11.0. Rolling back from 2.13.0 is supported; older versions reject keys that never expire. Version 2.11.0 added the `mcp` dependency and additive startup migrations. The MCP service stays off until its Compose profile is enabled, and must share the same `/data` mount as the other services. Changing inventory providers still requires an explicit mapping review; the [configuration guide](docs/CONFIGURATION.md#preserving-trackers-when-changing-providers) describes the guarded rebinding command. Preserve your `.env`, data and SSH material, and retain a rollback image.
 
 The repository includes online SQLite backup and guarded restore helpers:
 

@@ -8,6 +8,23 @@ Format reference: https://keepachangelog.com/en/1.1.0/
 
 ## [Unreleased]
 
+## [2.13.0] - 2026-11-13
+
+### Added
+
+- MCP keys that never expire. An administrator enables them in Settings, MCP
+  server; users then choose Never expires when creating a key in Profile. Such
+  keys still stop working when revoked, after a password change or when the
+  account is deactivated.
+
+### Compatibility
+
+- Off by default. No dependency or schema change; a key without expiry stores
+  `never` in the existing expiry column.
+- Turning the setting off stops new keys without expiry but keeps existing ones;
+  revoke them from Settings if required.
+- Rollback to v2.12.0 or earlier rejects keys that never expire.
+
 ## [2.12.0] - 2026-11-13
 
 ### Added
