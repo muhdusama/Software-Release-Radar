@@ -26,6 +26,14 @@ RISK_CHOICES = (
     ("critical", "Critical"),
 )
 
+DEFAULT_CHECKLIST = (
+    "Back up application data",
+    "Confirm the rollback command and previous version",
+    "Review release notes, migrations and breaking changes",
+    "Confirm the maintenance window",
+    "Validate health checks after deployment",
+)
+
 DECISION_VALUES = {value for value, _ in DECISION_CHOICES}
 PRIORITY_VALUES = {value for value, _ in PRIORITY_CHOICES}
 RISK_VALUES = {value for value, _ in RISK_CHOICES}

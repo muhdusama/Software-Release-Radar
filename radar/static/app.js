@@ -5,6 +5,24 @@
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+  /* Show server UTC timestamps in the viewer's local time; keep UTC in the tooltip. */
+  const localTimeFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+  $$('time[data-local-time]').forEach((node) => {
+    const parsed = new Date(node.getAttribute('datetime'));
+    if (Number.isNaN(parsed.getTime())) return;
+    node.title = node.textContent.trim();
+    node.textContent = localTimeFormat.format(parsed);
+  });
+
+  /* Close row action menus on an outside click or Escape. */
+  const closeRowMenus = (except) => $$('details.row-menu[open]').forEach((menu) => { if (menu !== except) menu.open = false; });
+  document.addEventListener('click', (event) => closeRowMenus(event.target.closest('details.row-menu')));
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') return;
+    const open = $('details.row-menu[open]');
+    if (open) { open.open = false; open.querySelector('summary')?.focus(); }
+  });
+
   /* ------------------------------------------------------------------ */
   /* Notifications                                                       */
   /* ------------------------------------------------------------------ */
@@ -233,18 +251,28 @@
       window.setTimeout(() => commandSearch?.focus(), 0);
     }
   }
+  const dashboardPath = (() => { const link = document.querySelector('.sidebar-navigation a'); return link ? new URL(link.href).pathname : '/'; })();
+  const onDashboard = () => window.location.pathname === dashboardPath;
+  const shortcutLinks = {};
+  $$('.sidebar-navigation a, a.command-item').forEach((link) => {
+    const key = link.querySelector('kbd')?.textContent.trim().toLowerCase();
+    if (key && key.length === 1 && !shortcutLinks[key]) shortcutLinks[key] = link.href;
+  });
+  if (!/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)) {
+    $$('kbd').forEach((kbd) => { if (kbd.textContent.trim() === '⌘ K') kbd.textContent = 'Ctrl K'; });
+  }
   function runCommand(item) {
     if (!item) return;
     const action = item.dataset.commandAction;
     if (action === 'focus-search') {
       setCommandPalette(false);
-      if (window.location.pathname !== '/') window.location.href = '/?focus=search';
+      if (!onDashboard()) window.location.href = `${dashboardPath}?focus=search`;
       else window.SRR?.focusDashboardSearch?.();
       return;
     }
     if (action === 'toggle-density') {
       setCommandPalette(false);
-      if (window.location.pathname !== '/') window.location.href = '/?density=toggle';
+      if (!onDashboard()) window.location.href = `${dashboardPath}?density=toggle`;
       else window.SRR?.toggleDashboardDensity?.();
       return;
     }
@@ -265,10 +293,10 @@
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); setCommandPalette(commandPalette?.hidden !== false); return; }
     if (event.key === 'Escape' && commandPalette && !commandPalette.hidden) { event.preventDefault(); setCommandPalette(false); return; }
     if (typing || event.metaKey || event.ctrlKey || event.altKey) return;
-    if (event.key === '/') { event.preventDefault(); if (window.location.pathname === '/') window.SRR?.focusDashboardSearch?.(); else window.location.href = '/?focus=search'; }
-    if (event.key.toLowerCase() === 'd' && window.location.pathname === '/') window.SRR?.toggleDashboardDensity?.();
-    const routeShortcuts = { '1': '/', '2': '/history', '3': '/upgrades', '4': '/fleet', '5': '/notifications', '6': '/portainer', '7': '/assistant', '8': '/settings', '9': '/users' };
-    if (routeShortcuts[event.key]) window.location.href = routeShortcuts[event.key];
+    if (event.key === '/') { event.preventDefault(); if (onDashboard()) window.SRR?.focusDashboardSearch?.(); else window.location.href = `${dashboardPath}?focus=search`; return; }
+    if (event.key.toLowerCase() === 'd' && onDashboard()) { window.SRR?.toggleDashboardDensity?.(); return; }
+    const target = shortcutLinks[event.key.toLowerCase()];
+    if (target) window.location.href = target;
   });
 
   /* ------------------------------------------------------------------ */

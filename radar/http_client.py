@@ -10,7 +10,7 @@ from .security_policy import _is_loopback_host, insecure_integrations_allowed
 
 
 _ALLOWED_SCHEMES = {"http", "https"}
-_CREDENTIAL_HEADERS = {"authorization", "proxy-authorization", "x-api-key"}
+_CREDENTIAL_HEADERS = {"authorization", "proxy-authorization", "x-api-key", "x-gotify-key"}
 _AUTHORIZATION_RESPONSE_LIMIT = 2 * 1024 * 1024
 _INTEGRATION_RESPONSE_LIMIT = 10 * 1024 * 1024
 

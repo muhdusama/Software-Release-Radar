@@ -111,7 +111,15 @@ The safe template is `.env.example`.
 
 `RADAR_BIND_ADDRESS=0.0.0.0` makes the application reachable through the Docker host interfaces when the host firewall permits it. Use `127.0.0.1` when Release Radar should only be reachable through a reverse proxy running on the same host.
 
-`SECRET_KEY`, `ENCRYPTION_KEY` and `ADMIN_PASSWORD_HASH` must contain real secure values. `scripts/setup.sh` generates them for you.
+`SECRET_KEY` and `ENCRYPTION_KEY` must contain real secure values. `scripts/setup.sh` generates them for you.
+
+`ADMIN_PASSWORD_HASH` is optional. When it is empty and the database has no users, every page redirects to `/setup`, where you create the first administrator after entering a one-time setup token. The token is printed to the web container log at WARNING level when the container starts:
+
+```bash
+docker compose logs radar | grep setup
+```
+
+If `ADMIN_PASSWORD_HASH` is set but is not a valid `pbkdf2_sha256` hash, the application logs an error, creates no administrator from it and falls back to `/setup`. Existing deployments that already have users are not affected.
 
 ### Manual setup
 

@@ -30,7 +30,7 @@
     <article class="upgrade-queue-row decision-{{ item['decision_status'] }} priority-{{ item['priority'] }}">
       <div class="upgrade-queue-main">
         <div class="upgrade-queue-title"><span class="decision-chip {{ item['decision_status'] }}">{{ item['decision_label'] }}</span><h3>{{ item['name'] }}</h3><span class="upgrade-chip {{ item['upgrade']['level'] }}">{{ item['upgrade']['label'] }}</span></div>
-        <p><strong>{{ item['effective_installed_version'] or 'Unknown installed version' }}</strong> → <strong>{{ item['current_release_name'] or item['current_version'] }}</strong></p>
+        <p><strong>{{ item['effective_installed_version'] or 'Unknown installed version' }}</strong> → <strong>{{ item['current_version'] or item['current_release_name'] }}</strong>{% if item['current_release_name'] and item['current_version'] and item['current_release_name']|lower|trim('v') != item['current_version']|lower|trim('v') %} <small>{{ item['current_release_name'] }}</small>{% endif %}</p>
         <small>{{ item['machine_name'] or item['install_host'] or 'Machine not recorded' }} · {{ item['repository'] }}</small>
       </div>
       <div class="upgrade-queue-meta">

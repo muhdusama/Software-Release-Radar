@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}First-run setup · Software Release Radar{% endblock %}
+{% block content_class %}auth-content{% endblock %}
+{% block content %}
+<section class="auth-card">
+  <img class="auth-logo" src="{{ url_for('static', filename='brand-wordmark.svg') }}" alt="Software Release Radar">
+  <span class="eyebrow">FIRST-RUN SETUP</span>
+  <h1>Create the administrator</h1>
+  <p>No administrator exists yet. Enter the one-time setup token from the server log, then choose the administrator details. To find the token, run <code>docker compose logs radar | grep setup</code>.</p>
+  <form method="post" class="stack-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>Setup token<input name="setup_token" autocomplete="off" required autofocus></label>
+    <label>Username<input name="username" autocomplete="username" value="{{ form.get('username', 'admin') }}" required></label>
+    <label>Email (optional)<input type="email" name="email" autocomplete="email" value="{{ form.get('email', '') }}"></label>
+    <label>Password (at least 10 characters)<input type="password" name="password" autocomplete="new-password" minlength="10" required></label>
+    <label>Confirm password<input type="password" name="confirm_password" autocomplete="new-password" minlength="10" required></label>
+    <button class="button primary wide" type="submit">Create administrator</button>
+  </form>
+</section>
+{% endblock %}

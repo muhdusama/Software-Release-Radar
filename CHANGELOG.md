@@ -8,6 +8,87 @@ Format reference: https://keepachangelog.com/en/1.1.0/
 
 ## [Unreleased]
 
+### Added
+
+- Zero-typing inventory import: the Inventory page shows a Suggested trackers
+  review for untracked containers. Suggestions come from image labels or from
+  a curated, versioned list of well-known self-hosted images
+  (`radar/known_images.py`), and each row shows its source. Track selected
+  creates the trackers in one request and reports created, skipped and
+  invalid counts. No GitHub call is made during the request; the scheduled
+  check validates the repositories.
+- First-run administrator setup in the browser. `ADMIN_PASSWORD_HASH` is now
+  optional in `docker-compose.yml`. When no users exist, every page redirects
+  to `/setup`, which requires a one-time setup token printed to the web
+  container log (`docker compose logs radar | grep setup`).
+- Webhook, ntfy and Gotify release-alert channels, configured by an
+  administrator under Settings, Other channels. Each is enabled separately,
+  delivers once per release rather than once per user, and has a Send test
+  notification button. The webhook sends a JSON payload (see
+  `docs/NOTIFICATIONS.md`) with an optional bearer token and an optional
+  `X-Radar-Signature` HMAC-SHA256 header. Release notes are never sent.
+- The Notifications page lists which channels are ready to deliver, and shows
+  administrators a Recent delivery failures section.
+
+### Changed
+
+- Dashboard software rows show Plan, Check and a More menu instead of up to
+  eight buttons. Delete moved into the menu and its confirmation says it
+  cannot be undone.
+- The software list header and rows share one column layout, so headers line
+  up with their columns and no longer overflow. Per-cell labels are hidden on
+  desktop and remain on narrow screens.
+- Timestamps show in the viewer's local time, with UTC in the tooltip.
+- Versions show first, with the release name underneath only when it adds
+  information.
+- A tracker without an installed version is no longer listed under Needs
+  attention. Trackers whose versions cannot be compared still are.
+- Keyboard shortcuts follow the sidebar links, so standard users are not sent
+  to administrator pages, `A` opens Add software, `Ctrl K` is shown outside
+  macOS, and shortcuts work under a sub-path.
+- The update activity chart explains why it is empty on a new installation.
+- Fleet: correct pluralisation, a neutral Not probed state instead of a green
+  "0 online", and no placeholder host text.
+- Inventory: Synchronise now is disabled while the integration is off.
+- Upgrade decision: the change record field is labelled "Change record link".
+
+### Fixed
+
+- An `ADMIN_PASSWORD_HASH` that is not a valid `pbkdf2_sha256` hash no longer
+  creates an administrator who can never sign in. The error is logged and the
+  application falls back to `/setup`.
+- Release alerts were never marked as delivered, so Pending alerts on the
+  dashboard grew without end and failed or interrupted deliveries were never
+  retried. The scheduler now dispatches every pending alert each cycle, oldest
+  first (50 per cycle), and sets `notified_at` once every delivery is sent,
+  skipped, or failed with its attempts used up.
+- Failed deliveries are retried up to 5 times, waiting 5 minutes multiplied by
+  the attempts so far between tries.
+- A timeout or other network error while reading a Pushover or AI response no
+  longer aborts the whole notification cycle. Each delivery is isolated.
+- An AI auto-analysis failure can no longer stop the release alert.
+- `radar.checker --notify` no longer marks events as notified when delivery
+  failed.
+- A failed Portainer or Dockhand inventory sync during checks and probes is now
+  logged as a warning (the check still continues).
+
+### Compatibility
+
+- Additive schema only: two columns on `notification_deliveries` (`attempts`,
+  `last_attempt_at`) and a new `system_notification_deliveries` table. Older
+  versions ignore them and keep working against an upgraded database.
+- Upgrade safety: on the first scheduler cycle after upgrading, pending alerts
+  detected more than 7 days earlier are closed without sending. The same rule
+  applies after a long outage. Newer pending alerts that were already sent are
+  closed without a duplicate; others are sent.
+- Webhook, ntfy and Gotify are off by default. They follow the system-wide
+  safety switch and the first active administrator's notification preferences,
+  including per-software Mute and the personal default.
+- Previously, a user whose Pushover or SMTP provider was disabled in Settings
+  had a retryable failed row. That case is now recorded as skipped.
+- Rollback to an earlier version leaves pending alerts without `notified_at`
+  again, and the new channels stop sending.
+
 ## [2.13.0] - 2026-11-13
 
 ### Added

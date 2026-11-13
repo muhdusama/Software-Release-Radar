@@ -140,3 +140,33 @@
   .project-section{margin-bottom:32px}
   .section-ai-assisted-development-and-maintenance{padding:22px}
 }
+
+/* v2.13.1 dashboard row actions: Plan, Check and a More menu */
+.row-menu{position:relative}
+.row-menu>summary{list-style:none;width:100%;user-select:none}
+.row-menu>summary::-webkit-details-marker{display:none}
+.row-menu>summary::after{content:'\25BE';font-size:10px;opacity:.7}
+.row-menu[open]>summary{border-color:#6a9cdd;background:#172a41}
+.row-menu-list{position:absolute;top:calc(100% + 6px);left:0;z-index:30;min-width:190px;display:grid;padding:6px;border:1px solid #405775;border-radius:12px;background:#0d1724;box-shadow:0 22px 65px rgba(0,0,0,.55)}
+.row-menu-list form{margin:0}
+.row-menu-list a,.row-menu-list button{display:block;width:100%;padding:8px 10px;border:0;border-radius:8px;background:transparent;color:var(--text);font:inherit;font-size:12px;font-weight:650;text-align:left;cursor:pointer}
+.row-menu-list a:hover,.row-menu-list button:hover,.row-menu-list a:focus-visible,.row-menu-list button:focus-visible{background:#172a41;color:#e7f1ff;outline:none}
+.row-menu-list .row-menu-danger{margin-top:4px;border-top:1px solid var(--line);border-radius:0 0 8px 8px;color:var(--red)}
+.row-menu-list .row-menu-danger:hover{background:rgba(104,43,47,.45);color:var(--red)}
+.tracker-row:has(.row-menu[open]){content-visibility:visible;position:relative;z-index:20}
+
+/* v2.13.1 one shared column template for the software header and rows */
+.tracker-list{overflow:visible}
+.tracker-column-header,.tracker-row{grid-template-columns:28px minmax(220px,var(--tracker-software-width)) minmax(0,1fr);min-width:0;column-gap:14px}
+.tracker-fact-headers,.tracker-facts-wide{grid-template-columns:minmax(0,var(--tracker-installed-width)) minmax(0,var(--tracker-current-width)) minmax(0,var(--tracker-refresh-width)) minmax(0,var(--tracker-checked-width)) minmax(0,var(--tracker-status-width));column-gap:12px}
+.tracker-actions{grid-column:2/-1;display:flex;flex-wrap:wrap;gap:7px}
+.tracker-actions .button,.tracker-actions form,.tracker-actions form .button{width:auto}
+@media(min-width:901px){.tracker-facts-wide>div>span:first-child{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}.tracker-facts strong{margin-top:0}}
+@media(max-width:900px){.tracker-column-header,.tracker-row{grid-template-columns:28px minmax(0,1fr)}.tracker-facts-wide{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:430px){.tracker-facts-wide{grid-template-columns:1fr}}
+
+/* v2.13.1 small layout fixes */
+.auth-card .stack-form{margin-top:20px}
+.fleet-release-state{align-items:flex-start}
+.activity-empty{display:grid;place-items:center;min-height:150px;padding:18px;color:var(--muted);font-size:12px;text-align:center}
+@media(min-width:1051px){.page-heading>.heading-actions{flex-wrap:nowrap;flex-shrink:0}.page-heading>.heading-actions .button{white-space:nowrap}}

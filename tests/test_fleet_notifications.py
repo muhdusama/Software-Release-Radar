@@ -423,7 +423,9 @@ class FleetNotificationTests(unittest.TestCase):
         self.assertIn("postNotificationForm", notifications_script)
         self.assertIn(".inline-name-editor", style)
         self.assertIn(".software-notification-row", style)
-        self.assertIn("'5': '/notifications'", script)
+        # Number shortcuts come from the rendered sidebar links, so they follow role and sub-path.
+        self.assertIn("<span>Notifications</span><kbd>5</kbd>", base)
+        self.assertIn("$$('.sidebar-navigation a, a.command-item')", script)
 
 
 if __name__ == "__main__":

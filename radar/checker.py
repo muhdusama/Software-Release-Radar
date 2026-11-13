@@ -2,19 +2,21 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import sys
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
-from typing import Iterable
 
 from .db import connect, init_db, transaction, utcnow
 from .github import (GitHubError, GitHubRateLimitError, ReleaseInfo,
                      _persist_rate_limit, get_latest, shared_rate_limit_until)
-from .notifications import dispatch_release_notifications
+from .notifications import close_stale_events, dispatch_pending_notifications
 from .portainer import PortainerError, sync_inventory
 from .probes import probe_tracker
 from .tracker_utils import is_due
 from .auto_analysis import auto_analyse_event
+
+LOGGER = logging.getLogger("software_release_radar.checker")
 
 
 @dataclass
@@ -93,7 +95,11 @@ def _record_success(tracker, release: ReleaseInfo, baseline: bool = False) -> Ch
         changed=changed and not is_baseline, baseline=is_baseline, event_id=event_id,
     )
     if event_id is not None:
-        auto_analyse_event(event_id)
+        try:
+            auto_analyse_event(event_id)
+        except Exception as exc:
+            # The release event is already committed; analysis must never block its alert.
+            LOGGER.warning("Automatic analysis failed for event %s: %s", event_id, exc)
     return result
 
 
@@ -192,10 +198,10 @@ def check_all(enabled_only: bool = True, baseline: bool = False, due_only: bool 
     if has_portainer:
         try:
             sync_inventory()
-        except PortainerError:
+        except PortainerError as exc:
             # Release checks remain useful even when Portainer is temporarily
             # unavailable; mapped probes will report their own status.
-            pass
+            LOGGER.warning("Portainer inventory sync failed; continuing release checks: %s", exc)
     return [
         check_tracker(
             int(row["id"]), baseline=baseline,
@@ -215,15 +221,6 @@ def pending_events():
              WHERE e.notified_at IS NULL ORDER BY e.detected_at, e.id
             """
         ).fetchall()
-
-
-def mark_notified(event_ids: Iterable[int]) -> None:
-    ids = list(event_ids)
-    if not ids:
-        return
-    placeholders = ",".join("?" for _ in ids)
-    with transaction() as conn:
-        conn.execute(f"UPDATE events SET notified_at = ? WHERE id IN ({placeholders})", [utcnow(), *ids])
 
 
 def build_notification(events, new_errors: list[CheckResult]) -> str:
@@ -275,17 +272,20 @@ def main(argv: list[str] | None = None) -> int:
         return 1 if any(item.status == "error" for item in results) else 0
 
     if args.notify:
-        events = pending_events()
+        close_stale_events()
+        before = pending_events()
         try:
-            dispatch_release_notifications([int(event["id"]) for event in events])
+            dispatch_pending_notifications()
         except Exception as exc:
             print(f"Software Release Radar notification dispatch warning: {exc}", file=sys.stderr)
+        # Events whose delivery failed stay pending and are retried; only settled ones are reported.
+        still_pending = {int(event["id"]) for event in pending_events()}
+        events = [event for event in before if int(event["id"]) not in still_pending]
         new_errors = [item for item in results if item.status == "error" and item.newly_failed]
         message = build_notification(events, new_errors)
         if message:
             print(message)
             sys.stdout.flush()
-            mark_notified([event["id"] for event in events])
         return 0
 
     for result in results:

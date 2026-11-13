@@ -7,6 +7,7 @@
     <button type="button" data-settings-target="general"><span>General</span><small>URLs and defaults</small></button>
     <button type="button" data-settings-target="smtp"><span>SMTP email</span><small>Mail and password reset</small></button>
     <button type="button" data-settings-target="pushover"><span>Pushover</span><small>Push notifications</small></button>
+    <button type="button" data-settings-target="channels"><span>Other channels</span><small>Webhook, ntfy and Gotify</small></button>
     <button type="button" data-settings-target="portainer"><span>Inventory</span><small>Portainer or Dockhand</small></button>
     <button type="button" data-settings-target="openai"><span>AI assistant</span><small>LiteLLM analysis and chat</small></button>
     <button type="button" data-settings-target="mcp"><span>MCP server</span><small>Agent access and permissions</small></button>
@@ -57,6 +58,47 @@
         <div class="form-actions left-actions"><button class="button primary" type="submit">Save Pushover settings</button></div>
       </form>
       <section class="panel settings-card test-card wide-card"><div class="section-heading"><h2>Test Pushover</h2><p>Uses the entered key or your saved Profile key.</p></div><form method="post" action="{{ url_for('test_pushover_route') }}" class="inline-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="password" name="test_pushover_key" placeholder="Pushover user/group key"><button class="button secondary" type="submit">Send test push</button></form></section>
+    </section>
+
+    <section class="settings-section" data-settings-section="channels" hidden>
+      <form method="post" class="panel settings-card wide-card">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="section" value="channels">
+        <div class="section-heading"><h2>Webhook, ntfy and Gotify</h2><p>System channels deliver each release alert once, not once per user. They follow the system-wide safety switch and the first administrator's notification preferences, including per-software Mute. HTTPS is required unless the address is local or ALLOW_INSECURE_INTEGRATIONS is true. Release notes are never sent.</p></div>
+        <fieldset class="settings-card">
+          <legend>Webhook</legend>
+          <label class="inline-check"><input type="checkbox" name="webhook_enabled" {{ 'checked' if settings['webhook_enabled'] == '1' else '' }}> Enable webhook</label>
+          <div class="form-grid two-col">
+            <label>Webhook URL<input type="url" name="webhook_url" value="{{ settings['webhook_url'] }}" placeholder="https://hooks.example.com/radar"></label>
+            <label>Bearer token <small>{{ 'configured; leave blank to keep' if has_webhook_token else 'optional' }}</small><input type="password" name="webhook_token" autocomplete="off"></label>
+            <label>Signing secret <small>{{ 'configured; leave blank to keep' if has_webhook_secret else 'optional; adds an X-Radar-Signature HMAC-SHA256 header' }}</small><input type="password" name="webhook_secret" autocomplete="off"></label>
+          </div>
+          {% if has_webhook_token %}<label class="inline-check"><input type="checkbox" name="clear_webhook_token"> Remove saved bearer token</label>{% endif %}
+          {% if has_webhook_secret %}<label class="inline-check"><input type="checkbox" name="clear_webhook_secret"> Remove saved signing secret</label>{% endif %}
+        </fieldset>
+        <fieldset class="settings-card">
+          <legend>ntfy</legend>
+          <label class="inline-check"><input type="checkbox" name="ntfy_enabled" {{ 'checked' if settings['ntfy_enabled'] == '1' else '' }}> Enable ntfy</label>
+          <div class="form-grid two-col">
+            <label>Server URL<input type="url" name="ntfy_server_url" value="{{ settings['ntfy_server_url'] or 'https://ntfy.sh' }}"></label>
+            <label>Topic<input name="ntfy_topic" value="{{ settings['ntfy_topic'] }}" maxlength="64" autocomplete="off"><small>Anyone who knows the topic name can read a public ntfy topic. Use a hard-to-guess name or an access token.</small></label>
+            <label>Access token <small>{{ 'configured; leave blank to keep' if has_ntfy_token else 'optional' }}</small><input type="password" name="ntfy_token" autocomplete="off"></label>
+          </div>
+          {% if has_ntfy_token %}<label class="inline-check"><input type="checkbox" name="clear_ntfy_token"> Remove saved access token</label>{% endif %}
+        </fieldset>
+        <fieldset class="settings-card">
+          <legend>Gotify</legend>
+          <label class="inline-check"><input type="checkbox" name="gotify_enabled" {{ 'checked' if settings['gotify_enabled'] == '1' else '' }}> Enable Gotify</label>
+          <div class="form-grid two-col">
+            <label>Server URL<input type="url" name="gotify_url" value="{{ settings['gotify_url'] }}" placeholder="https://gotify.example.com"></label>
+            <label>Application token <small>{{ 'configured; leave blank to keep' if has_gotify_token else 'required' }}</small><input type="password" name="gotify_token" autocomplete="off"></label>
+          </div>
+          {% if has_gotify_token %}<label class="inline-check"><input type="checkbox" name="clear_gotify_token"> Remove saved application token</label>{% endif %}
+        </fieldset>
+        <div class="form-actions left-actions"><button class="button primary" type="submit">Save channel settings</button></div>
+      </form>
+      <section class="panel settings-card test-card wide-card"><div class="section-heading"><h2>Send test notification</h2><p>Save settings first. Each test sends one message through the saved channel.</p></div>
+        <div class="inline-form">{% for channel, label in [('webhook', 'Webhook'), ('ntfy', 'ntfy'), ('gotify', 'Gotify')] %}<form method="post" action="{{ url_for('test_system_channel_route', channel=channel) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button secondary" type="submit">Test {{ label }}</button></form>{% endfor %}</div>
+      </section>
     </section>
 
     <section class="settings-section" data-settings-section="portainer" hidden>
