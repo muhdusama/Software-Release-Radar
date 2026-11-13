@@ -11,6 +11,33 @@
   <div><span>Installed</span><strong>{{ effective_installed_version or 'Unknown' }}</strong></div><span class="version-arrow">→</span><div><span>Current upstream release</span><strong>{{ release_key or target_release_name or 'Not checked' }}</strong>{% if target_release_name and release_key and target_release_name|lower|trim('v') != release_key|lower|trim('v') %}<small>{{ target_release_name }}</small>{% endif %}</div><span class="upgrade-chip {{ upgrade['level'] }}">{{ upgrade['label'] }}</span>
 </section>
 
+{% if changes['releases'] %}
+<section class="panel changes-panel" aria-labelledby="changes-heading">
+  <div class="panel-header"><div><h2 id="changes-heading">Changes since {{ effective_installed_version or 'your version' }}</h2><p>{{ changes['releases']|length }} release{{ '' if changes['releases']|length == 1 else 's' }} between your installed version and {{ release_key }}. Flags come from headings and keywords in the release notes, not from AI, so read the notes before deciding.</p></div></div>
+  {% if effective_installed_version and not changes['installed_found'] %}<p class="changes-note">Your installed version is not in the stored release history, so older releases may be missing from this list.</p>{% elif not effective_installed_version %}<p class="changes-note">The installed version is unknown, so this list shows the most recent stored releases.</p>{% endif %}
+  <ul class="change-totals" aria-label="Release note flags">
+    {% for key, label in changes['labels'].items() %}<li class="change-flag {{ key }}{{ ' none' if not changes['totals'][key] else '' }}"><strong>{{ changes['totals'][key] }}</strong> {{ label|lower }}</li>{% endfor %}
+    {% if changes['advisories'] %}<li class="change-flag security"><strong>{{ changes['advisories']|length }}</strong> advisory ID{{ '' if changes['advisories']|length == 1 else 's' }} mentioned</li>{% endif %}
+  </ul>
+  {% if changes['advisories'] %}<p class="change-advisories">Mentioned advisories: {% for advisory in changes['advisories'] %}<a href="https://osv.dev/vulnerability/{{ advisory }}" target="_blank" rel="noreferrer">{{ advisory }}</a>{{ ', ' if not loop.last }}{% endfor %}</p>{% endif %}
+  <ol class="change-release-list">
+    {% for release in changes['releases'] %}
+    <li>
+      <details {{ 'open' if loop.first and (release['signals']['breaking'] or release['signals']['migration']) else '' }}>
+        <summary><span class="change-version">{{ release['version'] }}</span>{% if release['name'] and release['name'] != release['version'] %} <span class="change-name">{{ release['name'] }}</span>{% endif %}{% if release['published_at'] %} <small>{{ release['published_at']|pretty_time }}</small>{% endif %}
+          {% for key, label in changes['labels'].items() %}{% if release['signals'][key] %}<span class="change-flag {{ key }}">{{ label }}</span>{% endif %}{% endfor %}</summary>
+        {% for key, label in changes['labels'].items() %}{% if release['signals'][key] %}<div class="change-signal"><h3>{{ label }}</h3><ul>{% for line in release['signals'][key] %}<li>{{ line }}</li>{% endfor %}</ul></div>{% endif %}{% endfor %}
+        {% if release['has_notes'] %}<pre class="change-notes">{{ release['body'][:8000] }}{% if release['body']|length > 8000 %}
+
+[Shortened. Open the release for the full notes.]{% endif %}</pre>{% else %}<p class="muted">No release notes were published.</p>{% endif %}
+        {% if release['url'] %}<a class="text-link" href="{{ release['url'] }}" target="_blank" rel="noreferrer">Open release {{ release['version'] }}</a>{% endif %}
+      </details>
+    </li>
+    {% endfor %}
+  </ol>
+</section>
+{% endif %}
+
 {% if historical_release %}<div class="notice-banner warning"><strong>Historical record</strong><span>You are viewing the decision for {{ release_key }}, not the tracker's current upstream release.</span></div>{% endif %}
 
 <form class="upgrade-plan-form" method="post" action="{% if historical_release %}{{ url_for('upgrade_decision', tracker_id=tracker['id'], release=release_key) }}{% else %}{{ url_for('upgrade_decision', tracker_id=tracker['id']) }}{% endif %}">

@@ -147,7 +147,7 @@ def _record_rate_limit_error(tracker, exc: GitHubRateLimitError) -> CheckResult:
     )
 
 
-SEED_HISTORY_LIMIT = 10
+SEED_HISTORY_LIMIT = 30
 
 
 def _seed_release_history(tracker) -> int:
