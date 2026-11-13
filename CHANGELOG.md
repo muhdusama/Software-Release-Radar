@@ -8,6 +8,8 @@ Format reference: https://keepachangelog.com/en/1.1.0/
 
 ## [Unreleased]
 
+## [2.15.0] - 2026-11-13
+
 ### Added
 
 - Security advisories for GitHub trackers. The scheduler reads each project's

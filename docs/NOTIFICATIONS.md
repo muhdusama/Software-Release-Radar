@@ -58,7 +58,7 @@ HTTPS is required for every address unless the host is local (loopback) or `ALLO
   "new_version": "1.1.0",
   "release_url": "https://github.com/owner/example/releases/tag/v1.1.0",
   "detected_at": "2026-11-13T01:02:03+00:00",
-  "app_version": "2.14.0"
+  "app_version": "2.15.0"
 }
 ```
 
